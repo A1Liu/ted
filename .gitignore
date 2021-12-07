@@ -1,0 +1,24 @@
+# Rust build directory
+/.build
+/.dist
+/.cache
+/.pkg
+
+# Folders created by the HTTPS Certificate service Let's Encrypt
+/.letsencrypt
+/letsencrypt
+
+
+# Output of random tests during development
+a.out
+
+# Javascript dependencies
+/node_modules
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# typescript
+*.tsbuildinfo
