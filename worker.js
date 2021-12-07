@@ -1,3 +1,5 @@
-import { albert_editor_main_loop } from "./Cargo.toml";
+import { render } from "./Cargo.toml";
 
-albert_editor_main_loop();
+const canvas = document.getElementById("canvas");
+
+render(canvas);
