@@ -63,8 +63,13 @@ pub fn render(canvas: web_sys::Element) -> Result<(), JsValue> {
         );
     }
 
+    let position_loc = context.get_attrib_location(&program, "position");
+    if position_loc < 0 {
+        return Err(JsValue::from("Failed to get location of variable"));
+    }
+
     context.vertex_attrib_pointer_with_i32(0, 3, WebGlRenderingContext::FLOAT, false, 0, 0);
-    context.enable_vertex_attrib_array(0);
+    context.enable_vertex_attrib_array(position_loc as u32);
 
     context.clear_color(0.0, 0.0, 0.0, 1.0);
     context.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
