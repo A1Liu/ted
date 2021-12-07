@@ -1,8 +1,9 @@
 # Rust build directory
-/.build
+/.cargo/target
+
 /.dist
 /.cache
-/.pkg
+/pkg
 
 # Folders created by the HTTPS Certificate service Let's Encrypt
 /.letsencrypt

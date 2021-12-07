@@ -1,0 +1,18 @@
+{
+  "name": "editor",
+  "version": "1.0.0",
+  "repository": "https://github.com/A1Liu/editor.git",
+  "author": "Albert Liu <albertymliu@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "dev": "parcel example/index.html",
+    "build": "parcel build --out-dir .dist worker.js"
+  },
+  "browserslist": [
+    "since 2017-06"
+  ],
+  "devDependencies": {
+    "parcel-bundler": "1.12.5",
+    "parcel-plugin-wasm.rs": "1.3.0"
+  }
+}

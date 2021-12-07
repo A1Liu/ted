@@ -1,4 +1,4 @@
-use crate::util::Idx;
+use crate::util::*;
 
 const MAX_BUFFER_VIEW_SIZE: u16 = 4096;
 
@@ -50,7 +50,7 @@ struct Node {
     sum: usize,
     count: usize,
     parent: Idx, // For the root, I dont think this matters. Maybe it'll point to itself.
-    children: [Option<Idx>; B],
+    kids: [Option<Idx>; B],
 }
 
 // Use SOA stuff eventually: https://github.com/lumol-org/soa-derive
@@ -60,7 +60,7 @@ struct BTree<T>
 where
     T: Sizable,
 {
-    children: Vec<T>,
+    elements: Vec<T>,
     nodes: Vec<Node>,
     root: usize,
     levels: usize,
@@ -75,14 +75,68 @@ where
             sum: 0,
             count: 0,
             parent: Idx::new(0),
-            children: [None; B],
+            kids: [None; B],
         };
 
         return Self {
-            children: Vec::new(),
+            elements: Vec::new(),
             nodes: vec![root_node],
             root: 0,
-            levels: 1,
+            levels: 0,
         };
+    }
+
+    fn get_idx(&self, index: usize) -> Option<Idx> {
+        let mut node = self.nodes[self.root];
+        if node.count >= index {
+            return None;
+        }
+
+        let mut running = index;
+        'outer: for _ in 0..self.levels {
+            for child_idx in node.kids.into_iter().filter_map(|c| c) {
+                let child = self.nodes[child_idx.get()];
+                if running < child.count {
+                    node = child;
+                    continue 'outer;
+                }
+
+                running -= child.count;
+            }
+        }
+
+        let index = node.kids.into_iter().filter_map(|c| c).nth(running);
+        return Some(index.unwrap());
+    }
+
+    fn get_content_idx(&self, index: usize) -> Option<(usize, Idx)> {
+        let mut node = self.nodes[self.root];
+        if node.sum >= index {
+            return None;
+        }
+
+        let mut running = index;
+        'outer: for _ in 0..self.levels {
+            for child_idx in node.kids.into_iter().filter_map(|c| c) {
+                let child = self.nodes[child_idx.get()];
+                if running < child.sum {
+                    node = child;
+                    continue 'outer;
+                }
+
+                running -= child.sum;
+            }
+        }
+
+        for idx in node.kids.into_iter().filter_map(|c| c) {
+            let size = self.elements[idx.get()].size();
+            if running < size {
+                return Some((running, idx));
+            }
+
+            running -= size;
+        }
+
+        unreachable!();
     }
 }
