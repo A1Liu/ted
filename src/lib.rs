@@ -1,10 +1,11 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-mod graphics;
-mod large_text;
-mod text;
-mod util;
+pub mod fonts;
+pub mod graphics;
+pub mod large_text;
+pub mod text;
+pub mod util;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -48,28 +49,7 @@ pub fn render(canvas: web_sys::Element) -> Result<(), JsValue> {
     context.use_program(Some(&program));
 
     let vertices: [f32; 9] = [-0.7, -0.7, 0.0, 0.7, -0.7, 0.0, 0.0, 0.7, 0.0];
-
-    let buffer = context.create_buffer().ok_or("failed to create buffer")?;
-    context.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(&buffer));
-
-    unsafe {
-        let vert_array = js_sys::Float32Array::view(&vertices);
-
-        // copies into buffer
-        context.buffer_data_with_array_buffer_view(
-            WebGlRenderingContext::ARRAY_BUFFER,
-            &vert_array,
-            WebGlRenderingContext::STATIC_DRAW,
-        );
-    }
-
-    let position_loc = context.get_attrib_location(&program, "position");
-    if position_loc < 0 {
-        return Err(JsValue::from("Failed to get location of variable"));
-    }
-
-    context.vertex_attrib_pointer_with_i32(0, 3, WebGlRenderingContext::FLOAT, false, 0, 0);
-    context.enable_vertex_attrib_array(position_loc as u32);
+    vertex_buffer(&context, &program, &vertices, "position")?;
 
     context.clear_color(0.0, 0.0, 0.0, 1.0);
     context.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
@@ -79,7 +59,55 @@ pub fn render(canvas: web_sys::Element) -> Result<(), JsValue> {
         0,
         (vertices.len() / 3) as i32,
     );
+
     Ok(())
+}
+
+fn texture_buffer(
+    ctx: &WebGlRenderingContext,
+    program: &WebGlProgram,
+    buffer: &[u8],
+    attrib: &'static str,
+) -> Result<(), JsValue> {
+    return Ok(());
+}
+
+fn vertex_buffer(
+    ctx: &WebGlRenderingContext,
+    program: &WebGlProgram,
+    buffer: &[f32],
+    attrib: &'static str,
+) -> Result<(), JsValue> {
+    let gl_buffer = ctx.create_buffer().ok_or("failed to create buffer")?;
+    ctx.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(&gl_buffer));
+
+    unsafe {
+        let vert_array = js_sys::Float32Array::view(buffer);
+
+        // copies into buffer
+        ctx.buffer_data_with_array_buffer_view(
+            WebGlRenderingContext::ARRAY_BUFFER,
+            &vert_array,
+            WebGlRenderingContext::STATIC_DRAW,
+        );
+    }
+
+    let loc = ctx.get_attrib_location(program, attrib);
+    if loc < 0 {
+        return Err(JsValue::from("Failed to get location of variable"));
+    }
+
+    let loc = loc as u32;
+    let size = 3;
+    let attr_type = WebGlRenderingContext::FLOAT;
+    let normal = false;
+    let stride = 0; // if this is 0, we use the stride of the type
+    let offset = 0;
+
+    ctx.vertex_attrib_pointer_with_i32(loc, size, attr_type, normal, stride, offset);
+    ctx.enable_vertex_attrib_array(loc);
+
+    return Ok(());
 }
 
 fn compile_shader(
@@ -120,11 +148,12 @@ fn link_program(
     context.attach_shader(&program, frag_shader);
     context.link_program(&program);
 
-    if context
+    let success = context
         .get_program_parameter(&program, WebGlRenderingContext::LINK_STATUS)
         .as_bool()
-        .unwrap_or(false)
-    {
+        .unwrap_or(false);
+
+    if success {
         Ok(program)
     } else {
         Err(context

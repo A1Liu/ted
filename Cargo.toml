@@ -3,13 +3,23 @@ name = "editor"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "editor"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "editor"
 
 [dependencies]
 ttf-parser = { version = "0.13.4", features = [] }
 wee_alloc = "0.4.5"
 wasm-bindgen = "0.2.78"
 js-sys = "0.3.55"
+
+[dependencies.image]
+version = "0.23.14"
+features = ['png']
 
 [dependencies.web-sys]
 version = "0.3.55"
@@ -33,8 +43,6 @@ opt-level = "z"
 # For some reason, turning this on reduces the binary size from 1.5 MB to 22 KB.
 # I guess Zero-Cost Abstractions are only Zero-Cost if you're a big-brained
 # compiler programmer. Otherwise they cost around 1.478 MB.
-#             - Albert Liu, Dec 06, 2021 Mon 23:08 EST
+#                               - Albert Liu, Dec 06, 2021 Mon 23:08 EST
 lto = true
 
-[lib]
-crate-type = ["cdylib"]

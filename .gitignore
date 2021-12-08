@@ -1,6 +1,9 @@
 # Rust build directory
 /.cargo/target
 
+# PNG's
+*.png
+
 /.dist
 /.cache
 /pkg
