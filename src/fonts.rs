@@ -69,7 +69,7 @@ impl GlyphCache {
         return glyphs;
     }
 
-    pub fn rasterize_char(&mut self, face: &ttf::Face, c: char) -> Glyph {
+    fn rasterize_char(&mut self, face: &ttf::Face, c: char) -> Glyph {
         if let Some(&glyph) = self.descriptors.get(&c) {
             return glyph;
         }
@@ -89,13 +89,12 @@ impl GlyphCache {
                 }
             }
         };
+
         let (xmin, ymin, xmax, ymax) = (rect.x_min, rect.y_min, rect.x_max, rect.y_max);
         let (metrics, z) = metrics_and_affine(xmin, ymin, xmax, ymax, scale);
-
         let (width, height) = (metrics.width(), metrics.height());
 
         let mut builder = Builder::new(width, height, z);
-
         face.outline_glyph(glyph_id, &mut builder);
         let (w, h) = (builder.raster.w as u32, builder.raster.h as u32);
 
@@ -108,7 +107,6 @@ impl GlyphCache {
             height,
             offset,
         };
-
         self.descriptors.insert(c, glyph);
 
         return glyph;
@@ -170,18 +168,6 @@ impl ttf::OutlineBuilder for Builder {
     }
 
     fn close(&mut self) {}
-}
-
-// from font-rs
-
-fn metrics_and_affine(xmin: i16, ymin: i16, xmax: i16, ymax: i16, scale: f32) -> (Metrics, Affine) {
-    let l = (xmin as f32 * scale).floor() as i32;
-    let t = (ymax as f32 * -scale).floor() as i32;
-    let r = (xmax as f32 * scale).ceil() as i32;
-    let b = (ymin as f32 * -scale).ceil() as i32;
-    let metrics = Metrics { l, t, r, b };
-    let z = Affine::new(scale, 0.0, 0.0, -scale, -l as f32, -t as f32);
-    (metrics, z)
 }
 
 pub struct Raster {
@@ -297,6 +283,16 @@ impl Raster {
 
         return output;
     }
+}
+
+fn metrics_and_affine(xmin: i16, ymin: i16, xmax: i16, ymax: i16, scale: f32) -> (Metrics, Affine) {
+    let l = (xmin as f32 * scale).floor() as i32;
+    let t = (ymax as f32 * -scale).floor() as i32;
+    let r = (xmax as f32 * scale).ceil() as i32;
+    let b = (ymin as f32 * -scale).ceil() as i32;
+    let metrics = Metrics { l, t, r, b };
+    let z = Affine::new(scale, 0.0, 0.0, -scale, -l as f32, -t as f32);
+    (metrics, z)
 }
 
 fn recip(x: f32) -> f32 {
