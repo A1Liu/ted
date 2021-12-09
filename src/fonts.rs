@@ -1,64 +1,118 @@
-use image::{ColorType, ImageFormat};
+use std::collections::hash_map::HashMap;
 use ttf_parser as ttf;
 
-const FONT_SIZE: f64 = 128.0;
-const COLUMNS: u32 = 100;
-
 const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
+const SIZE: usize = 200;
 
-pub fn process() {
-    let id = 6;
-
-    let gid = ttf::GlyphId(id);
-
-    let face = ttf::Face::from_slice(COURIER, 0).unwrap();
-    if face.is_variable() {
-        panic!("Can't handle variable fonts");
-    }
-
-    let size = 200;
-    let ppem = face.units_per_em();
-    let scale = (size as f32) / (ppem as f32);
-
-    let rect = face.glyph_bounding_box(gid).unwrap();
-    let (xmin, ymin, xmax, ymax) = (rect.x_min, rect.y_min, rect.x_max, rect.y_max);
-    let (metrics, z) = metrics_and_affine(xmin, ymin, xmax, ymax, scale);
-
-    let height = face.units_per_em() as usize;
-    let mut builder = Builder::new(metrics.width(), metrics.height(), z);
-    face.outline_glyph(gid, &mut builder);
-    let (w, h) = (builder.raster.w as u32, builder.raster.h as u32);
-    println!("w: {} h: {}", w, h);
-    let buffer = builder.raster.get_bitmap();
-    image::save_buffer_with_format("output.png", &buffer, w, h, ColorType::L8, ImageFormat::Png)
-        .unwrap();
+#[derive(Clone, Copy)]
+pub struct Glyph {
+    pub width: usize,
+    pub height: usize,
+    pub offset: usize,
 }
 
-struct Metrics {
-    l: i32,
-    t: i32,
-    r: i32,
-    b: i32,
+pub struct GlyphCache {
+    descriptors: HashMap<char, Glyph>,
+    pub data: Vec<u8>,
 }
 
-impl Metrics {
-    fn width(&self) -> usize {
-        (self.r - self.l) as usize
-    }
-
-    fn height(&self) -> usize {
-        (self.b - self.t) as usize
-    }
+pub struct GlyphList {
+    pub did_raster: bool,
+    pub glyphs: Vec<Glyph>,
 }
 
-fn metrics_and_affine(xmin: i16, ymin: i16, xmax: i16, ymax: i16, scale: f32) -> (Metrics, Affine) {
-    let l = (xmin as f32 * scale).floor() as i32;
-    let t = (ymax as f32 * -scale).floor() as i32;
-    let r = (xmax as f32 * scale).ceil() as i32;
-    let b = (ymin as f32 * -scale).ceil() as i32;
-    let metrics = Metrics { l, t, r, b };
-    let z = Affine::new(scale, 0.0, 0.0, -scale, -l as f32, -t as f32);
-    (metrics, z)
+impl GlyphCache {
+    pub fn new() -> GlyphCache {
+        return GlyphCache {
+            descriptors: HashMap::new(),
+            data: Vec::new(),
+        };
+    }
+
+    pub fn translate_glyphs(&mut self, characters: &str) -> GlyphList {
+        let mut glyphs = GlyphList {
+            did_raster: false,
+            glyphs: Vec::new(),
+        };
+
+        let mut chars = characters.chars();
+
+        let character;
+        'fast_path: loop {
+            while let Some(c) = chars.next() {
+                if let Some(&glyph) = self.descriptors.get(&c) {
+                    glyphs.glyphs.push(glyph);
+                    continue;
+                }
+
+                character = c;
+                glyphs.did_raster = true;
+                break 'fast_path;
+            }
+
+            return glyphs;
+        }
+
+        let face = ttf::Face::from_slice(COURIER, 0).unwrap();
+        if face.is_variable() || !face.is_monospaced() {
+            panic!("Can't handle variable fonts");
+        }
+
+        let glyph = self.rasterize_char(&face, character);
+        glyphs.glyphs.push(glyph);
+
+        while let Some(c) = chars.next() {
+            let glyph = self.rasterize_char(&face, c);
+            glyphs.glyphs.push(glyph);
+        }
+
+        return glyphs;
+    }
+
+    pub fn rasterize_char(&mut self, face: &ttf::Face, c: char) -> Glyph {
+        if let Some(&glyph) = self.descriptors.get(&c) {
+            return glyph;
+        }
+
+        let glyph_id = face.glyph_index(c).unwrap();
+
+        let ppem = face.units_per_em();
+        let scale = (SIZE as f32) / (ppem as f32);
+
+        let rect = match face.glyph_bounding_box(glyph_id) {
+            Some(rect) => rect,
+            None => {
+                return Glyph {
+                    width: 0,
+                    height: 0,
+                    offset: self.data.len(),
+                }
+            }
+        };
+        let (xmin, ymin, xmax, ymax) = (rect.x_min, rect.y_min, rect.x_max, rect.y_max);
+        let (metrics, z) = metrics_and_affine(xmin, ymin, xmax, ymax, scale);
+
+        let (width, height) = (metrics.width(), metrics.height());
+
+        let mut builder = Builder::new(width, height, z);
+
+        face.outline_glyph(glyph_id, &mut builder);
+        let (w, h) = (builder.raster.w as u32, builder.raster.h as u32);
+
+        let offset = self.data.len();
+        let buffer = builder.raster.get_bitmap();
+        self.data.extend(buffer);
+
+        let glyph = Glyph {
+            width,
+            height,
+            offset,
+        };
+
+        self.descriptors.insert(c, glyph);
+
+        return glyph;
+    }
 }
 
 pub struct Builder {
@@ -74,18 +128,6 @@ impl Builder {
             current: Point { x: 0.0, y: 0.0 },
             affine,
         };
-    }
-
-    pub fn print(&self) {
-        let map = self.raster.get_bitmap();
-
-        let height = self.raster.h;
-        for row in 0..height {
-            let begin = row * height;
-            let end = begin + height;
-            let row = &map[begin..end];
-            println!("{}", unsafe { core::str::from_utf8_unchecked(row) });
-        }
     }
 }
 
@@ -130,13 +172,23 @@ impl ttf::OutlineBuilder for Builder {
     fn close(&mut self) {}
 }
 
+// from font-rs
+
+fn metrics_and_affine(xmin: i16, ymin: i16, xmax: i16, ymax: i16, scale: f32) -> (Metrics, Affine) {
+    let l = (xmin as f32 * scale).floor() as i32;
+    let t = (ymax as f32 * -scale).floor() as i32;
+    let r = (xmax as f32 * scale).ceil() as i32;
+    let b = (ymin as f32 * -scale).ceil() as i32;
+    let metrics = Metrics { l, t, r, b };
+    let z = Affine::new(scale, 0.0, 0.0, -scale, -l as f32, -t as f32);
+    (metrics, z)
+}
+
 pub struct Raster {
     w: usize,
     h: usize,
     a: Vec<f32>,
 }
-
-// Temporary, from font-rs
 
 impl Raster {
     pub fn new(w: usize, h: usize) -> Raster {
@@ -225,7 +277,7 @@ impl Raster {
         let mut t = 0.0;
         for _i in 0..n - 1 {
             t += nrecip;
-            let pn = Point::lerp(t, Point::lerp(t, p0, p1), Point::lerp(t, p1, p2));
+            let pn = lerp(t, lerp(t, p0, p1), lerp(t, p1, p2));
             self.draw_line(p, pn);
             p = pn;
         }
@@ -233,20 +285,18 @@ impl Raster {
     }
 
     pub fn get_bitmap(&self) -> Vec<u8> {
-        accumulate(&self.a[0..self.w * self.h])
-    }
-}
-
-fn accumulate(src: &[f32]) -> Vec<u8> {
-    let mut acc = 0.0;
-    src.iter()
-        .map(|c| {
+        let mut acc = 0.0;
+        let size = self.w * self.h;
+        let mut output = Vec::with_capacity(size);
+        for &c in &self.a[0..size] {
             acc += c;
             let y = acc.abs();
             let y = if y < 1.0 { y } else { 1.0 };
-            (255.0 * y) as u8
-        })
-        .collect()
+            output.push((255.0 * y) as u8);
+        }
+
+        return output;
+    }
 }
 
 fn recip(x: f32) -> f32 {
@@ -275,17 +325,33 @@ pub struct Point {
     y: f32,
 }
 
-impl Point {
-    pub fn lerp(t: f32, p0: Self, p1: Self) -> Self {
-        Point {
-            x: p0.x + t * (p1.x - p0.x),
-            y: p0.y + t * (p1.y - p0.y),
-        }
+pub fn lerp(t: f32, p0: Point, p1: Point) -> Point {
+    Point {
+        x: p0.x + t * (p1.x - p0.x),
+        y: p0.y + t * (p1.y - p0.y),
     }
 }
+
 pub fn affine_pt(z: Affine, p: Point) -> Point {
     Point {
         x: z.a * p.x + z.c * p.y + z.e,
         y: z.b * p.x + z.d * p.y + z.f,
+    }
+}
+
+struct Metrics {
+    l: i32,
+    t: i32,
+    r: i32,
+    b: i32,
+}
+
+impl Metrics {
+    fn width(&self) -> usize {
+        (self.r - self.l) as usize
+    }
+
+    fn height(&self) -> usize {
+        (self.b - self.t) as usize
     }
 }
