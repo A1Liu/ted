@@ -7,21 +7,23 @@ fn main() {
     let text = "Hello World!";
     let result = cache.translate_glyphs(text);
     let glyphs = result.glyphs;
-    let (mut width, mut height) = (0, 0);
-    for glyph in &glyphs {
-        if width < glyph.width {
-            width = glyph.width;
+
+    let (w, h) = {
+        let (mut width, mut height) = (0, 0);
+        for glyph in &glyphs {
+            if width < glyph.width {
+                width = glyph.width;
+            }
+
+            if height < glyph.height {
+                height = glyph.height;
+            }
         }
 
-        if height < glyph.height {
-            height = glyph.height;
-        }
-    }
-
-    let (w, h) = (width, height);
+        (width + 5, height + 10)
+    };
     let count = glyphs.len();
     let mut buffer = Vec::with_capacity(count * w * h);
-    let size = w * h;
 
     for row in 0..h {
         for glyph in &glyphs {
