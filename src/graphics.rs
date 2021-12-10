@@ -26,6 +26,7 @@ pub struct Point {
     y: f32,
 }
 
+#[inline]
 fn pt(x: f32, y: f32) -> Point {
     return Point { x, y };
 }
@@ -33,16 +34,18 @@ fn pt(x: f32, y: f32) -> Point {
 pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> {
     let webgl = WebGl::new(canvas)?;
 
-    // let width: f32 = 1.0;
-    // let height: f32 = 1.0;
+    let points: [Point; 3] = [pt(0.0, 0.0), pt(1.0, 0.0), pt(0.0, 1.0)];
+    webgl.bind_array("a_pos", &points)?;
 
-    let vertices: [f32; 9] = [-0.7, -0.7, 0.0, 0.7, -0.7, 0.0, 0.0, 0.7, 0.0];
-    webgl.bind_array("a_pos", &vertices)?;
+    // let glyphs: [f32; 1] = [1.0];
 
-    // webgl.bind_uniform("width", width);
-    // webgl.bind_uniform("height", height);
+    let width: f32 = 2.0;
+    webgl.bind_uniform("width", width);
 
-    webgl.draw(1);
+    let height: f32 = 2.0;
+    webgl.bind_uniform("height", height);
+
+    webgl.draw(points.len() as i32);
 
     return Ok(());
 }

@@ -59,10 +59,10 @@ impl WebGl {
         return Ok(WebGl { ctx, program });
     }
 
-    pub fn draw(&self, count: i32) {
+    pub fn draw(&self, triangles: i32) {
         self.ctx.clear_color(0.0, 0.0, 0.0, 1.0);
         self.ctx.clear(Context::COLOR_BUFFER_BIT);
-        self.ctx.draw_arrays(Context::TRIANGLES, 0, count);
+        self.ctx.draw_arrays(Context::TRIANGLES, 0, triangles);
     }
 
     pub fn bind_uniform<T>(&self, name: &'static str, value: T) -> Result<(), JsValue>
@@ -168,7 +168,7 @@ fn link_program(
 
 impl WebGlType for f32 {
     const GL_TYPE: u32 = Context::FLOAT;
-    const SIZE: i32 = 3;
+    const SIZE: i32 = 1;
 
     unsafe fn view(array: &[Self]) -> Object {
         return js_sys::Float32Array::view(array).into();
