@@ -1,9 +1,10 @@
-uniform float width;
-uniform float height;
+#version 300 es
 
-attribute vec2 a_pos;
+in uvec2 in_pos;
 
-// WebGL 1 doesn't support integer attributes. Maybe someday we will use WebGL 2.
+uniform float u_width;
+uniform float u_height;
+
 // attribute float glyph_in;
 
 // varying float glyph;
@@ -11,8 +12,12 @@ attribute vec2 a_pos;
 void main() {
     vec4 temp_out = vec4(0.0, 0.0, 0.0, 1.0);
 
-    float x = (a_pos.x / width) - 1.0;
-    float y = -(a_pos.y / height) + 1.0;
+    vec2 pos = vec2(in_pos);
+    float width = u_width / 2.0;
+    float height = u_height / 2.0;
+
+    float x = (pos.x / width) - 1.0;
+    float y = -(pos.y / height) + 1.0;
 
     temp_out.x = x;
     temp_out.y = y;

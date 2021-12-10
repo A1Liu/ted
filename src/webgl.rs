@@ -1,7 +1,8 @@
 use js_sys::Object;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{WebGlProgram, WebGlRenderingContext as Context, WebGlShader};
+pub use web_sys::WebGl2RenderingContext as Context;
+use web_sys::{WebGlProgram, WebGlShader};
 
 #[repr(u32)]
 pub enum ShaderType {
@@ -28,6 +29,10 @@ where
 
     unsafe fn view(array: &[Self]) -> Object;
 
+    fn is_int() -> bool {
+        return false;
+    }
+
     fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
         unimplemented!();
     }
@@ -43,7 +48,7 @@ impl WebGl {
     pub fn new(canvas: web_sys::Element) -> Result<Self, JsValue> {
         let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
         let ctx = canvas
-            .get_context("webgl")?
+            .get_context("webgl2")?
             .unwrap()
             .dyn_into::<Context>()?;
 
@@ -98,17 +103,21 @@ impl WebGl {
         }
 
         let loc = ctx.get_attrib_location(program, attrib);
-        if loc < 0 {
-            return Err(JsValue::from("Failed to get location of variable"));
-        }
 
-        let loc = loc as u32;
+        let make_err = |e| "Failed to get location of variable";
+        let loc = loc.try_into().map_err(make_err)?;
+
+        ctx.enable_vertex_attrib_array(loc);
+
         let normal = false;
         let stride = 0; // if this is 0, we use the stride of the type
         let offset = 0;
 
-        ctx.vertex_attrib_pointer_with_i32(loc, T::SIZE, T::GL_TYPE, normal, stride, offset);
-        ctx.enable_vertex_attrib_array(loc);
+        if T::is_int() {
+            ctx.vertex_attrib_i_pointer_with_i32(loc, T::SIZE, T::GL_TYPE, stride, offset);
+        } else {
+            ctx.vertex_attrib_pointer_with_i32(loc, T::SIZE, T::GL_TYPE, normal, stride, offset);
+        }
 
         return Ok(());
     }
@@ -176,5 +185,18 @@ impl WebGlType for f32 {
 
     fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
         ctx.uniform1f(loc, self);
+    }
+}
+
+impl WebGlType for u32 {
+    const GL_TYPE: u32 = Context::UNSIGNED_INT;
+    const SIZE: i32 = 1;
+
+    unsafe fn view(array: &[Self]) -> Object {
+        return js_sys::Uint32Array::view(array).into();
+    }
+
+    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
+        ctx.uniform1ui(loc, self);
     }
 }

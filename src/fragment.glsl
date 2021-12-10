@@ -1,3 +1,9 @@
+#version 300 es
+precision highp float;
+
+out vec4 out_color;  // you can pick any name
+
+
 void main() {
-    gl_FragColor = vec4(0.5, 0.5, 0.5, 1.0);
+    out_color = vec4(0.5, 0.5, 0.5, 1.0);
 }
