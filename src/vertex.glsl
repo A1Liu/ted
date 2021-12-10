@@ -1,19 +1,19 @@
-uniform float width;
-uniform float height;
+// uniform float width;
+// uniform float height;
 
-attribute uvec2 position;
+attribute vec4 a_pos;
 // attribute uint glyph_in;
 
 // varying uint glyph;
 
 void main() {
-    vec4 coordinates = vec4(0.0, 0.0, 0.0, 0.0);
+    // vec4 temp_out = vec4(coordinates, 0.0);
 
-    float x = float(position.x) / width;
-    float y = float(position.y) / height;
+    // float x = coordinates.x;
+    // float y = coordinates.y;
 
-    coordinates.x = x;
-    coordinates.y = y;
+    // temp_out.x = x;
+    // temp_out.y = y;
 
-    gl_Position = coordinates;
+    gl_Position = a_pos;
 }

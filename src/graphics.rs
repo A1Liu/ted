@@ -19,32 +19,42 @@ pub struct Graphics {
     screens: Vec<Canvas>,
 }
 
-#[repr(C, packed)]
+#[derive(Clone, Copy)]
+#[repr(C)]
 pub struct Point {
-    x: u32,
-    y: u32,
+    x: f32,
+    y: f32,
+    z: f32,
 }
 
-fn pt(x: u32, y: u32) -> Point {
-    return Point { x, y };
+fn pt(x: f32, y: f32) -> Point {
+    return Point { x, y, z: 0.0 };
 }
 
 pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> {
     let webgl = WebGl::new(canvas)?;
 
-    let points: [Point; 4] = [pt(0, 0), pt(0, 1), pt(1, 0), pt(1, 1)];
-    webgl.bind_array("position", &points)?;
+    // let width: f32 = 1.0;
+    // let height: f32 = 1.0;
+
+    let points: [Point; 3] = [pt(-0.7, -0.7), pt(0.7, -0.7), pt(0.0, 0.7)];
+    webgl.bind_array("a_pos", &points)?;
+
+    // webgl.bind_uniform("width", width);
+    // webgl.bind_uniform("height", height);
+
+    webgl.draw(1);
 
     return Ok(());
 }
 
 impl WebGlType for Point {
-    const GL_TYPE: u32 = WebGlRenderingContext::UNSIGNED_INT;
-    const SIZE: i32 = 2;
+    const GL_TYPE: u32 = WebGlRenderingContext::FLOAT;
+    const SIZE: i32 = 3;
 
     unsafe fn view(array: &[Self]) -> js_sys::Object {
-        let ptr = array.as_ptr() as *const u32;
-        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 2);
-        return js_sys::Uint32Array::view(buffer).into();
+        let ptr = array.as_ptr() as *const f32;
+        let buffer: &[f32] = core::slice::from_raw_parts(ptr, array.len() * 3);
+        return js_sys::Float32Array::view(buffer).into();
     }
 }
