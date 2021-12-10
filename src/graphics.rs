@@ -1,7 +1,6 @@
 use crate::webgl::*;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
-use web_sys::{WebGlProgram, WebGlRenderingContext, WebGlShader};
+use web_sys::WebGlRenderingContext;
 
 pub enum SourceId {
     File { id: usize },
@@ -40,10 +39,10 @@ pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> 
     // let glyphs: [f32; 1] = [1.0];
 
     let width: f32 = 2.0;
-    webgl.bind_uniform("width", width);
+    webgl.bind_uniform("width", width)?;
 
     let height: f32 = 2.0;
-    webgl.bind_uniform("height", height);
+    webgl.bind_uniform("height", height)?;
 
     webgl.draw(points.len() as i32);
 

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
-#![allow(unused_imports)]
+// #![allow(unused_imports)]
 
 pub mod fonts;
 pub mod graphics;
@@ -12,10 +12,8 @@ mod webgl;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-use fonts::GlyphCache;
 use graphics::*;
 use wasm_bindgen::prelude::*;
-use web_sys::WebGlRenderingContext;
 
 #[wasm_bindgen]
 extern "C" {
