@@ -24,11 +24,10 @@ pub struct Graphics {
 pub struct Point {
     x: f32,
     y: f32,
-    z: f32,
 }
 
 fn pt(x: f32, y: f32) -> Point {
-    return Point { x, y, z: 0.0 };
+    return Point { x, y };
 }
 
 pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> {
@@ -37,8 +36,8 @@ pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> 
     // let width: f32 = 1.0;
     // let height: f32 = 1.0;
 
-    let points: [Point; 3] = [pt(-0.7, -0.7), pt(0.7, -0.7), pt(0.0, 0.7)];
-    webgl.bind_array("a_pos", &points)?;
+    let vertices: [f32; 9] = [-0.7, -0.7, 0.0, 0.7, -0.7, 0.0, 0.0, 0.7, 0.0];
+    webgl.bind_array("a_pos", &vertices)?;
 
     // webgl.bind_uniform("width", width);
     // webgl.bind_uniform("height", height);
@@ -50,11 +49,11 @@ pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> 
 
 impl WebGlType for Point {
     const GL_TYPE: u32 = WebGlRenderingContext::FLOAT;
-    const SIZE: i32 = 3;
+    const SIZE: i32 = 2;
 
     unsafe fn view(array: &[Self]) -> js_sys::Object {
         let ptr = array.as_ptr() as *const f32;
-        let buffer: &[f32] = core::slice::from_raw_parts(ptr, array.len() * 3);
+        let buffer: &[f32] = core::slice::from_raw_parts(ptr, array.len() * 2);
         return js_sys::Float32Array::view(buffer).into();
     }
 }

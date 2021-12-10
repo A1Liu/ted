@@ -35,7 +35,7 @@ where
 
 // Maybe later make this more convenient to use with multiple programs
 pub struct WebGl {
-    pub ctx: Context,
+    ctx: Context,
     program: WebGlProgram,
 }
 
@@ -168,7 +168,7 @@ fn link_program(
 
 impl WebGlType for f32 {
     const GL_TYPE: u32 = Context::FLOAT;
-    const SIZE: i32 = 1;
+    const SIZE: i32 = 3;
 
     unsafe fn view(array: &[Self]) -> Object {
         return js_sys::Float32Array::view(array).into();
