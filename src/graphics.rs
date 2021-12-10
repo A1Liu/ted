@@ -37,10 +37,10 @@ pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> 
 
     // let glyphs: [f32; 1] = [1.0];
 
-    let width: f32 = 3.0;
+    let width: f32 = 2.0;
     webgl.bind_uniform("u_width", width)?;
 
-    let height: f32 = 3.0;
+    let height: f32 = 2.0;
     webgl.bind_uniform("u_height", height)?;
 
     webgl.draw(points.len() as i32);
