@@ -1,7 +1,13 @@
+// Long-term
 #![allow(dead_code)]
 #![allow(unused_variables)]
-// #![allow(unused_imports)]
+// Short-term allows
+/* */
+#![allow(unused_imports)]
+#![allow(unused_mut)]
+/* */
 
+mod btree;
 pub mod fonts;
 pub mod graphics;
 pub mod large_text;
