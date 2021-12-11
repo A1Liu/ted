@@ -43,7 +43,7 @@ fn pt(x: u32, y: u32) -> Point {
 // }
 
 pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> {
-    let webgl = WebGl::new(canvas)?;
+    let mut webgl = WebGl::new(canvas)?;
     let mut cache = GlyphCache::new();
 
     let loc = webgl
@@ -59,15 +59,22 @@ pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> 
     let glyph_list = cache.translate_glyphs("H");
     webgl.bind_array("in_glyph_pos", &glyph_list.glyphs)?;
 
-    //if glyph_list.did_raster {
-    //    webgl.
-    //}
+    let (atlas_width, atlas_height) = cache.atlas_dims();
+
+    if glyph_list.did_raster {
+        console_log("Ho there");
+        let atlas = cache.atlas();
+        webgl.bind_texture("u_glyph_atlas", atlas_width, atlas_height, atlas)?;
+    }
 
     let width: f32 = 2.0;
     webgl.bind_uniform("u_width", width)?;
 
     let height: f32 = 2.0;
     webgl.bind_uniform("u_height", height)?;
+
+    webgl.bind_uniform("u_atlas_width", atlas_width)?;
+    webgl.bind_uniform("u_atlas_height", atlas_height)?;
 
     webgl.draw(points.len() as i32);
 

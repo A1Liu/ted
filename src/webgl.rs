@@ -42,6 +42,7 @@ where
 pub struct WebGl {
     pub ctx: Context,
     pub program: WebGlProgram,
+    pub textures_used: u32,
 }
 
 impl WebGl {
@@ -61,7 +62,11 @@ impl WebGl {
         let program = link_program(&ctx, &vert_shader, &frag_shader)?;
         ctx.use_program(Some(&program));
 
-        return Ok(WebGl { ctx, program });
+        return Ok(WebGl {
+            ctx,
+            program,
+            textures_used: 0,
+        });
     }
 
     pub fn draw(&self, triangles: i32) {
@@ -118,6 +123,58 @@ impl WebGl {
         } else {
             ctx.vertex_attrib_pointer_with_i32(loc, T::SIZE, T::GL_TYPE, normal, stride, offset);
         }
+
+        return Ok(());
+    }
+
+    pub fn bind_texture(
+        &mut self,
+        attrib: &'static str,
+        width: u32,
+        height: u32,
+        data: &[u8],
+    ) -> Result<(), JsValue> {
+        let (ctx, program) = (&self.ctx, &self.program);
+
+        let tex_type = Context::TEXTURE_2D;
+        let data_type = Context::UNSIGNED_BYTE;
+        let format = Context::LUMINANCE;
+
+        let texture_unit = self.textures_used;
+        self.textures_used += 1;
+
+        ctx.pixel_storei(Context::UNPACK_ALIGNMENT, 1);
+
+        let loc = ctx.get_uniform_location(program, attrib);
+        let make_err = || format!("failed to get location of uniform '{}'", attrib);
+        let loc = loc.ok_or_else(make_err)?;
+
+        ctx.uniform1i(Some(&loc), texture_unit as i32);
+
+        let tex = ctx.create_texture().unwrap();
+
+        ctx.active_texture(Context::TEXTURE0 + texture_unit);
+        ctx.bind_texture(tex_type, Some(&tex));
+
+        let filter_type = Context::NEAREST as i32;
+        let wrap_type = Context::CLAMP_TO_EDGE as i32;
+
+        ctx.tex_parameteri(tex_type, Context::TEXTURE_WRAP_S, wrap_type);
+        ctx.tex_parameteri(tex_type, Context::TEXTURE_WRAP_T, wrap_type);
+        ctx.tex_parameteri(tex_type, Context::TEXTURE_MIN_FILTER, filter_type);
+        ctx.tex_parameteri(tex_type, Context::TEXTURE_MAG_FILTER, filter_type);
+
+        ctx.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+            tex_type,
+            0,
+            format as i32,
+            width as i32,
+            height as i32,
+            0,
+            format,
+            data_type,
+            Some(data),
+        )?;
 
         return Ok(());
     }

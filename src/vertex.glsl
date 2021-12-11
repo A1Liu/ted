@@ -6,7 +6,10 @@ in uvec2 in_glyph_pos;
 uniform float u_width;
 uniform float u_height;
 
-out vec2 glyph_pos;
+uniform uint u_atlas_width;
+uniform uint u_atlas_height;
+
+out vec2 v_glyph_pos;
 
 // varying vec2 glyph;
 
@@ -23,8 +26,10 @@ void main() {
     temp_out.x = x;
     temp_out.y = y;
 
-    vec2 temp_glyph_out = vec2(in_glyph_pos);
+    uvec2 atlas_dims = uvec2(u_atlas_width, u_atlas_height);
+
+    vec2 temp_glyph_out = vec2(in_glyph_pos) / vec2(atlas_dims);
 
     gl_Position = temp_out;
-    glyph_pos = temp_glyph_out;
+    v_glyph_pos = temp_glyph_out;
 }

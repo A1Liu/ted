@@ -1,10 +1,12 @@
+use crate::util::*;
 use std::collections::hash_map::HashMap;
 use ttf_parser as ttf;
 
 const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
 const SIZE: usize = 200;
-const DEFAULT_CHARS: &'static str =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()_+-=[]{};':\",.<>/?\\|";
+// const DEFAULT_CHARS: &'static str =
+//     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()_+-=[]{};':\",.<>/?\\|";
+const DEFAULT_CHARS: &'static str = "H";
 
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
@@ -43,38 +45,17 @@ const PAD_V: u32 = 8;
 
 impl GlyphCache {
     pub fn new() -> GlyphCache {
-        let mut cache = GlyphCache {
+        return GlyphCache {
             descriptors: HashMap::new(),
             atlas: Vec::new(),
             glyph_width: 0,
             glyph_height: 0,
             atlas_height: 0,
         };
+    }
 
-        let face = ttf::Face::from_slice(COURIER, 0).unwrap();
-        if face.is_variable() || !face.is_monospaced() {
-            panic!("Can't handle variable fonts");
-        }
-
-        let ppem = face.units_per_em();
-        let scale = (SIZE as f32) / (ppem as f32);
-
-        let (mut width, mut height) = (cache.glyph_width, cache.glyph_height);
-        for c in DEFAULT_CHARS.chars() {
-            let (w, h) = char_dimensions(&face, scale, c);
-
-            width = core::cmp::max(width, w);
-            height = core::cmp::max(height, h);
-        }
-
-        cache.glyph_width = width + PAD_H * 2;
-        cache.glyph_height = height + PAD_V * 2;
-
-        for c in DEFAULT_CHARS.chars() {
-            cache.add_char(&face, scale, c);
-        }
-
-        return cache;
+    pub fn atlas_dims(&self) -> (u32, u32) {
+        return (self.glyph_width, self.atlas_height);
     }
 
     pub fn atlas(&self) -> &[u8] {
@@ -126,7 +107,7 @@ impl GlyphCache {
             self.add_glyph_to_list(&mut glyphs, glyph);
 
             for c in &mut chars {
-                let glyph = self.add_char(&face, scale, character);
+                let glyph = self.add_char(&face, scale, c);
                 self.add_glyph_to_list(&mut glyphs, glyph);
             }
 
@@ -177,6 +158,11 @@ impl GlyphCache {
         assert_can_render(c);
 
         if let Some(&glyph) = self.descriptors.get(&c) {
+            if (self.atlas_height * self.glyph_width) != (self.atlas.len() as u32) {
+                console_log("WTF just happened");
+                panic!();
+            }
+
             return glyph;
         }
 
@@ -208,7 +194,7 @@ impl GlyphCache {
             }
         }
 
-        for _ in 0..(PAD_H * self.glyph_width) {
+        for _ in 0..(PAD_V * self.glyph_width) {
             self.atlas.push(0);
         }
 
@@ -217,6 +203,11 @@ impl GlyphCache {
         let glyph = Glyph { x: 0, y };
         self.descriptors.insert(c, glyph);
         self.atlas_height += self.glyph_height;
+
+        if (self.atlas_height * self.glyph_width) != (self.atlas.len() as u32) {
+            console_log("WTF just happened");
+            panic!();
+        }
 
         return glyph;
     }
