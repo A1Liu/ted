@@ -1,6 +1,6 @@
 use core::num::NonZeroUsize;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Idx(NonZeroUsize);
 
 impl Idx {

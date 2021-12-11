@@ -12,7 +12,7 @@ pub trait BTreeItem
 where
     Self: Sized,
 {
-    type BTreeInfo;
+    type BTreeInfo: BTreeInfo;
 
     fn get_info(&self) -> Self::BTreeInfo;
 }
@@ -34,26 +34,33 @@ where
     element_info: Vec<ElementInfo>,
     nodes: Vec<Node<T::BTreeInfo>>,
     first_free: Option<Idx>,
-    root: usize,
+    root: Idx,
     levels: usize,
 }
 
 impl<T> BTree<T>
 where
     T: BTreeItem,
-    <T as BTreeItem>::BTreeInfo: BTreeInfo,
 {
     pub fn new() -> Self {
-        let root_node = Node::new();
+        let root_node = Node::leaf();
 
         return Self {
             elements: Vec::new(),
             element_info: Vec::new(),
             nodes: vec![root_node],
             first_free: None,
-            root: 0,
+            root: Idx::new(0),
             levels: 0,
         };
+    }
+
+    pub fn len(&self) -> usize {
+        return self.nodes[self.root.get()].count;
+    }
+
+    pub fn info(&self) -> T::BTreeInfo {
+        return self.nodes[self.root.get()].info;
     }
 
     pub fn get(&self, index: usize) -> Option<&T> {
@@ -83,12 +90,117 @@ where
     }
 
     pub fn insert(&mut self, index: usize, elem: T) {
-        if index > self.nodes[self.root].count {
+        if index > self.nodes[self.root.get()].count {
             panic!("insert index was too high");
         }
 
+        let (mut node, mut index) = (self.root, index);
+        'to_leaves: for _ in 0..self.levels {
+            for child in &self.nodes[node.get()].kids {
+                let count = self.nodes[child.get()].count;
+                if index <= count {
+                    node = child;
+                    continue 'to_leaves;
+                }
+
+                index -= count;
+            }
+
+            unreachable!();
+        }
+
+        let (elem_info, mut right) = self.add_to_leaf(node, index, elem);
+        for _ in 0..self.levels {
+            let parent = self.nodes[node.get()].parent;
+            self.nodes[parent.get()].assert_not_leaf();
+
+            let to_insert = match right.take() {
+                Some(right) => right,
+                None => {
+                    // parent references are correct so everythings a-ok
+                    let parent_ref = &mut self.nodes[parent.get()];
+                    parent_ref.count += 1;
+                    parent_ref.info = parent_ref.info + elem_info;
+
+                    node = parent;
+                    continue;
+                }
+            };
+
+            let mut kids_iter = self.nodes[parent.get()].kids.into_iter();
+            let node_index = kids_iter.position(|kid| kid.get() == node.get()).unwrap() + 1;
+            let kids = match self.nodes[parent.get()].kids.insert(node_index, to_insert) {
+                Some(right_kids) => right_kids,
+                None => {
+                    // inserted successfully
+                    self.nodes[to_insert.get()].parent = parent;
+                    let parent_ref = &mut self.nodes[parent.get()];
+                    parent_ref.info = parent_ref.info + elem_info;
+                    parent_ref.count += 1;
+
+                    node = parent;
+                    continue;
+                }
+            };
+
+            node = parent;
+            let parent = ();
+
+            let right_idx = Idx::new(self.nodes.len());
+            let (mut count, mut info) = (0, Default::default());
+            for kid in &kids {
+                self.nodes[kid.get()].parent = right_idx;
+                info = info + self.elements[kid.get()].get_info();
+                count += 1;
+            }
+
+            let mut right_node = Node::new();
+            right_node.kids = kids;
+            right_node.info = info;
+            right_node.count = count;
+            right_node.parent = self.nodes[node.get()].parent; // not really necessary
+            self.nodes.push(right_node);
+
+            let kids = self.nodes[node.get()].kids;
+            let (mut count, mut info) = (0, <T::BTreeInfo as Default>::default());
+            for kid in &kids {
+                info = info + self.elements[kid.get()].get_info();
+                count += 1;
+            }
+
+            let node_ = &mut self.nodes[node.get()];
+            node_.info = info;
+            node_.count = count;
+        }
+
+        let right = match right {
+            Some(right) => right,
+            None => return,
+        };
+
+        let root_idx = Idx::new(self.nodes.len());
+        let mut root = Node::new();
+        root.kids.insert(0, node);
+        root.kids.insert(1, right);
+
+        let (node_ref, right_ref) = (self.nodes[node.get()], self.nodes[right.get()]);
+        root.info = node_ref.info + right_ref.info;
+        root.count = node_ref.count + right_ref.count;
+        root.parent = root_idx;
+        self.nodes[node.get()].parent = root_idx;
+        self.nodes[right.get()].parent = root_idx;
+
+        self.nodes.push(root);
+
+        self.root = root_idx;
+        self.levels += 1;
+    }
+
+    fn add_to_leaf(&mut self, node: Idx, index: usize, elem: T) -> (T::BTreeInfo, Option<Idx>) {
+        self.nodes[node.get()].assert_is_leaf();
+
         let elem_agg_info = elem.get_info();
-        let to_insert = match self.first_free.take() {
+        let elem_idx = match self.first_free.take() {
             Some(idx) => {
                 self.elements[idx.get()] = elem;
                 let elem_info = &mut self.element_info[idx.get()];
@@ -108,90 +220,50 @@ where
             }
         };
 
-        let (mut node, mut index) = (Idx::new(self.root), index);
-        'to_leaves: for _ in 0..self.levels {
-            for child in &self.nodes[node.get()].kids {
-                let count = self.nodes[child.get()].count;
-                if index <= count {
-                    node = child;
-                    continue 'to_leaves;
-                }
-
-                index -= count;
+        let kids = match self.nodes[node.get()].kids.insert(index, elem_idx) {
+            None => {
+                self.element_info[elem_idx.get()].parent = node;
+                let node_ref = &mut self.nodes[node.get()];
+                node_ref.info = node_ref.info + elem_agg_info;
+                node_ref.count += 1;
+                return (elem_agg_info, None);
             }
-        }
+            Some(right) => right,
+        };
 
-        // node is a leaf node
-        let mut at_leaf = true;
-        let mut to_insert = to_insert;
-
-        'to_root: for level in 0..self.levels {
-            let update_parent = |sel: &mut Self, to_insert: Idx, parent: Idx| {
-                if at_leaf {
-                    sel.element_info[to_insert.get()].parent = parent;
-                } else {
-                    sel.nodes[to_insert.get()].parent = parent;
-                }
-            };
-
-            let sum_children = |sel: &Self, kids: &ChildArray| {
-                let init = Default::default();
-                let iter = kids.into_iter();
-
-                if at_leaf {
-                    return iter.fold(init, |agg, node| agg + sel.elements[node.get()].get_info());
-                }
-
-                return iter.fold(init, |agg, node| agg + sel.nodes[node.get()].info);
-            };
-
-            let count_children = |sel: &Self, kids: &ChildArray| {
-                if at_leaf {
-                    return kids.into_iter().count();
-                }
-
-                let iter = kids.into_iter();
-                return iter.fold(0, |agg, node| agg + sel.nodes[node.get()].count);
-            };
-
-            let mut right_node = Node::new();
-            right_node.kids = match self.nodes[node.get()].kids.insert(index, to_insert) {
-                None => {
-                    update_parent(self, to_insert, node);
-                    let node_ref = &mut self.nodes[node.get()];
-                    node_ref.count += 1;
-                    node_ref.info = node_ref.info + elem_agg_info;
-
-                    node = node_ref.parent;
-                    at_leaf = false;
-                    continue 'to_root;
-                }
-                Some(right) => right,
-            };
-
-            let right_idx = Idx::new(self.nodes.len());
-            for kid in &right_node.kids {
-                update_parent(self, kid, node);
+        let right_idx = Idx::new(self.nodes.len());
+        {
+            let (mut count, mut info) = (0, Default::default());
+            for kid in &kids {
+                self.element_info[kid.get()].parent = right_idx;
+                info = info + self.elements[kid.get()].get_info();
+                count += 1;
             }
-            right_node.info = sum_children(self, &right_node.kids);
-            right_node.count = count_children(self, &right_node.kids);
 
-            let kids = self.nodes[node.get()].kids;
-            let info = sum_children(self, &kids);
-            let count = count_children(self, &kids);
-            let node_ref = &mut self.nodes[node.get()];
-            node_ref.info = info;
-            node_ref.count = count;
-            let parent = node_ref.parent;
-
+            let mut right_node = Node::leaf();
+            right_node.kids = kids;
+            right_node.info = info;
+            right_node.count = count;
+            right_node.parent = self.nodes[node.get()].parent; // not really necessary
             self.nodes.push(right_node);
-            node = parent;
-            at_leaf = false;
         }
+
+        let kids = self.nodes[node.get()].kids;
+        let (mut count, mut info) = (0, Default::default());
+        for kid in &kids {
+            info = info + self.elements[kid.get()].get_info();
+            count += 1;
+        }
+
+        let node_ = &mut self.nodes[node.get()];
+        node_.info = info;
+        node_.count = count;
+
+        return (elem_agg_info, Some(right_idx));
     }
 
     fn _get_idx(&self, index: usize) -> Option<Idx> {
-        let mut node = self.nodes[self.root];
+        let mut node = self.nodes[self.root.get()];
         if index >= node.count {
             return None;
         }
@@ -207,6 +279,8 @@ where
 
                 running -= child.count;
             }
+
+            unreachable!();
         }
 
         let index = node.kids.into_iter().nth(running);
@@ -217,7 +291,7 @@ where
     where
         F: Fn(<T as BTreeItem>::BTreeInfo) -> usize,
     {
-        let mut node = self.nodes[self.root];
+        let mut node = self.nodes[self.root.get()];
         if index >= getter(node.info) {
             return None;
         }
@@ -234,6 +308,8 @@ where
 
                 running -= sum;
             }
+
+            unreachable!();
         }
 
         for idx in &node.kids {
@@ -258,6 +334,8 @@ struct Node<Info>
 where
     Info: BTreeInfo,
 {
+    #[cfg(debug_assertions)]
+    is_leaf: bool,
     info: Info,
     count: usize,
     parent: Idx, // For the root, I dont think this matters. Maybe it'll point to itself.
@@ -268,10 +346,48 @@ impl<Info> Node<Info>
 where
     Info: BTreeInfo,
 {
+    #[inline(always)]
+    fn leaf() -> Self {
+        let mut node = Self::new();
+
+        #[cfg(debug_assertions)]
+        {
+            node.is_leaf = true;
+        }
+
+        return node;
+    }
+
+    #[inline(always)]
+    fn assert_not_leaf(&self) {
+        #[cfg(debug_assertions)]
+        if self.is_leaf {
+            panic!("thought it wouldnt be a leaf but it was")
+        }
+    }
+
+    #[inline(always)]
+    fn assert_is_leaf(&self) {
+        #[cfg(debug_assertions)]
+        if !self.is_leaf {
+            panic!("thought it would be a leaf but it wasnt")
+        }
+    }
+
     fn new() -> Self {
+        #[cfg(debug_assertions)]
         return Node {
-            info: Default::default(),
+            is_leaf: false,
             count: 0,
+            info: Default::default(),
+            parent: Idx::new(0),
+            kids: ChildArray::new(),
+        };
+
+        #[cfg(not(debug_assertions))]
+        return Node {
+            count: 0,
+            info: Default::default(),
             parent: Idx::new(0),
             kids: ChildArray::new(),
         };
@@ -284,33 +400,35 @@ struct ChildArray {
 }
 
 impl ChildArray {
+    const SPLIT_POINT: usize = B / 2 + 1;
+
     fn new() -> Self {
         return Self { value: [None; B] };
     }
 
     fn insert(&mut self, mut index: usize, mut value: Idx) -> Option<Self> {
-        if index >= B || self.value[index - 1].is_none() {
+        if index > B || (index > 0 && self.value[index - 1].is_none()) {
             panic!("index out of bounds");
         }
 
         while index < B {
-            value = match self.value[index].replace(value) {
-                None => return None,
-                Some(old) => old,
-            };
-
+            value = self.value[index].replace(value)?;
             index += 1;
         }
 
-        let split_point = B / 2 + 1;
         let mut other = Self::new();
         let mut index = 0;
-        for item in self.value[split_point..].iter().map(|c| c.unwrap()) {
+        for item in self.value[Self::SPLIT_POINT..].iter().map(|c| c.unwrap()) {
             other.value[index] = Some(item);
             index += 1;
         }
 
         other.value[index] = Some(value);
+
+        for slot in &mut self.value[Self::SPLIT_POINT..] {
+            *slot = None;
+        }
+
         return Some(other);
     }
 }
@@ -336,5 +454,93 @@ impl<'a> core::iter::IntoIterator for &'a ChildArray {
 
     fn into_iter(self) -> Self::IntoIter {
         return self.value.iter().filter_map(|i| *i);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Clone, Copy, Default, Debug)]
+    struct TestData(usize);
+
+    impl core::ops::Add for TestData {
+        type Output = Self;
+
+        fn add(self, other: Self) -> Self::Output {
+            return Self(self.0 + other.0);
+        }
+    }
+
+    impl BTreeInfo for TestData {}
+
+    impl BTreeItem for TestData {
+        type BTreeInfo = Self;
+
+        fn get_info(&self) -> Self::BTreeInfo {
+            return TestData(self.0);
+        }
+    }
+
+    #[test]
+    fn forward_insert() {
+        let mut tree = BTree::new();
+
+        for i in 0..8 {
+            println!("iter: {}", i);
+            tree.insert(i, TestData(i));
+            for j in 0..(i + 1) {
+                dbg!(tree.get(j).unwrap().0);
+            }
+        }
+
+        for i in 0..8 {
+            assert_eq!(i, tree.get(i).unwrap().0);
+        }
+
+        let mut total = 0;
+        for i in 0..8 {
+            let next = total + i;
+            for (idx, key) in (total..next).enumerate() {
+                let (value, remainder) = tree.key(key, |n| n.0).unwrap();
+                assert_eq!(i, value.0);
+                assert_eq!(idx, remainder);
+            }
+
+            total = next;
+        }
+
+        println!("finished");
+    }
+
+    #[test]
+    fn reverse_insert() {
+        let mut tree = BTree::new();
+
+        for i in 0..8 {
+            println!("iter: {}", i);
+            tree.insert(0, TestData(7 - i));
+            for j in 0..(i + 1) {
+                dbg!(tree.get(j).unwrap().0);
+            }
+        }
+
+        for i in 0..8 {
+            assert_eq!(i, tree.get(i).unwrap().0);
+        }
+
+        let mut total = 0;
+        for i in 0..8 {
+            let next = total + i;
+            for (idx, key) in (total..next).enumerate() {
+                let (value, remainder) = tree.key(key, |n| n.0).unwrap();
+                assert_eq!(i, value.0);
+                assert_eq!(idx, remainder);
+            }
+
+            total = next;
+        }
+
+        println!("finished");
     }
 }
