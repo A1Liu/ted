@@ -1,6 +1,9 @@
-import { render } from "./Cargo.toml";
+import { render, test_print } from "./Cargo.toml";
+
+test_print();
 
 const canvas = document.getElementById("canvas");
+
 try {
   render(canvas);
 } catch (e) {

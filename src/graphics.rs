@@ -62,7 +62,6 @@ pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> 
     let (atlas_width, atlas_height) = cache.atlas_dims();
 
     if glyph_list.did_raster {
-        console_log("Ho there");
         let atlas = cache.atlas();
         webgl.bind_texture("u_glyph_atlas", atlas_width, atlas_height, atlas)?;
     }

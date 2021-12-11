@@ -23,13 +23,3 @@ impl Idx {
         return !self.0.get();
     }
 }
-
-pub fn console_log(a: &str) {
-    log(a);
-}
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(a: &str);
-}

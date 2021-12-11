@@ -2,8 +2,9 @@ use crate::util::*;
 use std::collections::hash_map::HashMap;
 use ttf_parser as ttf;
 
+// const COURIER: &[u8] = &[0];
 const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
-const SIZE: usize = 200;
+const SIZE: usize = 50;
 const DEFAULT_CHARS: &'static str = core::concat!(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     "abcdefghijklmnopqrstuvwxyz",
@@ -162,8 +163,7 @@ impl GlyphCache {
 
         if let Some(&glyph) = self.descriptors.get(&c) {
             if (self.atlas_height * self.glyph_width) != (self.atlas.len() as u32) {
-                console_log("WTF just happened");
-                panic!();
+                panic!("WTF just happened");
             }
 
             return glyph;
@@ -208,8 +208,7 @@ impl GlyphCache {
         self.atlas_height += self.glyph_height;
 
         if (self.atlas_height * self.glyph_width) != (self.atlas.len() as u32) {
-            console_log("WTF just happened");
-            panic!();
+            panic!("WTF just happened");
         }
 
         return glyph;

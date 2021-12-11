@@ -1,3 +1,4 @@
+use crate::util::*;
 use js_sys::Object;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -135,6 +136,8 @@ impl WebGl {
         data: &[u8],
     ) -> Result<(), JsValue> {
         let (ctx, program) = (&self.ctx, &self.program);
+
+        dbg!(ctx.get_parameter(Context::MAX_TEXTURE_SIZE)?);
 
         let tex_type = Context::TEXTURE_2D;
         let data_type = Context::UNSIGNED_BYTE;
