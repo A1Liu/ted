@@ -135,6 +135,14 @@ where
         self.insert_into_leaf(leaf, index, elem);
     }
 
+    pub fn insert_after(&mut self, index: ElemIdx, elem: T) {
+        let leaf = self.element_info[index.0.get()].parent;
+        let mut kids_iter = self.nodes[leaf.get()].kids.into_iter();
+        let index = kids_iter.position(|kid| kid == index.0).unwrap();
+
+        self.insert_into_leaf(leaf, index + 1, elem);
+    }
+
     fn insert_into_leaf(&mut self, mut node: Idx, index: usize, elem: T) {
         let (elem_info, mut right) = self.add_to_leaf(node, index, elem);
         for _ in 0..self.levels {
