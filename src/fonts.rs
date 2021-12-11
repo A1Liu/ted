@@ -4,9 +4,12 @@ use ttf_parser as ttf;
 
 const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
 const SIZE: usize = 200;
-// const DEFAULT_CHARS: &'static str =
-//     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()_+-=[]{};':\",.<>/?\\|";
-const DEFAULT_CHARS: &'static str = "H";
+const DEFAULT_CHARS: &'static str = core::concat!(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "abcdefghijklmnopqrstuvwxyz",
+    "0123456789",
+    r#"`~!@#$%^&*()_+-=[]{};':",.<>/?\|"#
+);
 
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
