@@ -155,7 +155,7 @@ where
             };
 
             let mut kids_iter = self.nodes[parent.get()].kids.into_iter();
-            let node_index = kids_iter.position(|kid| kid.get() == node.get()).unwrap() + 1;
+            let node_index = kids_iter.position(|kid| kid == node).unwrap() + 1;
             let kids = match self.nodes[parent.get()].kids.insert(node_index, to_insert) {
                 Some(right_kids) => right_kids,
                 None => {
