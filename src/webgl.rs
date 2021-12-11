@@ -40,8 +40,8 @@ where
 
 // Maybe later make this more convenient to use with multiple programs
 pub struct WebGl {
-    ctx: Context,
-    program: WebGlProgram,
+    pub ctx: Context,
+    pub program: WebGlProgram,
 }
 
 impl WebGl {
@@ -74,7 +74,7 @@ impl WebGl {
     where
         T: WebGlType,
     {
-        let make_err = || JsValue::from("Failed to write uniform");
+        let make_err = || format!("Failed to write uniform");
         let loc_opt = self.ctx.get_uniform_location(&self.program, name);
         let loc = loc_opt.ok_or_else(make_err)?;
         value.bind_uniform(&self.ctx, Some(&loc));
@@ -104,7 +104,7 @@ impl WebGl {
 
         let loc = ctx.get_attrib_location(program, attrib);
 
-        let make_err = |e| "Failed to get location of variable";
+        let make_err = |e| format!("failed to get location of '{}' (got {})", attrib, loc);
         let loc = loc.try_into().map_err(make_err)?;
 
         ctx.enable_vertex_attrib_array(loc);

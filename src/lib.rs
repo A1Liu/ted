@@ -8,28 +8,24 @@
 /* */
 
 mod btree;
+mod webgl;
+
 pub mod fonts;
 pub mod graphics;
 pub mod large_text;
 pub mod text;
 pub mod util;
-mod webgl;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
+pub use btree::*;
 use graphics::*;
-use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(a: &str);
-}
+use util::*;
 
 #[wasm_bindgen]
 pub fn albert_editor_main_loop() {
-    log("Hello World!\n");
+    console_log("Hello World!\n");
 }
 
 #[wasm_bindgen]

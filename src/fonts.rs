@@ -3,17 +3,28 @@ use ttf_parser as ttf;
 
 const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
 const SIZE: usize = 200;
+const DEFAULT_CHARS: &'static str =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()_+-=[]{};':\",.<>/?\\|";
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
 pub struct Glyph {
-    pub width: usize,
-    pub height: usize,
-    pub offset: usize,
+    pub x: u32,
+    pub y: u32,
+}
+
+pub struct GlyphData {
+    pub data: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
 }
 
 pub struct GlyphCache {
     descriptors: HashMap<char, Glyph>,
-    pub data: Vec<u8>,
+    atlas: Vec<u8>,
+    glyph_width: u32,
+    glyph_height: u32,
+    atlas_height: u32,
 }
 
 pub struct GlyphList {
@@ -21,58 +32,23 @@ pub struct GlyphList {
     pub glyphs: Vec<Glyph>,
 }
 
+impl GlyphList {
+    pub fn new(did_raster: bool, glyphs: Vec<Glyph>) -> Self {
+        return Self { did_raster, glyphs };
+    }
+}
+
+const PAD_H: u32 = 4;
+const PAD_V: u32 = 8;
+
 impl GlyphCache {
     pub fn new() -> GlyphCache {
-        return GlyphCache {
+        let mut cache = GlyphCache {
             descriptors: HashMap::new(),
-            data: Vec::new(),
-        };
-    }
-
-    pub fn translate_glyphs(&mut self, characters: &str) -> GlyphList {
-        let mut glyphs = GlyphList {
-            did_raster: false,
-            glyphs: Vec::new(),
-        };
-
-        let mut chars = characters.chars();
-
-        let character;
-        'fast_path: loop {
-            while let Some(c) = chars.next() {
-                if let Some(&glyph) = self.descriptors.get(&c) {
-                    glyphs.glyphs.push(glyph);
-                    continue;
-                }
-
-                character = c;
-                glyphs.did_raster = true;
-                break 'fast_path;
-            }
-
-            return glyphs;
-        }
-
-        let face = ttf::Face::from_slice(COURIER, 0).unwrap();
-        if face.is_variable() || !face.is_monospaced() {
-            panic!("Can't handle variable fonts");
-        }
-
-        let glyph = self.rasterize_char(&face, character);
-        glyphs.glyphs.push(glyph);
-
-        while let Some(c) = chars.next() {
-            let glyph = self.rasterize_char(&face, c);
-            glyphs.glyphs.push(glyph);
-        }
-
-        return glyphs;
-    }
-
-    pub fn all_glyphs(&mut self) -> GlyphList {
-        let mut glyphs = GlyphList {
-            did_raster: true,
-            glyphs: Vec::new(),
+            atlas: Vec::new(),
+            glyph_width: 0,
+            glyph_height: 0,
+            atlas_height: 0,
         };
 
         let face = ttf::Face::from_slice(COURIER, 0).unwrap();
@@ -83,87 +59,212 @@ impl GlyphCache {
         let ppem = face.units_per_em();
         let scale = (SIZE as f32) / (ppem as f32);
 
-        for id in 0..face.number_of_glyphs() {
-            let glyph_id = ttf::GlyphId(id);
-            let rect = match face.glyph_bounding_box(glyph_id) {
-                Some(rect) => rect,
-                None => {
-                    glyphs.glyphs.push(Glyph {
-                        width: 0,
-                        height: 0,
-                        offset: self.data.len(),
-                    });
+        let (mut width, mut height) = (cache.glyph_width, cache.glyph_height);
+        for c in DEFAULT_CHARS.chars() {
+            let (w, h) = char_dimensions(&face, scale, c);
 
-                    continue;
-                }
-            };
-
-            let (xmin, ymin, xmax, ymax) = (rect.x_min, rect.y_min, rect.x_max, rect.y_max);
-            let (metrics, z) = metrics_and_affine(xmin, ymin, xmax, ymax, scale);
-            let (width, height) = (metrics.width(), metrics.height());
-
-            let mut builder = Builder::new(width, height, z);
-            face.outline_glyph(glyph_id, &mut builder);
-            let (w, h) = (builder.raster.w as u32, builder.raster.h as u32);
-
-            let offset = self.data.len();
-            let buffer = builder.raster.get_bitmap();
-            self.data.extend(buffer);
-
-            let glyph = Glyph {
-                width,
-                height,
-                offset,
-            };
-
-            glyphs.glyphs.push(glyph);
+            width = core::cmp::max(width, w);
+            height = core::cmp::max(height, h);
         }
 
-        return glyphs;
+        cache.glyph_width = width + PAD_H * 2;
+        cache.glyph_height = height + PAD_V * 2;
+
+        for c in DEFAULT_CHARS.chars() {
+            cache.add_char(&face, scale, c);
+        }
+
+        return cache;
     }
 
-    fn rasterize_char(&mut self, face: &ttf::Face, c: char) -> Glyph {
+    pub fn atlas(&self) -> &[u8] {
+        return &self.atlas;
+    }
+
+    pub fn translate_glyphs(&mut self, characters: &str) -> GlyphList {
+        let mut chars = characters.chars();
+        let mut glyphs = Vec::new();
+
+        let char_count = characters.len();
+        glyphs.reserve(char_count * 6); // each glyph is 2 trianges of 3 points each
+
+        let character;
+        'fast_path: loop {
+            for c in &mut chars {
+                if let Some(&glyph) = self.descriptors.get(&c) {
+                    self.add_glyph_to_list(&mut glyphs, glyph);
+                    continue;
+                }
+
+                character = c;
+                break 'fast_path;
+            }
+
+            return GlyphList::new(false, glyphs);
+        }
+
+        let face = ttf::Face::from_slice(COURIER, 0).unwrap();
+        if face.is_variable() || !face.is_monospaced() {
+            panic!("Can't handle variable fonts");
+        }
+
+        let ppem = face.units_per_em();
+        let scale = (SIZE as f32) / (ppem as f32);
+
+        let (mut width, mut height) = (0, 0);
+        for c in characters.chars().chain(DEFAULT_CHARS.chars()) {
+            let (w, h) = char_dimensions(&face, scale, c);
+
+            width = core::cmp::max(width, w);
+            height = core::cmp::max(height, h);
+        }
+
+        let (width, height) = (width + PAD_H * 2, height + PAD_V * 2);
+
+        if width < self.glyph_width && height < self.glyph_height {
+            let glyph = self.add_char(&face, scale, character);
+            self.add_glyph_to_list(&mut glyphs, glyph);
+
+            for c in &mut chars {
+                let glyph = self.add_char(&face, scale, character);
+                self.add_glyph_to_list(&mut glyphs, glyph);
+            }
+
+            return GlyphList::new(true, glyphs);
+        }
+
+        let chars = ();
+        let character = ();
+
+        glyphs.clear();
+        self.descriptors.clear();
+        self.atlas.clear();
+
+        self.glyph_width = width;
+        self.glyph_height = height;
+        self.atlas_height = 0;
+
+        for c in characters.chars().chain(DEFAULT_CHARS.chars()) {
+            let glyph = self.add_char(&face, scale, c);
+            self.add_glyph_to_list(&mut glyphs, glyph);
+        }
+
+        return GlyphList::new(true, glyphs);
+    }
+
+    fn add_glyph_to_list(&self, list: &mut Vec<Glyph>, mut glyph: Glyph) {
+        let top_left = glyph;
+
+        glyph.x += self.glyph_width;
+        let top_right = glyph;
+
+        glyph.y += self.glyph_height;
+        let bot_right = glyph;
+
+        glyph.x -= self.glyph_width;
+        let bot_left = glyph;
+
+        list.push(top_left);
+        list.push(top_right);
+        list.push(bot_left);
+
+        list.push(bot_left);
+        list.push(top_right);
+        list.push(bot_right);
+    }
+
+    fn add_char(&mut self, face: &ttf::Face, scale: f32, c: char) -> Glyph {
+        assert_can_render(c);
+
         if let Some(&glyph) = self.descriptors.get(&c) {
             return glyph;
         }
 
         let glyph_id = face.glyph_index(c).unwrap();
+        let glyph_data = rasterize_glyph(face, scale, glyph_id);
 
-        let ppem = face.units_per_em();
-        let scale = (SIZE as f32) / (ppem as f32);
+        let glyph_size = self.glyph_height * self.glyph_width;
+        self.atlas.reserve(glyph_size as usize);
 
-        let rect = match face.glyph_bounding_box(glyph_id) {
-            Some(rect) => rect,
-            None => {
-                return Glyph {
-                    width: 0,
-                    height: 0,
-                    offset: self.data.len(),
-                }
+        let glyph_begin_row = self.glyph_height - glyph_data.height - PAD_V;
+        let glyph_end_size = self.glyph_width - glyph_data.width - PAD_H;
+        let glyph_width = glyph_data.width as usize;
+
+        for _ in 0..(glyph_begin_row * self.glyph_width) {
+            self.atlas.push(0);
+        }
+
+        for row in 0..(glyph_data.height as usize) {
+            let row_begin = row * glyph_width;
+            let row_data = &glyph_data.data[row_begin..(row_begin + glyph_width)];
+
+            for _ in 0..PAD_H {
+                self.atlas.push(0);
             }
-        };
 
-        let (xmin, ymin, xmax, ymax) = (rect.x_min, rect.y_min, rect.x_max, rect.y_max);
-        let (metrics, z) = metrics_and_affine(xmin, ymin, xmax, ymax, scale);
-        let (width, height) = (metrics.width(), metrics.height());
+            self.atlas.extend_from_slice(row_data);
+            for _ in 0..glyph_end_size {
+                self.atlas.push(0);
+            }
+        }
 
-        let mut builder = Builder::new(width, height, z);
-        face.outline_glyph(glyph_id, &mut builder);
-        let (w, h) = (builder.raster.w as u32, builder.raster.h as u32);
+        for _ in 0..(PAD_H * self.glyph_width) {
+            self.atlas.push(0);
+        }
 
-        let offset = self.data.len();
-        let buffer = builder.raster.get_bitmap();
-        self.data.extend(buffer);
+        let y = (self.descriptors.len() as u32) * self.glyph_height;
 
-        let glyph = Glyph {
-            width,
-            height,
-            offset,
-        };
+        let glyph = Glyph { x: 0, y };
         self.descriptors.insert(c, glyph);
+        self.atlas_height += self.glyph_height;
 
         return glyph;
     }
+}
+
+#[inline(always)]
+fn assert_can_render(c: char) {
+    #[cfg(debug_assertions)]
+    if c.is_control() || c.is_whitespace() {
+        panic!("Shouldn't be trying to render a non-printing character");
+    }
+}
+
+fn char_dimensions(face: &ttf::Face, scale: f32, c: char) -> (u32, u32) {
+    let glyph_id = face.glyph_index(c).unwrap();
+    let rect = match face.glyph_bounding_box(glyph_id) {
+        Some(rect) => rect,
+        None => return (0, 0),
+    };
+
+    let (metrics, z) = metrics_and_affine(rect, scale);
+    return (metrics.width(), metrics.height());
+}
+
+fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData {
+    let rect = match face.glyph_bounding_box(id) {
+        Some(rect) => rect,
+        None => {
+            return GlyphData {
+                width: 0,
+                height: 0,
+                data: Vec::new(),
+            }
+        }
+    };
+
+    let (metrics, z) = metrics_and_affine(rect, scale);
+    let (width, height) = (metrics.width(), metrics.height());
+
+    let mut builder = Builder::new(width, height, z);
+    face.outline_glyph(id, &mut builder);
+
+    let data = builder.raster.get_bitmap();
+    return GlyphData {
+        width,
+        height,
+        data,
+    };
 }
 
 pub struct Builder {
@@ -173,9 +274,9 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new(w: usize, h: usize, affine: Affine) -> Builder {
+    pub fn new(w: u32, h: u32, affine: Affine) -> Builder {
         return Builder {
-            raster: Raster::new(w, h),
+            raster: Raster::new(w as usize, h as usize),
             current: Point { x: 0.0, y: 0.0 },
             affine,
         };
@@ -338,7 +439,8 @@ impl Raster {
     }
 }
 
-fn metrics_and_affine(xmin: i16, ymin: i16, xmax: i16, ymax: i16, scale: f32) -> (Metrics, Affine) {
+fn metrics_and_affine(rect: ttf::Rect, scale: f32) -> (Metrics, Affine) {
+    let (xmin, ymin, xmax, ymax) = (rect.x_min, rect.y_min, rect.x_max, rect.y_max);
     let l = (xmin as f32 * scale).floor() as i32;
     let t = (ymax as f32 * -scale).floor() as i32;
     let r = (xmax as f32 * scale).ceil() as i32;
@@ -396,11 +498,11 @@ struct Metrics {
 }
 
 impl Metrics {
-    fn width(&self) -> usize {
-        (self.r - self.l) as usize
+    fn width(&self) -> u32 {
+        (self.r - self.l) as u32
     }
 
-    fn height(&self) -> usize {
-        (self.b - self.t) as usize
+    fn height(&self) -> u32 {
+        (self.b - self.t) as u32
     }
 }

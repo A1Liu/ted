@@ -1,3 +1,5 @@
+use crate::fonts::*;
+use crate::util::*;
 use crate::webgl::*;
 use wasm_bindgen::prelude::*;
 
@@ -42,11 +44,24 @@ fn pt(x: u32, y: u32) -> Point {
 
 pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> {
     let webgl = WebGl::new(canvas)?;
+    let mut cache = GlyphCache::new();
 
-    let points = vec![pt(0, 0), pt(1, 0), pt(0, 1), pt(1, 0), pt(0, 1), pt(1, 1)];
+    let loc = webgl
+        .ctx
+        .get_attrib_location(&webgl.program, "in_glyph_pos");
+    if loc < 0 {
+        return Err(JsValue::from("What's going on?"));
+    }
+
+    let points = vec![pt(0, 0), pt(1, 0), pt(0, 1), pt(0, 1), pt(1, 0), pt(1, 1)];
     webgl.bind_array("in_pos", &points)?;
 
-    // let glyph_Data = ;
+    let glyph_list = cache.translate_glyphs("H");
+    webgl.bind_array("in_glyph_pos", &glyph_list.glyphs)?;
+
+    //if glyph_list.did_raster {
+    //    webgl.
+    //}
 
     let width: f32 = 2.0;
     webgl.bind_uniform("u_width", width)?;
@@ -60,6 +75,21 @@ pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> 
 }
 
 impl WebGlType for Point {
+    const GL_TYPE: u32 = Context::UNSIGNED_INT;
+    const SIZE: i32 = 2;
+
+    unsafe fn view(array: &[Self]) -> js_sys::Object {
+        let ptr = array.as_ptr() as *const u32;
+        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 2);
+        return js_sys::Uint32Array::view(buffer).into();
+    }
+
+    fn is_int() -> bool {
+        return true;
+    }
+}
+
+impl WebGlType for Glyph {
     const GL_TYPE: u32 = Context::UNSIGNED_INT;
     const SIZE: i32 = 2;
 

@@ -1,13 +1,14 @@
 #version 300 es
 
 in uvec2 in_pos;
+in uvec2 in_glyph_pos;
 
 uniform float u_width;
 uniform float u_height;
 
-// attribute float glyph_in;
+out vec2 glyph_pos;
 
-// varying float glyph;
+// varying vec2 glyph;
 
 void main() {
     vec4 temp_out = vec4(0.0, 0.0, 0.0, 1.0);
@@ -22,5 +23,8 @@ void main() {
     temp_out.x = x;
     temp_out.y = y;
 
+    vec2 temp_glyph_out = vec2(in_glyph_pos);
+
     gl_Position = temp_out;
+    glyph_pos = temp_glyph_out;
 }

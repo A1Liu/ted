@@ -1,4 +1,5 @@
 use core::num::NonZeroUsize;
+pub use wasm_bindgen::prelude::*;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
@@ -21,4 +22,14 @@ impl Idx {
     pub fn get(self) -> usize {
         return !self.0.get();
     }
+}
+
+pub fn console_log(a: &str) {
+    log(a);
+}
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(a: &str);
 }
