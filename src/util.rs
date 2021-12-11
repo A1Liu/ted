@@ -1,6 +1,6 @@
 use core::num::NonZeroUsize;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct Idx(NonZeroUsize);
 
@@ -11,12 +11,14 @@ impl std::fmt::Debug for Idx {
 }
 
 impl Idx {
+    #[inline(always)]
     pub fn new(i: usize) -> Idx {
-        // this will panic anyways.
-        return Idx(unsafe { NonZeroUsize::new_unchecked(i + 1) });
+        // this will panic anyways later on in the pipeline
+        return Idx(unsafe { NonZeroUsize::new_unchecked(!i) });
     }
 
+    #[inline(always)]
     pub fn get(self) -> usize {
-        return self.0.get() - 1;
+        return !self.0.get();
     }
 }

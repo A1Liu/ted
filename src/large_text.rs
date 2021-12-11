@@ -6,6 +6,16 @@ pub struct LargeFile {
     text: BTree<BufferView>,
 }
 
+impl LargeFile {
+    pub fn new() -> Self {
+        return Self {
+            active: false,
+            file_cursor: 0,
+            text: BTree::new(),
+        };
+    }
+}
+
 struct BufferView {
     begin: Box<[u8; 4096]>,
     content_size: u16,

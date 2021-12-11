@@ -34,8 +34,7 @@ pub fn albert_editor_main_loop() {
 
 #[wasm_bindgen]
 pub fn render(canvas: web_sys::Element) -> Result<(), JsValue> {
-    // let mut cache = GlyphCache::new();
-
+    let file = large_text::LargeFile::new();
     let text = "Hello World!";
     render_text(canvas, text)?;
 
