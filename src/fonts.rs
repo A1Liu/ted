@@ -69,6 +69,59 @@ impl GlyphCache {
         return glyphs;
     }
 
+    pub fn all_glyphs(&mut self) -> GlyphList {
+        let mut glyphs = GlyphList {
+            did_raster: true,
+            glyphs: Vec::new(),
+        };
+
+        let face = ttf::Face::from_slice(COURIER, 0).unwrap();
+        if face.is_variable() || !face.is_monospaced() {
+            panic!("Can't handle variable fonts");
+        }
+
+        let ppem = face.units_per_em();
+        let scale = (SIZE as f32) / (ppem as f32);
+
+        for id in 0..face.number_of_glyphs() {
+            let glyph_id = ttf::GlyphId(id);
+            let rect = match face.glyph_bounding_box(glyph_id) {
+                Some(rect) => rect,
+                None => {
+                    glyphs.glyphs.push(Glyph {
+                        width: 0,
+                        height: 0,
+                        offset: self.data.len(),
+                    });
+
+                    continue;
+                }
+            };
+
+            let (xmin, ymin, xmax, ymax) = (rect.x_min, rect.y_min, rect.x_max, rect.y_max);
+            let (metrics, z) = metrics_and_affine(xmin, ymin, xmax, ymax, scale);
+            let (width, height) = (metrics.width(), metrics.height());
+
+            let mut builder = Builder::new(width, height, z);
+            face.outline_glyph(glyph_id, &mut builder);
+            let (w, h) = (builder.raster.w as u32, builder.raster.h as u32);
+
+            let offset = self.data.len();
+            let buffer = builder.raster.get_bitmap();
+            self.data.extend(buffer);
+
+            let glyph = Glyph {
+                width,
+                height,
+                offset,
+            };
+
+            glyphs.glyphs.push(glyph);
+        }
+
+        return glyphs;
+    }
+
     fn rasterize_char(&mut self, face: &ttf::Face, c: char) -> Glyph {
         if let Some(&glyph) = self.descriptors.get(&c) {
             return glyph;

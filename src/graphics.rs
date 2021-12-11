@@ -24,18 +24,29 @@ pub struct Point {
     y: u32,
 }
 
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct GlyphData {
+    value: [u32; 3],
+}
+
 #[inline]
 fn pt(x: u32, y: u32) -> Point {
     return Point { x, y };
 }
 
+// #[inline]
+// fn glyph(offset: u32) -> GlyphData {
+//     return GlyphData { value: [] };
+// }
+
 pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> {
     let webgl = WebGl::new(canvas)?;
 
-    let points: [Point; 3] = [pt(0, 0), pt(1, 0), pt(0, 1)];
+    let points = vec![pt(0, 0), pt(1, 0), pt(0, 1), pt(1, 0), pt(0, 1), pt(1, 1)];
     webgl.bind_array("in_pos", &points)?;
 
-    // let glyphs: [f32; 1] = [1.0];
+    // let glyph_Data = ;
 
     let width: f32 = 2.0;
     webgl.bind_uniform("u_width", width)?;
