@@ -33,8 +33,16 @@ pub fn albert_editor_main_loop() {
 }
 
 #[wasm_bindgen]
+pub fn text() {
+    let mut tree = btree::BTree::new();
+    for i in 0..8 {
+        println!("iter: {}", i);
+        tree.insert(0, large_text::BufferView::new());
+    }
+}
+
+#[wasm_bindgen]
 pub fn render(canvas: web_sys::Element) -> Result<(), JsValue> {
-    let file = large_text::LargeFile::new();
     let text = "Hello World!";
     render_text(canvas, text)?;
 

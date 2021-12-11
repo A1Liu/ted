@@ -16,14 +16,28 @@ impl LargeFile {
     }
 }
 
-struct BufferView {
-    begin: Box<[u8; 4096]>,
+pub struct BufferView {
+    buffer: Box<[u8; 4096]>,
     content_size: u16,
     newline_count: u16,
 }
 
+impl BufferView {
+    pub fn new() -> Self {
+        let mut vec = vec![0u8; 4096];
+        let ptr = vec.as_mut_ptr() as *mut [u8; 4096];
+        vec.leak();
+
+        return Self {
+            buffer: unsafe { Box::from_raw(ptr) },
+            content_size: 0,
+            newline_count: 0,
+        };
+    }
+}
+
 #[derive(Default, Clone, Copy)]
-struct BufferInfo {
+pub struct BufferInfo {
     content_size: usize,
     newline_count: usize,
 }
