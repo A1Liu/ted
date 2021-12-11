@@ -2,6 +2,9 @@ use crate::util::*;
 
 const B: usize = 6;
 
+#[derive(Clone, Copy)]
+pub struct ElemIdx(Idx);
+
 pub trait BTreeInfo
 where
     Self: Sized + Copy + core::ops::Add<Self, Output = Self> + Default,
@@ -15,12 +18,6 @@ where
     type BTreeInfo: BTreeInfo;
 
     fn get_info(&self) -> Self::BTreeInfo;
-}
-
-#[derive(Clone, Copy)]
-struct ElementInfo {
-    parent: Idx,
-    next_free: Option<Idx>,
 }
 
 // Use SOA stuff eventually: https://github.com/lumol-org/soa-derive
@@ -73,6 +70,11 @@ where
         return Some(&mut self.elements[idx.get()]);
     }
 
+    pub fn get_idx(&self, index: usize) -> Option<ElemIdx> {
+        let idx = self._get_idx(index)?;
+        return Some(ElemIdx(idx));
+    }
+
     pub fn key<F>(&self, index: usize, getter: F) -> Option<(&T, usize)>
     where
         F: Fn(<T as BTreeItem>::BTreeInfo) -> usize,
@@ -87,6 +89,19 @@ where
     {
         let (idx, remainder) = self._key_idx(index, getter)?;
         return Some((&mut self.elements[idx.get()], remainder));
+    }
+
+    pub fn key_idx<F>(&self, index: usize, getter: F) -> Option<(ElemIdx, usize)>
+    where
+        F: Fn(<T as BTreeItem>::BTreeInfo) -> usize,
+    {
+        let (idx, remainder) = self._key_idx(index, getter)?;
+        return Some((ElemIdx(idx), remainder));
+    }
+
+    #[inline]
+    pub fn add(&mut self, element: T) {
+        self.insert(self.nodes[self.root.get()].count, element);
     }
 
     pub fn insert(&mut self, index: usize, elem: T) {
@@ -324,6 +339,12 @@ where
 
         unreachable!();
     }
+}
+
+#[derive(Clone, Copy)]
+struct ElementInfo {
+    parent: Idx,
+    next_free: Option<Idx>,
 }
 
 // We're using the trick from Basic algo with the combining lists thing! From
