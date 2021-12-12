@@ -5,16 +5,12 @@ use fonts::*;
 use wasm_bindgen::prelude::*;
 use webgl::*;
 
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct Point {
-    x: u32,
-    y: u32,
-}
-
-#[inline]
-fn pt(x: u32, y: u32) -> Point {
-    return Point { x, y };
+pub struct TextVertices {
+    points: Vec<Point>,
+    glyphs: Vec<Glyph>,
+    did_raster: bool,
+    width: usize,
+    height: usize,
 }
 
 pub fn render_text(ctx: web_sys::WebGl2RenderingContext, text: &str) -> Result<(), JsValue> {
@@ -46,6 +42,18 @@ pub fn render_text(ctx: web_sys::WebGl2RenderingContext, text: &str) -> Result<(
     webgl.draw(points.len() as i32);
 
     return Ok(());
+}
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+struct Point {
+    x: u32,
+    y: u32,
+}
+
+#[inline]
+fn pt(x: u32, y: u32) -> Point {
+    return Point { x, y };
 }
 
 impl WebGlType for Point {
