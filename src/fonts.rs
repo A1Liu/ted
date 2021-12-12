@@ -3,8 +3,13 @@ use std::collections::hash_map::HashMap;
 use ttf_parser as ttf;
 
 // const COURIER: &[u8] = &[0];
+const MAX_ATLAS_WIDTH: u32 = 4096;
 const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
-const SIZE: usize = 50;
+
+const SIZE: usize = 200; // some kind of font thing idk.
+const PAD_H: u32 = 8; // in pixels
+const PAD_V: u32 = 16; // in pixels
+
 const DEFAULT_CHARS: &'static str = core::concat!(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     "abcdefghijklmnopqrstuvwxyz",
@@ -30,6 +35,8 @@ pub struct GlyphCache {
     atlas: Vec<u8>,
     glyph_width: u32,
     glyph_height: u32,
+    atlas_current_row_width: u32,
+    atlas_width: u32,
     atlas_height: u32,
 }
 
@@ -44,9 +51,6 @@ impl GlyphList {
     }
 }
 
-const PAD_H: u32 = 4;
-const PAD_V: u32 = 8;
-
 impl GlyphCache {
     pub fn new() -> GlyphCache {
         return GlyphCache {
@@ -54,12 +58,14 @@ impl GlyphCache {
             atlas: Vec::new(),
             glyph_width: 0,
             glyph_height: 0,
+            atlas_current_row_width: MAX_ATLAS_WIDTH,
+            atlas_width: MAX_ATLAS_WIDTH,
             atlas_height: 0,
         };
     }
 
     pub fn atlas_dims(&self) -> (u32, u32) {
-        return (self.glyph_width, self.atlas_height);
+        return (self.atlas_width, self.atlas_height);
     }
 
     pub fn atlas(&self) -> &[u8] {
@@ -127,6 +133,8 @@ impl GlyphCache {
 
         self.glyph_width = width;
         self.glyph_height = height;
+        self.atlas_width = MAX_ATLAS_WIDTH / self.glyph_width * self.glyph_width;
+        self.atlas_current_row_width = self.atlas_width;
         self.atlas_height = 0;
 
         for c in characters.chars().chain(DEFAULT_CHARS.chars()) {
@@ -162,56 +170,88 @@ impl GlyphCache {
         assert_can_render(c);
 
         if let Some(&glyph) = self.descriptors.get(&c) {
-            if (self.atlas_height * self.glyph_width) != (self.atlas.len() as u32) {
-                panic!("WTF just happened");
+            if (self.atlas_height * self.atlas_width) != (self.atlas.len() as u32) {
+                panic!("");
             }
 
             return glyph;
         }
 
+        if self.atlas_current_row_width + self.glyph_width >= self.atlas_width {
+            let glyph_row_size = self.atlas_width * self.glyph_height;
+
+            self.atlas.reserve(glyph_row_size as usize);
+            for _ in 0..glyph_row_size {
+                self.atlas.push(0);
+            }
+
+            self.atlas_current_row_width = 0;
+            self.atlas_height += self.glyph_height;
+        }
+
         let glyph_id = face.glyph_index(c).unwrap();
         let glyph_data = rasterize_glyph(face, scale, glyph_id);
 
-        let glyph_size = self.glyph_height * self.glyph_width;
-        self.atlas.reserve(glyph_size as usize);
+        let x = self.atlas_current_row_width;
+        self.atlas_current_row_width += self.glyph_width;
+        let y = self.atlas_height - self.glyph_height;
 
-        let glyph_begin_row = self.glyph_height - glyph_data.height - PAD_V;
-        let glyph_end_size = self.glyph_width - glyph_data.width - PAD_H;
-        let glyph_width = glyph_data.width as usize;
-
-        for _ in 0..(glyph_begin_row * self.glyph_width) {
-            self.atlas.push(0);
-        }
-
-        for row in 0..(glyph_data.height as usize) {
-            let row_begin = row * glyph_width;
-            let row_data = &glyph_data.data[row_begin..(row_begin + glyph_width)];
-
-            for _ in 0..PAD_H {
-                self.atlas.push(0);
-            }
-
-            self.atlas.extend_from_slice(row_data);
-            for _ in 0..glyph_end_size {
-                self.atlas.push(0);
-            }
-        }
-
-        for _ in 0..(PAD_V * self.glyph_width) {
-            self.atlas.push(0);
-        }
-
-        let y = (self.descriptors.len() as u32) * self.glyph_height;
-
-        let glyph = Glyph { x: 0, y };
+        let glyph = Glyph { x, y };
+        self.write_glyph_data(glyph, glyph_data);
         self.descriptors.insert(c, glyph);
-        self.atlas_height += self.glyph_height;
 
-        if (self.atlas_height * self.glyph_width) != (self.atlas.len() as u32) {
+        if (self.atlas_height * self.atlas_width) != (self.atlas.len() as u32) {
             panic!("WTF just happened");
         }
 
         return glyph;
+    }
+
+    fn write_glyph_data(&mut self, glyph: Glyph, data: GlyphData) {
+        let glyph_x = glyph.x as usize;
+        let glyph_y = glyph.y as usize;
+
+        let atlas_height = self.atlas_height as usize;
+        let atlas_width = self.atlas_width as usize;
+        let glyph_height = self.glyph_height as usize;
+        let glyph_width = self.glyph_width as usize;
+        let data_height = data.height as usize;
+        let data_width = data.width as usize;
+        let data = data.data;
+
+        let (pad_v, pad_h) = (PAD_V as usize, PAD_H as usize);
+
+        let data_begin_row = atlas_height - data_height - pad_v;
+        let data_end_row = atlas_height - pad_v;
+        let data_begin_col = glyph_x + pad_h;
+        let data_end_col = glyph_x + pad_h + data_width;
+
+        let glyph_begin_row = glyph_y + pad_v;
+        // glyph_end_row == data_end_row
+        // glyph_begin_col == data_begin_col
+        let glyph_end_col = glyph_x + glyph_width - pad_h;
+
+        // Empty out any space that might've been filled by a previous glyph
+        for row in glyph_begin_row..data_begin_row {
+            let begin = row * atlas_width + data_begin_col;
+            let end = begin + glyph_width;
+
+            self.atlas[begin..end].fill(0);
+        }
+
+        for (data_row, atlas_row) in (data_begin_row..data_end_row).enumerate() {
+            let begin = atlas_row * atlas_width + data_begin_col;
+            let end = begin + data_width;
+
+            let data_begin = data_row * data_width;
+            let data_end = data_begin + data_width;
+
+            self.atlas[begin..end].copy_from_slice(&data[data_begin..data_end]);
+
+            let begin = atlas_row * atlas_width + data_end_col;
+            let end = atlas_row * atlas_width + glyph_end_col;
+            self.atlas[begin..end].fill(0);
+        }
     }
 }
 

@@ -26,32 +26,14 @@ pub struct Point {
     y: u32,
 }
 
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct GlyphData {
-    value: [u32; 3],
-}
-
 #[inline]
 fn pt(x: u32, y: u32) -> Point {
     return Point { x, y };
 }
 
-// #[inline]
-// fn glyph(offset: u32) -> GlyphData {
-//     return GlyphData { value: [] };
-// }
-
-pub fn render_text(canvas: web_sys::Element, text: &str) -> Result<(), JsValue> {
-    let mut webgl = WebGl::new(canvas)?;
+pub fn render_text(ctx: web_sys::WebGl2RenderingContext, text: &str) -> Result<(), JsValue> {
+    let mut webgl = WebGl::new(ctx)?;
     let mut cache = GlyphCache::new();
-
-    let loc = webgl
-        .ctx
-        .get_attrib_location(&webgl.program, "in_glyph_pos");
-    if loc < 0 {
-        return Err(JsValue::from("What's going on?"));
-    }
 
     let points = vec![pt(0, 0), pt(1, 0), pt(0, 1), pt(0, 1), pt(1, 0), pt(1, 1)];
     webgl.bind_array("in_pos", &points)?;

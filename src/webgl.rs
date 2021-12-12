@@ -47,13 +47,7 @@ pub struct WebGl {
 }
 
 impl WebGl {
-    pub fn new(canvas: web_sys::Element) -> Result<Self, JsValue> {
-        let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
-        let ctx = canvas
-            .get_context("webgl2")?
-            .unwrap()
-            .dyn_into::<Context>()?;
-
+    pub fn new(ctx: Context) -> Result<Self, JsValue> {
         let vert_text = core::include_str!("./vertex.glsl");
         let vert_shader = compile_shader(&ctx, ShaderType::Vertex, vert_text)?;
 
@@ -138,6 +132,7 @@ impl WebGl {
         let (ctx, program) = (&self.ctx, &self.program);
 
         dbg!(ctx.get_parameter(Context::MAX_TEXTURE_SIZE)?);
+        dbg!(data.len());
 
         let tex_type = Context::TEXTURE_2D;
         let data_type = Context::UNSIGNED_BYTE;

@@ -45,9 +45,9 @@ pub fn text() {
 }
 
 #[wasm_bindgen]
-pub fn render(canvas: web_sys::Element) -> Result<(), JsValue> {
+pub fn render(ctx: web_sys::WebGl2RenderingContext) -> Result<(), JsValue> {
     let text = "Hello World!";
-    render_text(canvas, text)?;
+    render_text(ctx, text)?;
 
     return Ok(());
 }

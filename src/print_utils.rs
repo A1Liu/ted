@@ -5,11 +5,11 @@ macro_rules! out {
     (@DEBUG, $str:expr, $( $e:expr ),+ ) => {{
         #[cfg(debug_assertions)]
         {
-            out!(@CLEAN, core::concat!("DEBUG ({}:{}): ", $str, "\n"), file!(), line!(), $( $e ),+ );
+            out!(@CLEAN, core::concat!("[{}:{}] DEBUG: ", $str, "\n"), file!(), line!(), $( $e ),+ );
         }
     }};
     (@LOG, $str:expr, $( $e:expr ),+ ) => {{
-        out!(@CLEAN, core::concat!("LOG ({}:{}): ", $str, "\n"), file!(), line!(), $( $e ),+ );
+        out!(@CLEAN, core::concat!("[{}:{}]: ", $str, "\n"), file!(), line!(), $( $e ),+ );
     }};
     (@CLEAN, $str:expr, $( $e:expr ),+ ) => {{
         let s = format!( $str, $( $e ),+ );
@@ -36,7 +36,7 @@ macro_rules! dbg {
 #[macro_export]
 macro_rules! panic {
     ( $( $arg:tt )* ) => {{
-        dbg!( $( $arg )* );
+        println!( $( $arg )* );
         core::panic!();
     }};
 }

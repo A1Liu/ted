@@ -15,11 +15,11 @@ impl Idx {
     #[inline(always)]
     pub fn new(i: usize) -> Idx {
         // this will panic anyways later on in the pipeline
-        return Idx(unsafe { NonZeroUsize::new_unchecked(!i) });
+        return Idx(unsafe { NonZeroUsize::new_unchecked(i + 1) });
     }
 
     #[inline(always)]
     pub fn get(self) -> usize {
-        return !self.0.get();
+        return self.0.get() - 1;
     }
 }
