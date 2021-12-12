@@ -126,18 +126,20 @@ impl<'a> TextVertices<'a> {
         let program = webgl.compile(vert_text, frag_text)?;
         webgl.use_program(&program);
 
-        let in_pos = webgl.vloc(&program, "in_pos")?;
-        webgl.bind_array(in_pos, &self.points)?;
+        let in_pos = webgl.attr_buffer(&program, "in_pos")?;
+        webgl.write_buffer(&in_pos, &self.points);
 
-        let in_glyph_pos = webgl.vloc(&program, "in_glyph_pos")?;
-        webgl.bind_array(in_glyph_pos, &self.glyphs)?;
+        let in_glyph_pos = webgl.attr_buffer(&program, "in_glyph_pos")?;
+        webgl.write_buffer(&in_glyph_pos, &self.glyphs);
 
         let atlas_dims = self.cache.atlas_dims();
 
         if self.did_raster {
             let atlas = self.cache.atlas();
             let u_glyph_atlas = webgl.uloc(&program, "u_glyph_atlas")?;
-            webgl.bind_tex(u_glyph_atlas, 0, atlas_dims, atlas)?;
+            let tex = webgl.tex(&u_glyph_atlas, 0)?;
+            webgl.update_tex(&tex, atlas_dims, atlas)?;
+            webgl.bind_tex(&u_glyph_atlas, 0, &tex)?;
         }
 
         let u_width = webgl.uloc(&program, "u_width")?;

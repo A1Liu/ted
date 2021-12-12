@@ -11,8 +11,6 @@ uniform uint u_atlas_height;
 
 out vec2 v_glyph_pos;
 
-// varying vec2 glyph;
-
 void main() {
     vec4 temp_out = vec4(0.0, 0.0, 0.0, 1.0);
 
