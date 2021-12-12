@@ -9,10 +9,9 @@ import { render, newWebgl } from "./Cargo.toml";
 //   overflow: hidden;
 // }
 
-const webgl = newWebgl();
 
 try {
-  render(webgl);
+  render();
 } catch (e) {
   console.log(e);
 }

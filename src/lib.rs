@@ -10,8 +10,8 @@
 #![allow(unused_mut)]
 /* */
 
-#[macro_use]
-extern crate lazy_static;
+// #[macro_use]
+// extern crate lazy_static;
 
 #[cfg(target_arch = "wasm32")]
 #[macro_use]
@@ -34,13 +34,8 @@ pub fn test_print() {
     println!("Hello World!");
 }
 
-#[wasm_bindgen(js_name = "newWebgl")]
-pub fn new_webgl() -> Result<graphics::WebGl, JsValue> {
-    return graphics::WebGl::new();
-}
-
 #[wasm_bindgen]
-pub fn render(webgl: &graphics::WebGl) -> Result<(), JsValue> {
+pub fn render() -> Result<(), JsValue> {
     let mut cache = GlyphCache::new();
 
     let mut file = text::File::new();
@@ -54,7 +49,7 @@ pub fn render(webgl: &graphics::WebGl) -> Result<(), JsValue> {
         vertices.push(text);
     }
 
-    gl.with(move |ctx| vertices.render(ctx))?;
+    vertices.render()?;
 
     return Ok(());
 }

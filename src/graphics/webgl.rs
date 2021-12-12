@@ -32,7 +32,7 @@ pub struct VLoc(u32);
 // Maybe later make this more convenient to use with multiple programs
 #[wasm_bindgen]
 pub struct WebGl {
-    ctx: Context,
+    phantom: (),
 }
 
 pub struct Program {
@@ -60,54 +60,47 @@ where
 }
 
 impl WebGl {
-    pub fn new() -> Result<Self, JsValue> {
-        let document = web_sys::window().unwrap().document().unwrap();
-        let canvas = document.get_element_by_id("canvas").unwrap();
-        let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
-
-        let options = webgl_context_options();
-
-        let ctx = canvas
-            .get_context_with_context_options("webgl2", &options)?
-            .unwrap()
-            .dyn_into::<Context>()?;
-
-        ctx.pixel_storei(Context::UNPACK_ALIGNMENT, 1);
-
-        return Ok(WebGl { ctx });
-    }
-
     pub fn use_program(&self, prog: &Program) {
-        self.ctx.use_program(Some(&prog.program));
+        WEB_GL.with(|ctx| {
+            ctx.use_program(Some(&prog.program));
+        });
     }
 
     pub fn compile(&self, vert: &str, frag: &str) -> Result<Program, JsValue> {
-        let vert_shader = compile_shader(&self.ctx, ShaderType::Vertex, vert)?;
-        let frag_shader = compile_shader(&self.ctx, ShaderType::Fragment, frag)?;
-        let program = link_program(&self.ctx, &vert_shader, &frag_shader)?;
+        return WEB_GL.with(|ctx| {
+            let vert_shader = compile_shader(ctx, ShaderType::Vertex, vert)?;
+            let frag_shader = compile_shader(ctx, ShaderType::Fragment, frag)?;
+            let program = link_program(ctx, &vert_shader, &frag_shader)?;
 
-        return Ok(Program { program });
+            return Ok(Program { program });
+        });
     }
 
     pub fn draw(&self, triangles: i32) {
-        self.ctx.clear_color(0.0, 0.0, 0.0, 1.0);
-        self.ctx.clear(Context::COLOR_BUFFER_BIT);
-        self.ctx.draw_arrays(Context::TRIANGLES, 0, triangles);
+        return WEB_GL.with(|ctx| {
+            ctx.clear_color(0.0, 0.0, 0.0, 1.0);
+            ctx.clear(Context::COLOR_BUFFER_BIT);
+            ctx.draw_arrays(Context::TRIANGLES, 0, triangles);
+        });
     }
 
     pub fn uloc(&self, prog: &Program, name: &str) -> Result<ULoc, JsValue> {
-        let make_err = || format!("Failed to write uniform");
-        let loc_opt = self.ctx.get_uniform_location(&prog.program, name);
-        let loc = loc_opt.ok_or_else(make_err)?;
+        return WEB_GL.with(|ctx| {
+            let make_err = || format!("Failed to write uniform");
+            let loc_opt = ctx.get_uniform_location(&prog.program, name);
+            let loc = loc_opt.ok_or_else(make_err)?;
 
-        return Ok(loc);
+            return Ok(loc);
+        });
     }
 
     pub fn bind_uniform<T>(&self, loc: ULoc, value: T) -> Result<(), JsValue>
     where
         T: WebGlType,
     {
-        value.bind_uniform(&self.ctx, Some(&loc));
+        WEB_GL.with(|ctx| {
+            value.bind_uniform(ctx, Some(&loc));
+        });
 
         return Ok(());
     }
@@ -116,65 +109,63 @@ impl WebGl {
     where
         T: WebGlType,
     {
-        self.ctx
-            .bind_buffer(BufferKind::Array as u32, Some(&buf.buf));
+        WEB_GL.with(|ctx| {
+            ctx.bind_buffer(BufferKind::Array as u32, Some(&buf.buf));
 
-        unsafe {
-            let obj = T::view(data);
+            unsafe {
+                let obj = T::view(data);
 
-            // copies into buffer
-            self.ctx.buffer_data_with_array_buffer_view(
-                BufferKind::Array as u32,
-                &obj,
-                UsagePattern::Static as u32,
-            );
-        }
+                // copies into buffer
+                ctx.buffer_data_with_array_buffer_view(
+                    BufferKind::Array as u32,
+                    &obj,
+                    UsagePattern::Static as u32,
+                );
+            }
+        });
     }
 
     pub fn attr_buffer<T>(&self, prog: &Program, name: &str) -> Result<Buffer<T>, JsValue>
     where
         T: WebGlType,
     {
-        let ctx = &self.ctx;
+        return WEB_GL.with(|ctx| {
+            let loc = ctx.get_attrib_location(&prog.program, name);
+            let make_err = |e| format!("failed to get location of '{}' (got {})", name, loc);
+            let loc = loc.try_into().map_err(make_err)?;
 
-        let loc = self.ctx.get_attrib_location(&prog.program, name);
-        let make_err = |e| format!("failed to get location of '{}' (got {})", name, loc);
-        let loc = loc.try_into().map_err(make_err)?;
+            let gl_buffer = ctx.create_buffer().ok_or("failed to create buffer")?;
+            ctx.bind_buffer(BufferKind::Array as u32, Some(&gl_buffer));
+            ctx.enable_vertex_attrib_array(loc);
 
-        let gl_buffer = ctx.create_buffer().ok_or("failed to create buffer")?;
-        ctx.bind_buffer(BufferKind::Array as u32, Some(&gl_buffer));
-        ctx.enable_vertex_attrib_array(loc);
+            if T::is_int() {
+                ctx.vertex_attrib_i_pointer_with_i32(loc, T::SIZE, T::GL_TYPE, 0, 0);
+            } else {
+                ctx.vertex_attrib_pointer_with_i32(loc, T::SIZE, T::GL_TYPE, false, 0, 0);
+            }
 
-        let normal = false;
-        let stride = 0; // if this is 0, we use the stride of the type
-        let offset = 0;
-
-        if T::is_int() {
-            ctx.vertex_attrib_i_pointer_with_i32(loc, T::SIZE, T::GL_TYPE, stride, offset);
-        } else {
-            ctx.vertex_attrib_pointer_with_i32(loc, T::SIZE, T::GL_TYPE, normal, stride, offset);
-        }
-
-        return Ok(Buffer::new(gl_buffer));
+            return Ok(Buffer::new(gl_buffer));
+        });
     }
 
     pub fn tex(&self, loc: &ULoc, unit: u32) -> Result<Texture, JsValue> {
-        let ctx = &self.ctx;
         let tex_type = Context::TEXTURE_2D;
         let filter_type = Context::NEAREST as i32;
         let wrap_type = Context::CLAMP_TO_EDGE as i32;
 
-        let tex = ctx.create_texture().ok_or("failed to create buffer")?;
-        ctx.active_texture(Context::TEXTURE0);
-        ctx.bind_texture(tex_type, Some(&tex));
+        return WEB_GL.with(|ctx| {
+            let tex = ctx.create_texture().ok_or("failed to create buffer")?;
+            ctx.active_texture(Context::TEXTURE0);
+            ctx.bind_texture(tex_type, Some(&tex));
 
-        // These disable mip-mapping, which I do not want to deal with right now
-        ctx.tex_parameteri(tex_type, Context::TEXTURE_WRAP_S, wrap_type);
-        ctx.tex_parameteri(tex_type, Context::TEXTURE_WRAP_T, wrap_type);
-        ctx.tex_parameteri(tex_type, Context::TEXTURE_MIN_FILTER, filter_type);
-        ctx.tex_parameteri(tex_type, Context::TEXTURE_MAG_FILTER, filter_type);
+            // These disable mip-mapping, which I do not want to deal with right now
+            ctx.tex_parameteri(tex_type, Context::TEXTURE_WRAP_S, wrap_type);
+            ctx.tex_parameteri(tex_type, Context::TEXTURE_WRAP_T, wrap_type);
+            ctx.tex_parameteri(tex_type, Context::TEXTURE_MIN_FILTER, filter_type);
+            ctx.tex_parameteri(tex_type, Context::TEXTURE_MAG_FILTER, filter_type);
 
-        return Ok(tex);
+            return Ok(tex);
+        });
     }
 
     pub fn update_tex(&self, tex: &Texture, rect: Rect, data: &[u8]) -> Result<(), JsValue> {
@@ -182,8 +173,8 @@ impl WebGl {
         let data_type = Context::UNSIGNED_BYTE;
         let format = Context::LUMINANCE;
 
-        self.ctx
-            .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+        WEB_GL.with(|ctx| {
+            ctx.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
                 tex_type,
                 0,
                 format as i32,
@@ -193,23 +184,24 @@ impl WebGl {
                 format,
                 data_type,
                 Some(data),
-            )?;
+            )
+        })?;
 
         return Ok(());
     }
 
     pub fn bind_tex(&self, loc: &ULoc, unit: u32, tex: &Texture) -> Result<(), JsValue> {
-        let ctx = &self.ctx;
-
         let tex_type = Context::TEXTURE_2D;
         let data_type = Context::UNSIGNED_BYTE;
         let format = Context::LUMINANCE;
 
-        ctx.uniform1i(Some(loc), unit as i32);
-        ctx.active_texture(Context::TEXTURE0 + unit);
-        ctx.bind_texture(tex_type, Some(tex));
+        return WEB_GL.with(|ctx| {
+            ctx.uniform1i(Some(loc), unit as i32);
+            ctx.active_texture(Context::TEXTURE0 + unit);
+            ctx.bind_texture(tex_type, Some(tex));
 
-        return Ok(());
+            return Ok(());
+        });
     }
 }
 
@@ -255,19 +247,19 @@ fn compile_shader(
 }
 
 fn link_program(
-    context: &Context,
+    ctx: &Context,
     vert_shader: &WebGlShader,
     frag_shader: &WebGlShader,
 ) -> Result<WebGlProgram, String> {
-    let program = context
+    let program = ctx
         .create_program()
         .ok_or_else(|| String::from("Unable to create program object"))?;
 
-    context.attach_shader(&program, vert_shader);
-    context.attach_shader(&program, frag_shader);
-    context.link_program(&program);
+    ctx.attach_shader(&program, vert_shader);
+    ctx.attach_shader(&program, frag_shader);
+    ctx.link_program(&program);
 
-    let success = context
+    let success = ctx
         .get_program_parameter(&program, Context::LINK_STATUS)
         .as_bool()
         .unwrap_or(false);
@@ -275,7 +267,7 @@ fn link_program(
     if success {
         Ok(program)
     } else {
-        Err(context
+        Err(ctx
             .get_program_info_log(&program)
             .unwrap_or_else(|| String::from("Unknown error creating program object")))
     }
@@ -307,11 +299,27 @@ impl WebGlType for u32 {
     }
 }
 
-// lazy_static! {
-//     static ref webgl: Context = {};
-// }
+pub static gl: WebGl = WebGl { phantom: () };
+
 thread_local! {
-  pub static gl: WebGl = WebGl::new().unwrap();
+  pub static WEB_GL: Context = webgl_ctx().unwrap();
+}
+
+fn webgl_ctx() -> Result<Context, JsValue> {
+    let document = web_sys::window().unwrap().document().unwrap();
+    let canvas = document.get_element_by_id("canvas").unwrap();
+    let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
+
+    let options = webgl_context_options();
+
+    let ctx = canvas
+        .get_context_with_context_options("webgl2", &options)?
+        .unwrap()
+        .dyn_into::<Context>()?;
+
+    ctx.pixel_storei(Context::UNPACK_ALIGNMENT, 1);
+
+    return Ok(ctx);
 }
 
 #[wasm_bindgen(

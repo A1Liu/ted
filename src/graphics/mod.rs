@@ -120,41 +120,41 @@ impl<'a> TextVertices<'a> {
         return false;
     }
 
-    pub fn render(&self, webgl: &WebGl) -> Result<(), JsValue> {
+    pub fn render(&self) -> Result<(), JsValue> {
         let vert_text = core::include_str!("./vertex.glsl");
         let frag_text = core::include_str!("./fragment.glsl");
-        let program = webgl.compile(vert_text, frag_text)?;
-        webgl.use_program(&program);
+        let program = gl.compile(vert_text, frag_text)?;
+        gl.use_program(&program);
 
-        let in_pos = webgl.attr_buffer(&program, "in_pos")?;
-        webgl.write_buffer(&in_pos, &self.points);
+        let in_pos = gl.attr_buffer(&program, "in_pos")?;
+        gl.write_buffer(&in_pos, &self.points);
 
-        let in_glyph_pos = webgl.attr_buffer(&program, "in_glyph_pos")?;
-        webgl.write_buffer(&in_glyph_pos, &self.glyphs);
+        let in_glyph_pos = gl.attr_buffer(&program, "in_glyph_pos")?;
+        gl.write_buffer(&in_glyph_pos, &self.glyphs);
 
         let atlas_dims = self.cache.atlas_dims();
 
         if self.did_raster {
             let atlas = self.cache.atlas();
-            let u_glyph_atlas = webgl.uloc(&program, "u_glyph_atlas")?;
-            let tex = webgl.tex(&u_glyph_atlas, 0)?;
-            webgl.update_tex(&tex, atlas_dims, atlas)?;
-            webgl.bind_tex(&u_glyph_atlas, 0, &tex)?;
+            let u_glyph_atlas = gl.uloc(&program, "u_glyph_atlas")?;
+            let tex = gl.tex(&u_glyph_atlas, 0)?;
+            gl.update_tex(&tex, atlas_dims, atlas)?;
+            gl.bind_tex(&u_glyph_atlas, 0, &tex)?;
         }
 
-        let u_width = webgl.uloc(&program, "u_width")?;
-        webgl.bind_uniform(u_width, self.width as f32)?;
+        let u_width = gl.uloc(&program, "u_width")?;
+        gl.bind_uniform(u_width, self.width as f32)?;
 
-        let u_height = webgl.uloc(&program, "u_height")?;
-        webgl.bind_uniform(u_height, self.height as f32)?;
+        let u_height = gl.uloc(&program, "u_height")?;
+        gl.bind_uniform(u_height, self.height as f32)?;
 
-        let u_atlas_width = webgl.uloc(&program, "u_atlas_width")?;
-        webgl.bind_uniform(u_atlas_width, atlas_dims.width)?;
+        let u_atlas_width = gl.uloc(&program, "u_atlas_width")?;
+        gl.bind_uniform(u_atlas_width, atlas_dims.width)?;
 
-        let u_atlas_height = webgl.uloc(&program, "u_atlas_height")?;
-        webgl.bind_uniform(u_atlas_height, atlas_dims.height)?;
+        let u_atlas_height = gl.uloc(&program, "u_atlas_height")?;
+        gl.bind_uniform(u_atlas_height, atlas_dims.height)?;
 
-        webgl.draw(self.points.len() as i32);
+        gl.draw(self.points.len() as i32);
 
         return Ok(());
     }
