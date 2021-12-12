@@ -168,30 +168,10 @@ where
     }
 
     fn insert_into_leaf(&mut self, mut node: Idx, index: usize, elem: T) {
-        self.nodes[node.get()].assert_is_leaf();
-
         let info = elem.get_info();
-        let elem_idx = match self.first_free.take() {
-            Some(idx) => {
-                self.elements[idx.get()] = elem;
-                let elem_info = &mut self.element_info[idx.get()];
-                self.first_free = elem_info.next_free.take();
+        let elem = self.allocate_elem(node, elem);
 
-                idx
-            }
-            None => {
-                let idx = self.elements.len();
-                self.elements.push(elem);
-                self.element_info.push(ElementInfo {
-                    parent: node,
-                    next_free: None,
-                });
-
-                Idx::new(idx)
-            }
-        };
-
-        let mut right = self.add_child(node, index, elem_idx, info).map(|kids| {
+        let mut right = self.add_child(node, index, elem, info).map(|kids| {
             self.update_node(true, node);
             return self.new_node(true, kids);
         });
@@ -229,6 +209,30 @@ where
             self.root = self.new_node(false, [node, right]);
             self.levels += 1;
         });
+    }
+
+    fn allocate_elem(&mut self, parent: Idx, elem: T) -> Idx {
+        self.nodes[parent.get()].assert_is_leaf();
+
+        match self.first_free.take() {
+            Some(idx) => {
+                self.elements[idx.get()] = elem;
+                let elem_info = &mut self.element_info[idx.get()];
+                self.first_free = elem_info.next_free.take();
+
+                return idx;
+            }
+            None => {
+                let idx = self.elements.len();
+                self.elements.push(elem);
+                self.element_info.push(ElementInfo {
+                    parent,
+                    next_free: None,
+                });
+
+                return Idx::new(idx);
+            }
+        };
     }
 
     fn add_child(&mut self, node: Idx, at: usize, child: Idx, info: T::Info) -> Option<Kids> {
