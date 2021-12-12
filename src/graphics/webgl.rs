@@ -46,10 +46,10 @@ pub struct WebGl {
 
 impl WebGl {
     pub fn new(ctx: Context) -> Result<Self, JsValue> {
-        let vert_text = core::include_str!("./vertex.glsl");
+        let vert_text = core::include_str!("./data/vertex.glsl");
         let vert_shader = compile_shader(&ctx, ShaderType::Vertex, vert_text)?;
 
-        let frag_text = core::include_str!("./fragment.glsl");
+        let frag_text = core::include_str!("./data/fragment.glsl");
         let frag_shader = compile_shader(&ctx, ShaderType::Fragment, frag_text)?;
 
         let program = link_program(&ctx, &vert_shader, &frag_shader)?;

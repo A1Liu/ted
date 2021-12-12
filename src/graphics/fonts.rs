@@ -3,7 +3,7 @@ use ttf_parser as ttf;
 
 // const COURIER: &[u8] = &[0];
 const MAX_ATLAS_WIDTH: u32 = 4096;
-const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
+const COURIER: &[u8] = core::include_bytes!("./data/cour.ttf");
 
 // These affect how the font looks I think? I'm not really sure tbh.
 //                                  - Albert Liu, Dec 11, 2021 Sat 22:44 EST
@@ -14,7 +14,7 @@ const PAD_T: u32 = 4; // in pixels
 const PAD_B: u32 = 8; // in pixels
 
 const DEFAULT_CHARS: &'static str = core::concat!(
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    " ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     "abcdefghijklmnopqrstuvwxyz",
     "0123456789",
     r#"`~!@#$%^&*()_+-=[]{};':",.<>/?\|"#
@@ -174,11 +174,9 @@ impl GlyphCache {
     }
 
     fn add_char(&mut self, face: &ttf::Face, scale: f32, c: char) -> Glyph {
-        assert_can_render(c);
-
         if let Some(&glyph) = self.descriptors.get(&c) {
             if (self.atlas_height * self.atlas_width) != (self.atlas.len() as u32) {
-                panic!("");
+                panic!("atlas is in invalid state");
             }
 
             return glyph;
@@ -208,7 +206,7 @@ impl GlyphCache {
         self.descriptors.insert(c, glyph);
 
         if (self.atlas_height * self.atlas_width) != (self.atlas.len() as u32) {
-            panic!("WTF just happened");
+            panic!("atlas is in invalid state");
         }
 
         return glyph;
@@ -239,6 +237,7 @@ impl GlyphCache {
         // glyph_begin_col == data_begin_col
         let glyph_end_col = glyph_x + glyph_width - pad_r;
 
+        // Could probably skip this step
         // Empty out any space that might've been filled by a previous glyph
         for row in glyph_begin_row..data_begin_row {
             let begin = row * atlas_width + data_begin_col;
@@ -256,18 +255,11 @@ impl GlyphCache {
 
             self.atlas[begin..end].copy_from_slice(&data[data_begin..data_end]);
 
+            // Could probably skip this step
             let begin = atlas_row * atlas_width + data_end_col;
             let end = atlas_row * atlas_width + glyph_end_col;
             self.atlas[begin..end].fill(0);
         }
-    }
-}
-
-#[inline(always)]
-fn assert_can_render(c: char) {
-    #[cfg(debug_assertions)]
-    if c.is_control() || c.is_whitespace() {
-        panic!("Shouldn't be trying to render a non-printing character");
     }
 }
 
