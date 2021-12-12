@@ -3,8 +3,8 @@ Text editor using WebGL and Rust/Wasm.
 
 ## Stuffs
 - https://github.com/cmuratori/refterm
-- https://webglfundamentals.org/webgl/lessons/webgl-how-it-works.html
-- https://webglfundamentals.org/webgl/lessons/webgl-qna-how-to-use-the-stencil-buffer.html
+- https://webgl2fundamentals.org/webgl/lessons/webgl-how-it-works.html
+- https://webgl2fundamentals.org/webgl/lessons/webgl-qna-how-to-use-the-stencil-buffer.html
 
 # Used Stuffs
 - https://docs.rs/ttf-parser/latest/ttf_parser/

@@ -1,20 +1,16 @@
 use crate::btree::*;
 
 pub struct File {
-    file_cursor: usize,
     data: BTree<BufferView>,
 }
 
 impl File {
     pub fn new() -> Self {
-        return Self {
-            file_cursor: 0,
-            data: BTree::new(),
-        };
+        return Self { data: BTree::new() };
     }
 
-    pub fn insert(&mut self, text: &str) {
-        let res = self.data.key_leq_idx(self.file_cursor, BufferInfo::content);
+    pub fn insert(&mut self, idx: usize, text: &str) {
+        let res = self.data.key_leq_idx(idx, BufferInfo::content);
         let (idx, _) = match res {
             None => (self.data.add(BufferView::new()), 0),
             Some(res) => res,
@@ -39,8 +35,6 @@ impl File {
                 buf_view = BufferView::new();
             }
         }
-
-        self.file_cursor += text.len();
     }
 
     pub fn text_wrap(&self, begin: usize, width: usize, height: usize) {}
