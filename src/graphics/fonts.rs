@@ -3,7 +3,7 @@ use ttf_parser as ttf;
 
 // const COURIER: &[u8] = &[0];
 const MAX_ATLAS_WIDTH: u32 = 4096;
-const COURIER: &[u8] = core::include_bytes!("./data/cour.ttf");
+const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
 
 // These affect how the font looks I think? I'm not really sure tbh.
 //                                  - Albert Liu, Dec 11, 2021 Sat 22:44 EST

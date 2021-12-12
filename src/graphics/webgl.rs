@@ -1,5 +1,7 @@
 use crate::util::*;
 use js_sys::Object;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 pub use web_sys::WebGl2RenderingContext as Context;
 use web_sys::{WebGlProgram, WebGlShader};
 
@@ -38,18 +40,30 @@ where
 }
 
 // Maybe later make this more convenient to use with multiple programs
+#[wasm_bindgen]
 pub struct WebGl {
-    pub ctx: Context,
-    pub program: WebGlProgram,
-    pub textures_used: u32,
+    ctx: Context,
+    program: WebGlProgram,
+    textures_used: u32,
 }
 
 impl WebGl {
-    pub fn new(ctx: Context) -> Result<Self, JsValue> {
-        let vert_text = core::include_str!("./data/vertex.glsl");
+    pub fn new() -> Result<Self, JsValue> {
+        let document = web_sys::window().unwrap().document().unwrap();
+        let canvas = document.get_element_by_id("canvas").unwrap();
+        let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
+
+        let options = webgl_context();
+
+        let ctx = canvas
+            .get_context_with_context_options("webgl2", &options)?
+            .unwrap()
+            .dyn_into::<Context>()?;
+
+        let vert_text = core::include_str!("./vertex.glsl");
         let vert_shader = compile_shader(&ctx, ShaderType::Vertex, vert_text)?;
 
-        let frag_text = core::include_str!("./data/fragment.glsl");
+        let frag_text = core::include_str!("./fragment.glsl");
         let frag_shader = compile_shader(&ctx, ShaderType::Fragment, frag_text)?;
 
         let program = link_program(&ctx, &vert_shader, &frag_shader)?;
@@ -249,4 +263,12 @@ impl WebGlType for u32 {
     fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
         ctx.uniform1ui(loc, self);
     }
+}
+
+#[wasm_bindgen(
+    inline_js = "export function webglContext() { return { premultipliedAlpha: false }; }"
+)]
+extern "C" {
+    #[wasm_bindgen(js_name = webglContext)]
+    fn webgl_context() -> JsValue;
 }

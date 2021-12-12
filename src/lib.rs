@@ -29,9 +29,13 @@ pub fn test_print() {
     println!("Hello World!");
 }
 
+#[wasm_bindgen(js_name = "newWebgl")]
+pub fn new_webgl() -> Result<graphics::WebGl, JsValue> {
+    return graphics::WebGl::new();
+}
+
 #[wasm_bindgen]
-pub fn render(ctx: web_sys::WebGl2RenderingContext) -> Result<(), JsValue> {
-    let mut webgl = WebGl::new(ctx)?;
+pub fn render(webgl: &mut graphics::WebGl) -> Result<(), JsValue> {
     let mut cache = GlyphCache::new();
 
     let mut file = text::File::new();
@@ -45,7 +49,7 @@ pub fn render(ctx: web_sys::WebGl2RenderingContext) -> Result<(), JsValue> {
         vertices.push(text);
     }
 
-    vertices.render(&mut webgl)?;
+    vertices.render(webgl)?;
 
     return Ok(());
 }

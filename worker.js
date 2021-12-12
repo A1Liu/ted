@@ -1,4 +1,4 @@
-import { render, test_print } from "./Cargo.toml";
+import { render, newWebgl } from "./Cargo.toml";
 
 // .visually-hidden {
 //   position: absolute;
@@ -9,16 +9,10 @@ import { render, test_print } from "./Cargo.toml";
 //   overflow: hidden;
 // }
 
-const canvas = document.getElementById("canvas");
-const fontSizeText = window.getComputedStyle(canvas, null).getPropertyValue('font-size');
-const fontSize = parseFloat(fontSizeText);
-
-const ctx = canvas.getContext("webgl2", {
-  premultipliedAlpha: false,
-});
+const webgl = newWebgl();
 
 try {
-  render(ctx);
+  render(webgl);
 } catch (e) {
   console.log(e);
 }
