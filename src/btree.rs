@@ -566,9 +566,6 @@ mod tests {
         for i in 0..8 {
             println!("iter: {}", i);
             tree.insert(i, TestData(i));
-            for j in 0..(i + 1) {
-                dbg!(tree.get(j).unwrap().0);
-            }
         }
 
         for i in 0..8 {
@@ -597,9 +594,6 @@ mod tests {
         for i in 0..8 {
             println!("iter: {}", i);
             tree.insert(0, TestData(7 - i));
-            for j in 0..(i + 1) {
-                dbg!(tree.get(j).unwrap().0);
-            }
         }
 
         for i in 0..8 {

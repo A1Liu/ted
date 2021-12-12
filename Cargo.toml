@@ -8,18 +8,10 @@ name = "editor"
 path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
-[[bin]]
-name = "editor"
-
 [dependencies]
 ttf-parser = { version = "0.13.4", features = [] }
 js-sys = "0.3.55"
 wasm-bindgen = "0.2.78"
-
-# [target.'cfg(not(target_arch = "wasm32"))'.dependencies.image]
-[dependencies.image]
-version = "0.23.14"
-features = ['png']
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wee_alloc = "0.4.5"

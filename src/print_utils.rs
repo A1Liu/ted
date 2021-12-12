@@ -29,7 +29,7 @@ macro_rules! dbg {
          out!(@DEBUG, "{} = {:?}", stringify!($expr), $expr);
     }};
     () => {{
-        out!(@DEBUG, "Nothing to see here");
+        out!(@DEBUG, "{}", "Nothing to see here");
     }};
 }
 

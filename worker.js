@@ -10,8 +10,9 @@ import { render, test_print } from "./Cargo.toml";
 // }
 
 const canvas = document.getElementById("canvas");
-const window.getComputedStyle(canvas, null).getPropertyValue('font-size');
-const fontSize = parseFloat(style);
+const fontSizeText = window.getComputedStyle(canvas, null).getPropertyValue('font-size');
+const fontSize = parseFloat(fontSizeText);
+
 const ctx = canvas.getContext("webgl2", {
   premultipliedAlpha: false,
 });

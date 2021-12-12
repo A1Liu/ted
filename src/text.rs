@@ -36,8 +36,30 @@ impl File {
             }
         }
     }
+}
 
-    pub fn text_wrap(&self, begin: usize, width: usize, height: usize) {}
+impl<'a> IntoIterator for &'a File {
+    type Item = &'a str;
+    type IntoIter = FileIter<'a>;
+
+    fn into_iter(self) -> FileIter<'a> {
+        return FileIter { file: self, idx: 0 };
+    }
+}
+
+pub struct FileIter<'a> {
+    file: &'a File,
+    idx: usize,
+}
+
+impl<'a> Iterator for FileIter<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = self.file.data.get(self.idx);
+        self.idx += 1;
+        return result.map(|buf_view| &*buf_view.buffer);
+    }
 }
 
 pub struct BufferView {

@@ -31,8 +31,21 @@ pub fn test_print() {
 
 #[wasm_bindgen]
 pub fn render(ctx: web_sys::WebGl2RenderingContext) -> Result<(), JsValue> {
-    let text = "Hello World!";
-    render_text(ctx, text)?;
+    let mut webgl = WebGl::new(ctx)?;
+    let mut cache = GlyphCache::new();
+
+    let mut file = text::File::new();
+
+    let text = "Hello World!\n\nWelcome to my stupid project to make a text editor.";
+    file.insert(0, text);
+
+    let mut vertices = TextVertices::new(&mut cache, 28, 10);
+
+    for text in &file {
+        vertices.push(text);
+    }
+
+    vertices.render(&mut webgl)?;
 
     return Ok(());
 }

@@ -7,7 +7,7 @@ const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
 
 // These affect how the font looks I think? I'm not really sure tbh.
 //                                  - Albert Liu, Dec 11, 2021 Sat 22:44 EST
-const SIZE: usize = 64; // some kind of font thing idk.
+const SIZE: usize = 128; // some kind of font thing idk.
 const PAD_L: u32 = 8; // in pixels or something?
 const PAD_R: u32 = 4; // in pixels
 const PAD_T: u32 = 4; // in pixels
@@ -84,7 +84,7 @@ impl GlyphCache {
 
         let character;
         'fast_path: loop {
-            for c in &mut chars {
+            while let Some(c) = chars.next() {
                 if let Some(&glyph) = self.descriptors.get(&c) {
                     self.add_glyph_to_list(&mut glyphs, glyph);
                     continue;
@@ -119,7 +119,7 @@ impl GlyphCache {
             let glyph = self.add_char(&face, scale, character);
             self.add_glyph_to_list(&mut glyphs, glyph);
 
-            for c in &mut chars {
+            while let Some(c) = chars.next() {
                 let glyph = self.add_char(&face, scale, c);
                 self.add_glyph_to_list(&mut glyphs, glyph);
             }
@@ -140,7 +140,11 @@ impl GlyphCache {
         self.atlas_current_row_width = self.atlas_width;
         self.atlas_height = 0;
 
-        for c in characters.chars().chain(DEFAULT_CHARS.chars()) {
+        for c in DEFAULT_CHARS.chars() {
+            self.add_char(&face, scale, c);
+        }
+
+        for c in characters.chars() {
             let glyph = self.add_char(&face, scale, c);
             self.add_glyph_to_list(&mut glyphs, glyph);
         }
