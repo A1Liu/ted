@@ -296,7 +296,6 @@ where
         return idx;
     }
 
-    #[inline(always)]
     fn _find<F>(&self, inclusive: bool, mut key: usize, get: F) -> Option<(Idx, usize)>
     where
         F: Fn(usize, T::Info) -> usize,
