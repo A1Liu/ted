@@ -1,5 +1,5 @@
 # Editor
-Text editor using WebGL and Rust/Wasm.
+Text editor using WebGL and Rust/Wasm. Very much WIP.
 
 ## Stuffs
 - https://github.com/cmuratori/refterm
