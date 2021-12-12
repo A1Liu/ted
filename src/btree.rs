@@ -7,17 +7,18 @@ pub struct ElemIdx(Idx);
 
 pub trait BTreeInfo
 where
-    Self: Sized + Copy + core::ops::Add<Self, Output = Self> + Default,
+    Self: Sized + Copy + Default,
 {
+    fn add(self, other: Self) -> Self;
 }
 
 pub trait BTreeItem
 where
     Self: Sized,
 {
-    type BTreeInfo: BTreeInfo;
+    type Info: BTreeInfo;
 
-    fn get_info(&self) -> Self::BTreeInfo;
+    fn get_info(&self) -> Self::Info;
 }
 
 // Use SOA stuff eventually: https://github.com/lumol-org/soa-derive
@@ -25,11 +26,10 @@ where
 pub struct BTree<T>
 where
     T: BTreeItem,
-    <T as BTreeItem>::BTreeInfo: BTreeInfo,
 {
     elements: Vec<T>,
     element_info: Vec<ElementInfo>,
-    nodes: Vec<Node<T::BTreeInfo>>,
+    nodes: Vec<Node<T::Info>>,
     first_free: Option<Idx>,
     root: Idx,
     levels: usize,
@@ -56,7 +56,7 @@ where
         return self.nodes[self.root.get()].count;
     }
 
-    pub fn info(&self) -> T::BTreeInfo {
+    pub fn info(&self) -> T::Info {
         return self.nodes[self.root.get()].info;
     }
 
@@ -77,7 +77,7 @@ where
 
     pub fn key<F>(&self, index: usize, getter: F) -> Option<(&T, usize)>
     where
-        F: Fn(<T as BTreeItem>::BTreeInfo) -> usize,
+        F: Fn(T::Info) -> usize,
     {
         let (idx, remainder) = self._key_idx(index, getter)?;
         return Some((&self.elements[idx.get()], remainder));
@@ -85,7 +85,7 @@ where
 
     pub fn key_mut<F>(&mut self, index: usize, getter: F) -> Option<(&T, usize)>
     where
-        F: Fn(<T as BTreeItem>::BTreeInfo) -> usize,
+        F: Fn(T::Info) -> usize,
     {
         let (idx, remainder) = self._key_idx(index, getter)?;
         return Some((&mut self.elements[idx.get()], remainder));
@@ -93,7 +93,7 @@ where
 
     pub fn key_idx<F>(&self, index: usize, getter: F) -> Option<(ElemIdx, usize)>
     where
-        F: Fn(<T as BTreeItem>::BTreeInfo) -> usize,
+        F: Fn(T::Info) -> usize,
     {
         let (idx, remainder) = self._key_idx(index, getter)?;
         return Some((ElemIdx(idx), remainder));
@@ -155,7 +155,7 @@ where
                     // parent references are correct so everythings a-ok
                     let parent_ref = &mut self.nodes[parent.get()];
                     parent_ref.count += 1;
-                    parent_ref.info = parent_ref.info + elem_info;
+                    parent_ref.info = parent_ref.info.add(elem_info);
 
                     node = parent;
                     continue;
@@ -170,7 +170,7 @@ where
                     // inserted successfully
                     self.nodes[to_insert.get()].parent = parent;
                     let parent_ref = &mut self.nodes[parent.get()];
-                    parent_ref.info = parent_ref.info + elem_info;
+                    parent_ref.info = parent_ref.info.add(elem_info);
                     parent_ref.count += 1;
 
                     node = parent;
@@ -182,10 +182,11 @@ where
             let parent = ();
 
             let right_idx = Idx::new(self.nodes.len());
-            let (mut count, mut info) = (0, Default::default());
+            let (mut count, mut info) = (0, T::Info::default());
             for kid in &kids {
                 self.nodes[kid.get()].parent = right_idx;
-                info = info + self.elements[kid.get()].get_info();
+                let kid_info = self.elements[kid.get()].get_info();
+                info = info.add(kid_info);
                 count += 1;
             }
 
@@ -197,9 +198,10 @@ where
             self.nodes.push(right_node);
 
             let kids = self.nodes[node.get()].kids;
-            let (mut count, mut info) = (0, <T::BTreeInfo as Default>::default());
+            let (mut count, mut info) = (0, T::Info::default());
             for kid in &kids {
-                info = info + self.elements[kid.get()].get_info();
+                let kid_info = self.elements[kid.get()].get_info();
+                info = info.add(kid_info);
                 count += 1;
             }
 
@@ -219,7 +221,7 @@ where
         root.kids.insert(1, right);
 
         let (node_ref, right_ref) = (self.nodes[node.get()], self.nodes[right.get()]);
-        root.info = node_ref.info + right_ref.info;
+        root.info = node_ref.info.add(right_ref.info);
         root.count = node_ref.count + right_ref.count;
         root.parent = root_idx;
         self.nodes[node.get()].parent = root_idx;
@@ -231,7 +233,7 @@ where
         self.levels += 1;
     }
 
-    fn add_to_leaf(&mut self, node: Idx, index: usize, elem: T) -> (T::BTreeInfo, Option<Idx>) {
+    fn add_to_leaf(&mut self, node: Idx, index: usize, elem: T) -> (T::Info, Option<Idx>) {
         self.nodes[node.get()].assert_is_leaf();
 
         let elem_agg_info = elem.get_info();
@@ -259,7 +261,7 @@ where
             None => {
                 self.element_info[elem_idx.get()].parent = node;
                 let node_ref = &mut self.nodes[node.get()];
-                node_ref.info = node_ref.info + elem_agg_info;
+                node_ref.info = node_ref.info.add(elem_agg_info);
                 node_ref.count += 1;
                 return (elem_agg_info, None);
             }
@@ -268,10 +270,11 @@ where
 
         let right_idx = Idx::new(self.nodes.len());
         {
-            let (mut count, mut info) = (0, Default::default());
+            let (mut count, mut info) = (0, T::Info::default());
             for kid in &kids {
                 self.element_info[kid.get()].parent = right_idx;
-                info = info + self.elements[kid.get()].get_info();
+                let kid_info = self.elements[kid.get()].get_info();
+                info = info.add(kid_info);
                 count += 1;
             }
 
@@ -284,9 +287,10 @@ where
         }
 
         let kids = self.nodes[node.get()].kids;
-        let (mut count, mut info) = (0, Default::default());
+        let (mut count, mut info) = (0, T::Info::default());
         for kid in &kids {
-            info = info + self.elements[kid.get()].get_info();
+            let kid_info = self.elements[kid.get()].get_info();
+            info = info.add(kid_info);
             count += 1;
         }
 
@@ -324,7 +328,7 @@ where
 
     fn _key_idx<F>(&self, index: usize, getter: F) -> Option<(Idx, usize)>
     where
-        F: Fn(<T as BTreeItem>::BTreeInfo) -> usize,
+        F: Fn(T::Info) -> usize,
     {
         let mut node = self.nodes[self.root.get()];
         if index >= getter(node.info) {
@@ -505,20 +509,16 @@ mod tests {
     #[derive(Clone, Copy, Default, Debug)]
     struct TestData(usize);
 
-    impl core::ops::Add for TestData {
-        type Output = Self;
-
-        fn add(self, other: Self) -> Self::Output {
+    impl BTreeInfo for TestData {
+        fn add(self, other: Self) -> Self {
             return Self(self.0 + other.0);
         }
     }
 
-    impl BTreeInfo for TestData {}
-
     impl BTreeItem for TestData {
-        type BTreeInfo = Self;
+        type Info = Self;
 
-        fn get_info(&self) -> Self::BTreeInfo {
+        fn get_info(&self) -> Self::Info {
             return TestData(self.0);
         }
     }

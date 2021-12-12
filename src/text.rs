@@ -1,19 +1,19 @@
 use crate::btree::*;
 
 pub struct File {
-    pub active: bool,
     file_cursor: usize,
-    text: BTree<BufferView>,
+    data: BTree<BufferView>,
 }
 
 impl File {
     pub fn new() -> Self {
         return Self {
-            active: false,
             file_cursor: 0,
-            text: BTree::new(),
+            data: BTree::new(),
         };
     }
+
+    pub fn insert(&mut self, text: &str) {}
 }
 
 pub struct BufferView {
@@ -52,10 +52,8 @@ impl BufferInfo {
     }
 }
 
-impl core::ops::Add<BufferInfo> for BufferInfo {
-    type Output = Self;
-
-    fn add(self, other: BufferInfo) -> BufferInfo {
+impl BTreeInfo for BufferInfo {
+    fn add(self, other: Self) -> Self {
         return BufferInfo {
             content_size: self.content_size + other.content_size,
             newline_count: self.newline_count + other.newline_count,
@@ -63,10 +61,8 @@ impl core::ops::Add<BufferInfo> for BufferInfo {
     }
 }
 
-impl BTreeInfo for BufferInfo {}
-
 impl BTreeItem for BufferView {
-    type BTreeInfo = BufferInfo;
+    type Info = BufferInfo;
     fn get_info(&self) -> BufferInfo {
         return BufferInfo {
             content_size: self.content_size as usize,
