@@ -168,54 +168,6 @@ where
     }
 
     fn insert_into_leaf(&mut self, mut node: Idx, index: usize, elem: T) {
-        let (elem_info, mut right) = self.add_to_leaf(node, index, elem);
-        for _ in 0..self.levels {
-            let parent = self.nodes[node.get()].parent.unwrap();
-            self.nodes[parent.get()].assert_not_leaf();
-
-            let to_insert = match right.take() {
-                Some(right) => right,
-                None => {
-                    // parent references are correct so everythings a-ok
-                    let parent_ref = &mut self.nodes[parent.get()];
-                    parent_ref.count += 1;
-                    parent_ref.info = parent_ref.info.add(elem_info);
-
-                    node = parent;
-                    continue;
-                }
-            };
-
-            let mut kids_iter = self.nodes[parent.get()].kids.into_iter();
-            let node_index = kids_iter.position(|kid| kid == node).unwrap() + 1;
-            let kids = match self.nodes[parent.get()].kids.insert(node_index, to_insert) {
-                Some(right_kids) => right_kids,
-                None => {
-                    self.nodes[to_insert.get()].parent = Some(parent);
-                    let parent_ref = &mut self.nodes[parent.get()];
-                    parent_ref.info = parent_ref.info.add(elem_info);
-                    parent_ref.count += 1;
-
-                    node = parent;
-                    continue;
-                }
-            };
-
-            let right_idx = self.new_node(false, kids);
-            self.update_node(false, parent);
-            node = parent;
-        }
-
-        let right = match right {
-            Some(right) => right,
-            None => return,
-        };
-
-        self.root = self.new_node(false, [node, right]);
-        self.levels += 1;
-    }
-
-    fn add_to_leaf(&mut self, node: Idx, index: usize, elem: T) -> (T::Info, Option<Idx>) {
         self.nodes[node.get()].assert_is_leaf();
 
         let info = elem.get_info();
@@ -239,15 +191,44 @@ where
             }
         };
 
-        let kids = match self.add_child(node, index, elem_idx, info) {
-            None => return (info, None),
-            Some(right) => right,
-        };
+        let mut right = self.add_child(node, index, elem_idx, info).map(|kids| {
+            self.update_node(true, node);
+            return self.new_node(true, kids);
+        });
 
-        let right_idx = self.new_node(true, kids);
-        self.update_node(true, node);
+        for _ in 0..self.levels {
+            let parent = self.nodes[node.get()].parent.unwrap();
+            self.nodes[parent.get()].assert_not_leaf();
 
-        return (info, Some(right_idx));
+            let to_insert = match right.take() {
+                Some(right) => right,
+                None => {
+                    // parent references are correct so everythings a-ok
+                    let parent_ref = &mut self.nodes[parent.get()];
+                    parent_ref.count += 1;
+                    parent_ref.info = parent_ref.info.add(info);
+
+                    node = parent;
+                    continue;
+                }
+            };
+
+            self.nodes[to_insert.get()].parent = Some(parent);
+            let mut kids_iter = self.nodes[parent.get()].kids.into_iter();
+            let node_index = kids_iter.position(|kid| kid == node).unwrap() + 1;
+            let kids = self.add_child(parent, node_index, to_insert, info);
+            right = kids.map(|kids| {
+                self.update_node(false, parent);
+                self.new_node(false, kids)
+            });
+
+            node = parent;
+        }
+
+        right.map(|right| {
+            self.root = self.new_node(false, [node, right]);
+            self.levels += 1;
+        });
     }
 
     fn add_child(&mut self, node: Idx, at: usize, child: Idx, info: T::Info) -> Option<Kids> {
