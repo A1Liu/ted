@@ -142,6 +142,7 @@ impl WebGl {
         let loc = loc.try_into().map_err(make_err)?;
 
         let gl_buffer = ctx.create_buffer().ok_or("failed to create buffer")?;
+        ctx.bind_buffer(BufferKind::Array as u32, Some(&gl_buffer));
         ctx.enable_vertex_attrib_array(loc);
 
         let normal = false;
@@ -304,6 +305,13 @@ impl WebGlType for u32 {
     fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
         ctx.uniform1ui(loc, self);
     }
+}
+
+// lazy_static! {
+//     static ref webgl: Context = {};
+// }
+thread_local! {
+  pub static gl: WebGl = WebGl::new().unwrap();
 }
 
 #[wasm_bindgen(

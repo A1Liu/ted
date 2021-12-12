@@ -2,11 +2,16 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_macros)]
+#![allow(unused_braces)]
+#![allow(non_upper_case_globals)]
 // Short-term allows
 /* */
 #![allow(unused_imports)]
 #![allow(unused_mut)]
 /* */
+
+#[macro_use]
+extern crate lazy_static;
 
 #[cfg(target_arch = "wasm32")]
 #[macro_use]
@@ -35,7 +40,7 @@ pub fn new_webgl() -> Result<graphics::WebGl, JsValue> {
 }
 
 #[wasm_bindgen]
-pub fn render(webgl: &mut graphics::WebGl) -> Result<(), JsValue> {
+pub fn render(webgl: &graphics::WebGl) -> Result<(), JsValue> {
     let mut cache = GlyphCache::new();
 
     let mut file = text::File::new();
@@ -49,7 +54,7 @@ pub fn render(webgl: &mut graphics::WebGl) -> Result<(), JsValue> {
         vertices.push(text);
     }
 
-    vertices.render(webgl)?;
+    gl.with(move |ctx| vertices.render(ctx))?;
 
     return Ok(());
 }
