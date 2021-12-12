@@ -2,14 +2,14 @@ use crate::btree::*;
 
 pub struct File {
     file_cursor: usize,
-    data: BTree<BufferView>,
+    data: String,
 }
 
 impl File {
     pub fn new() -> Self {
         return Self {
             file_cursor: 0,
-            data: BTree::new(),
+            data: String::new(),
         };
     }
 
@@ -20,20 +20,6 @@ pub struct BufferView {
     buffer: Box<[u8; 4096]>,
     content_size: u16,
     newline_count: u16,
-}
-
-impl BufferView {
-    pub fn new() -> Self {
-        let mut vec = vec![0u8; 4096];
-        let ptr = vec.as_mut_ptr() as *mut [u8; 4096];
-        vec.leak();
-
-        return Self {
-            buffer: unsafe { Box::from_raw(ptr) },
-            content_size: 0,
-            newline_count: 0,
-        };
-    }
 }
 
 #[derive(Default, Clone, Copy)]

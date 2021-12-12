@@ -40,7 +40,7 @@ where
     T: BTreeItem,
 {
     pub fn new() -> Self {
-        let root_node = Node::leaf();
+        let root_node = Node::empty(true);
 
         return Self {
             elements: Vec::new(),
@@ -75,11 +75,35 @@ where
         return Some(ElemIdx(idx));
     }
 
+    pub fn key_inclusive<F>(&self, index: usize, getter: F) -> Option<(&T, usize)>
+    where
+        F: Fn(T::Info) -> usize,
+    {
+        let (idx, remainder) = self._key_idx(true, index, getter)?;
+        return Some((&self.elements[idx.get()], remainder));
+    }
+
+    pub fn key_inclusive_mut<F>(&mut self, index: usize, getter: F) -> Option<(&T, usize)>
+    where
+        F: Fn(T::Info) -> usize,
+    {
+        let (idx, remainder) = self._key_idx(true, index, getter)?;
+        return Some((&mut self.elements[idx.get()], remainder));
+    }
+
+    pub fn key_inclusive_idx<F>(&self, index: usize, getter: F) -> Option<(ElemIdx, usize)>
+    where
+        F: Fn(T::Info) -> usize,
+    {
+        let (idx, remainder) = self._key_idx(true, index, getter)?;
+        return Some((ElemIdx(idx), remainder));
+    }
+
     pub fn key<F>(&self, index: usize, getter: F) -> Option<(&T, usize)>
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._key_idx(index, getter)?;
+        let (idx, remainder) = self._key_idx(false, index, getter)?;
         return Some((&self.elements[idx.get()], remainder));
     }
 
@@ -87,7 +111,7 @@ where
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._key_idx(index, getter)?;
+        let (idx, remainder) = self._key_idx(false, index, getter)?;
         return Some((&mut self.elements[idx.get()], remainder));
     }
 
@@ -95,7 +119,7 @@ where
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._key_idx(index, getter)?;
+        let (idx, remainder) = self._key_idx(false, index, getter)?;
         return Some((ElemIdx(idx), remainder));
     }
 
@@ -146,7 +170,7 @@ where
     fn insert_into_leaf(&mut self, mut node: Idx, index: usize, elem: T) {
         let (elem_info, mut right) = self.add_to_leaf(node, index, elem);
         for _ in 0..self.levels {
-            let parent = self.nodes[node.get()].parent;
+            let parent = self.nodes[node.get()].parent.unwrap();
             self.nodes[parent.get()].assert_not_leaf();
 
             let to_insert = match right.take() {
@@ -167,8 +191,7 @@ where
             let kids = match self.nodes[parent.get()].kids.insert(node_index, to_insert) {
                 Some(right_kids) => right_kids,
                 None => {
-                    // inserted successfully
-                    self.nodes[to_insert.get()].parent = parent;
+                    self.nodes[to_insert.get()].parent = Some(parent);
                     let parent_ref = &mut self.nodes[parent.get()];
                     parent_ref.info = parent_ref.info.add(elem_info);
                     parent_ref.count += 1;
@@ -178,36 +201,9 @@ where
                 }
             };
 
+            let right_idx = self.new_node(false, kids);
+            self.update_node(false, parent);
             node = parent;
-            let parent = ();
-
-            let right_idx = Idx::new(self.nodes.len());
-            let (mut count, mut info) = (0, T::Info::default());
-            for kid in &kids {
-                self.nodes[kid.get()].parent = right_idx;
-                let kid_info = self.elements[kid.get()].get_info();
-                info = info.add(kid_info);
-                count += 1;
-            }
-
-            let mut right_node = Node::new();
-            right_node.kids = kids;
-            right_node.info = info;
-            right_node.count = count;
-            right_node.parent = self.nodes[node.get()].parent; // not really necessary
-            self.nodes.push(right_node);
-
-            let kids = self.nodes[node.get()].kids;
-            let (mut count, mut info) = (0, T::Info::default());
-            for kid in &kids {
-                let kid_info = self.elements[kid.get()].get_info();
-                info = info.add(kid_info);
-                count += 1;
-            }
-
-            let node_ = &mut self.nodes[node.get()];
-            node_.info = info;
-            node_.count = count;
         }
 
         let right = match right {
@@ -215,28 +211,14 @@ where
             None => return,
         };
 
-        let root_idx = Idx::new(self.nodes.len());
-        let mut root = Node::new();
-        root.kids.insert(0, node);
-        root.kids.insert(1, right);
-
-        let (node_ref, right_ref) = (self.nodes[node.get()], self.nodes[right.get()]);
-        root.info = node_ref.info.add(right_ref.info);
-        root.count = node_ref.count + right_ref.count;
-        root.parent = root_idx;
-        self.nodes[node.get()].parent = root_idx;
-        self.nodes[right.get()].parent = root_idx;
-
-        self.nodes.push(root);
-
-        self.root = root_idx;
+        self.root = self.new_node(false, [node, right]);
         self.levels += 1;
     }
 
     fn add_to_leaf(&mut self, node: Idx, index: usize, elem: T) -> (T::Info, Option<Idx>) {
         self.nodes[node.get()].assert_is_leaf();
 
-        let elem_agg_info = elem.get_info();
+        let info = elem.get_info();
         let elem_idx = match self.first_free.take() {
             Some(idx) => {
                 self.elements[idx.get()] = elem;
@@ -249,7 +231,7 @@ where
                 let idx = self.elements.len();
                 self.elements.push(elem);
                 self.element_info.push(ElementInfo {
-                    parent: Idx::new(0),
+                    parent: node,
                     next_free: None,
                 });
 
@@ -257,48 +239,76 @@ where
             }
         };
 
-        let kids = match self.nodes[node.get()].kids.insert(index, elem_idx) {
-            None => {
-                self.element_info[elem_idx.get()].parent = node;
-                let node_ref = &mut self.nodes[node.get()];
-                node_ref.info = node_ref.info.add(elem_agg_info);
-                node_ref.count += 1;
-                return (elem_agg_info, None);
-            }
+        let kids = match self.add_child(node, index, elem_idx, info) {
+            None => return (info, None),
             Some(right) => right,
         };
 
-        let right_idx = Idx::new(self.nodes.len());
-        {
-            let (mut count, mut info) = (0, T::Info::default());
-            for kid in &kids {
-                self.element_info[kid.get()].parent = right_idx;
-                let kid_info = self.elements[kid.get()].get_info();
-                info = info.add(kid_info);
-                count += 1;
-            }
+        let right_idx = self.new_node(true, kids);
+        self.update_node(true, node);
 
-            let mut right_node = Node::leaf();
-            right_node.kids = kids;
-            right_node.info = info;
-            right_node.count = count;
-            right_node.parent = self.nodes[node.get()].parent; // not really necessary
-            self.nodes.push(right_node);
+        return (info, Some(right_idx));
+    }
+
+    fn add_child(&mut self, node: Idx, at: usize, child: Idx, info: T::Info) -> Option<Kids> {
+        let kids = self.nodes[node.get()].kids.insert(at, child);
+        if kids.is_none() {
+            let node_ref = &mut self.nodes[node.get()];
+            node_ref.info = node_ref.info.add(info);
+            node_ref.count += 1;
         }
 
+        return kids;
+    }
+
+    fn update_node(&mut self, is_leaf: bool, node: Idx) {
         let kids = self.nodes[node.get()].kids;
         let (mut count, mut info) = (0, T::Info::default());
         for kid in &kids {
-            let kid_info = self.elements[kid.get()].get_info();
+            let (kid_info, kid_count) = if is_leaf {
+                assert!(self.element_info[kid.get()].parent == node);
+                (self.elements[kid.get()].get_info(), 1)
+            } else {
+                let kid = &self.nodes[kid.get()];
+                assert!(kid.parent == Some(node));
+                (kid.info, kid.count)
+            };
+
             info = info.add(kid_info);
-            count += 1;
+            count += kid_count;
         }
 
         let node_ = &mut self.nodes[node.get()];
         node_.info = info;
         node_.count = count;
+    }
 
-        return (elem_agg_info, Some(right_idx));
+    fn new_node(&mut self, is_leaf: bool, kids: impl Into<Kids>) -> Idx {
+        let kids: Kids = kids.into();
+        let idx = Idx::new(self.nodes.len());
+        let (mut count, mut info) = (0, T::Info::default());
+        for kid in &kids {
+            let (kid_info, kid_count) = if is_leaf {
+                self.element_info[kid.get()].parent = idx;
+                (self.elements[kid.get()].get_info(), 1)
+            } else {
+                let kid = &mut self.nodes[kid.get()];
+                kid.parent = Some(idx);
+                (kid.info, kid.count)
+            };
+
+            info = info.add(kid_info);
+            count += kid_count;
+        }
+
+        let mut right_node = Node::empty(is_leaf);
+        right_node.kids = kids;
+        right_node.info = info;
+        right_node.count = count;
+
+        self.nodes.push(right_node);
+
+        return idx;
     }
 
     fn _get_idx(&self, index: usize) -> Option<Idx> {
@@ -326,7 +336,7 @@ where
         return Some(index.unwrap());
     }
 
-    fn _key_idx<F>(&self, index: usize, getter: F) -> Option<(Idx, usize)>
+    fn _key_idx<F>(&self, inclusive: bool, index: usize, getter: F) -> Option<(Idx, usize)>
     where
         F: Fn(T::Info) -> usize,
     {
@@ -341,6 +351,11 @@ where
                 let child = self.nodes[child_idx.get()];
                 let sum = getter(child.info);
                 if running < sum {
+                    node = child;
+                    continue 'outer;
+                }
+
+                if inclusive && running == sum {
                     node = child;
                     continue 'outer;
                 }
@@ -383,26 +398,14 @@ where
     is_leaf: bool,
     info: Info,
     count: usize,
-    parent: Idx, // For the root, I dont think this matters. Maybe it'll point to itself.
-    kids: ChildArray,
+    parent: Option<Idx>, // For the root, I dont think this matters. Maybe it'll point to itself.
+    kids: Kids,
 }
 
 impl<Info> Node<Info>
 where
     Info: BTreeInfo,
 {
-    #[inline(always)]
-    fn leaf() -> Self {
-        let mut node = Self::new();
-
-        #[cfg(debug_assertions)]
-        {
-            node.is_leaf = true;
-        }
-
-        return node;
-    }
-
     #[inline(always)]
     fn assert_not_leaf(&self) {
         #[cfg(debug_assertions)]
@@ -419,32 +422,42 @@ where
         }
     }
 
-    fn new() -> Self {
+    fn empty(is_leaf: bool) -> Self {
         #[cfg(debug_assertions)]
         return Node {
-            is_leaf: false,
+            is_leaf,
             count: 0,
             info: Default::default(),
-            parent: Idx::new(0),
-            kids: ChildArray::new(),
+            parent: None,
+            kids: Kids::new(),
         };
 
         #[cfg(not(debug_assertions))]
         return Node {
             count: 0,
             info: Default::default(),
-            parent: Idx::new(0),
-            kids: ChildArray::new(),
+            parent: None,
+            kids: Kids::new(),
         };
     }
 }
 
 #[derive(Clone, Copy)]
-struct ChildArray {
+struct Kids {
     value: [Option<Idx>; B],
 }
 
-impl ChildArray {
+impl From<[Idx; 2]> for Kids {
+    fn from(value: [Idx; 2]) -> Self {
+        let mut sel = Self::new();
+        sel.value[0] = Some(value[0]);
+        sel.value[1] = Some(value[1]);
+
+        return sel;
+    }
+}
+
+impl Kids {
     const SPLIT_POINT: usize = B / 2 + 1;
 
     fn new() -> Self {
@@ -478,7 +491,7 @@ impl ChildArray {
     }
 }
 
-impl core::ops::Index<usize> for ChildArray {
+impl core::ops::Index<usize> for Kids {
     type Output = Idx;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -486,14 +499,14 @@ impl core::ops::Index<usize> for ChildArray {
     }
 }
 
-impl core::ops::IndexMut<usize> for ChildArray {
+impl core::ops::IndexMut<usize> for Kids {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         return self.value[index].as_mut().unwrap();
     }
 }
 
 type DerefIdx = fn(&Option<Idx>) -> Option<Idx>;
-impl<'a> core::iter::IntoIterator for &'a ChildArray {
+impl<'a> core::iter::IntoIterator for &'a Kids {
     type Item = Idx;
     type IntoIter = core::iter::FilterMap<core::slice::Iter<'a, Option<Idx>>, DerefIdx>;
 

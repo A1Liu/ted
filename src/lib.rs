@@ -30,15 +30,6 @@ pub fn test_print() {
 }
 
 #[wasm_bindgen]
-pub fn text() {
-    let mut tree = btree::BTree::new();
-    for i in 0..8 {
-        println!("iter: {}", i);
-        tree.insert(0, text::BufferView::new());
-    }
-}
-
-#[wasm_bindgen]
 pub fn render(ctx: web_sys::WebGl2RenderingContext) -> Result<(), JsValue> {
     let text = "Hello World!";
     render_text(ctx, text)?;
