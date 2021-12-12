@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "WASM_PACK_PROFILE=dev parcel --out-dir .dist example/index.html",
     "build:website": "WASM_PACK_PROFILE=release parcel build --out-dir .dist example/index.html",
-    "build": "WASM_PACK_PROFILE=release parcel build --out-dir .dist worker.js",
+    "build": "WASM_PACK_PROFILE=release parcel build --out-dir .dist render.js",
     "deploy": "git push origin main:production"
   },
   "browserslist": [
