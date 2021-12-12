@@ -1,6 +1,18 @@
 use core::num::NonZeroUsize;
 pub use wasm_bindgen::prelude::*;
 
+#[derive(Clone, Copy, Default)]
+pub struct Rect {
+    pub width: u32,
+    pub height: u32,
+}
+
+impl Rect {
+    pub fn new(width: u32, height: u32) -> Self {
+        return Self { width, height };
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct Idx(NonZeroUsize);

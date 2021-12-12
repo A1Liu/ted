@@ -120,60 +120,42 @@ impl<'a> TextVertices<'a> {
         return false;
     }
 
-    pub fn render(&self, webgl: &mut WebGl) -> Result<(), JsValue> {
-        webgl.bind_array("in_pos", &self.points)?;
-        webgl.bind_array("in_glyph_pos", &self.glyphs)?;
+    pub fn render(&self, webgl: &WebGl) -> Result<(), JsValue> {
+        let vert_text = core::include_str!("./vertex.glsl");
+        let frag_text = core::include_str!("./fragment.glsl");
+        let program = webgl.compile(vert_text, frag_text)?;
+        webgl.use_program(&program);
 
-        let (atlas_width, atlas_height) = self.cache.atlas_dims();
+        let in_pos = webgl.vloc(&program, "in_pos")?;
+        webgl.bind_array(in_pos, &self.points)?;
+
+        let in_glyph_pos = webgl.vloc(&program, "in_glyph_pos")?;
+        webgl.bind_array(in_glyph_pos, &self.glyphs)?;
+
+        let atlas_dims = self.cache.atlas_dims();
 
         if self.did_raster {
             let atlas = self.cache.atlas();
-            webgl.bind_texture("u_glyph_atlas", atlas_width, atlas_height, atlas)?;
+            let u_glyph_atlas = webgl.uloc(&program, "u_glyph_atlas")?;
+            webgl.bind_tex(u_glyph_atlas, 0, atlas_dims, atlas)?;
         }
 
-        let width: f32 = self.width as f32;
-        webgl.bind_uniform("u_width", width)?;
+        let u_width = webgl.uloc(&program, "u_width")?;
+        webgl.bind_uniform(u_width, self.width as f32)?;
 
-        let height: f32 = self.height as f32;
-        webgl.bind_uniform("u_height", height)?;
+        let u_height = webgl.uloc(&program, "u_height")?;
+        webgl.bind_uniform(u_height, self.height as f32)?;
 
-        webgl.bind_uniform("u_atlas_width", atlas_width)?;
-        webgl.bind_uniform("u_atlas_height", atlas_height)?;
+        let u_atlas_width = webgl.uloc(&program, "u_atlas_width")?;
+        webgl.bind_uniform(u_atlas_width, atlas_dims.width)?;
+
+        let u_atlas_height = webgl.uloc(&program, "u_atlas_height")?;
+        webgl.bind_uniform(u_atlas_height, atlas_dims.height)?;
 
         webgl.draw(self.points.len() as i32);
 
         return Ok(());
     }
-}
-
-pub fn render_text(webgl: &mut WebGl, text: &str) -> Result<(), JsValue> {
-    let mut cache = GlyphCache::new();
-
-    let points = vec![pt(0, 0), pt(1, 0), pt(0, 1), pt(0, 1), pt(1, 0), pt(1, 1)];
-    webgl.bind_array("in_pos", &points)?;
-
-    let glyph_list = cache.translate_glyphs("e");
-    webgl.bind_array("in_glyph_pos", &glyph_list.glyphs)?;
-
-    let (atlas_width, atlas_height) = cache.atlas_dims();
-
-    if glyph_list.did_raster {
-        let atlas = cache.atlas();
-        webgl.bind_texture("u_glyph_atlas", atlas_width, atlas_height, atlas)?;
-    }
-
-    let width: f32 = 2.0;
-    webgl.bind_uniform("u_width", width)?;
-
-    let height: f32 = 2.0;
-    webgl.bind_uniform("u_height", height)?;
-
-    webgl.bind_uniform("u_atlas_width", atlas_width)?;
-    webgl.bind_uniform("u_atlas_height", atlas_height)?;
-
-    webgl.draw(points.len() as i32);
-
-    return Ok(());
 }
 
 #[derive(Clone, Copy)]

@@ -1,7 +1,9 @@
+use crate::util::*;
 use js_sys::Object;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 pub use web_sys::WebGl2RenderingContext as Context;
+pub use web_sys::WebGlUniformLocation as ULoc;
 use web_sys::{WebGlProgram, WebGlShader};
 
 #[repr(u32)]
@@ -38,10 +40,16 @@ where
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct VLoc(u32);
+
 // Maybe later make this more convenient to use with multiple programs
 #[wasm_bindgen]
 pub struct WebGl {
     ctx: Context,
+}
+
+pub struct Program {
     program: WebGlProgram,
     textures_used: u32,
 }
@@ -59,17 +67,19 @@ impl WebGl {
             .unwrap()
             .dyn_into::<Context>()?;
 
-        let vert_text = core::include_str!("./vertex.glsl");
-        let vert_shader = compile_shader(&ctx, ShaderType::Vertex, vert_text)?;
+        return Ok(WebGl { ctx });
+    }
 
-        let frag_text = core::include_str!("./fragment.glsl");
-        let frag_shader = compile_shader(&ctx, ShaderType::Fragment, frag_text)?;
+    pub fn use_program(&self, prog: &Program) {
+        self.ctx.use_program(Some(&prog.program));
+    }
 
-        let program = link_program(&ctx, &vert_shader, &frag_shader)?;
-        ctx.use_program(Some(&program));
+    pub fn compile(&self, vert: &str, frag: &str) -> Result<Program, JsValue> {
+        let vert_shader = compile_shader(&self.ctx, ShaderType::Vertex, vert)?;
+        let frag_shader = compile_shader(&self.ctx, ShaderType::Fragment, frag)?;
+        let program = link_program(&self.ctx, &vert_shader, &frag_shader)?;
 
-        return Ok(WebGl {
-            ctx,
+        return Ok(Program {
             program,
             textures_used: 0,
         });
@@ -81,23 +91,36 @@ impl WebGl {
         self.ctx.draw_arrays(Context::TRIANGLES, 0, triangles);
     }
 
-    pub fn bind_uniform<T>(&self, name: &'static str, value: T) -> Result<(), JsValue>
+    pub fn vloc(&self, prog: &Program, name: &str) -> Result<VLoc, JsValue> {
+        let loc = self.ctx.get_attrib_location(&prog.program, name);
+        let make_err = |e| format!("failed to get location of '{}' (got {})", name, loc);
+        let loc = loc.try_into().map_err(make_err)?;
+
+        return Ok(VLoc(loc));
+    }
+
+    pub fn uloc(&self, prog: &Program, name: &str) -> Result<ULoc, JsValue> {
+        let make_err = || format!("Failed to write uniform");
+        let loc_opt = self.ctx.get_uniform_location(&prog.program, name);
+        let loc = loc_opt.ok_or_else(make_err)?;
+
+        return Ok(loc);
+    }
+
+    pub fn bind_uniform<T>(&self, loc: ULoc, value: T) -> Result<(), JsValue>
     where
         T: WebGlType,
     {
-        let make_err = || format!("Failed to write uniform");
-        let loc_opt = self.ctx.get_uniform_location(&self.program, name);
-        let loc = loc_opt.ok_or_else(make_err)?;
         value.bind_uniform(&self.ctx, Some(&loc));
 
         return Ok(());
     }
 
-    pub fn bind_array<T>(&self, attrib: &'static str, array: &[T]) -> Result<(), JsValue>
+    pub fn bind_array<T>(&self, loc: VLoc, array: &[T]) -> Result<(), JsValue>
     where
         T: WebGlType,
     {
-        let (ctx, program) = (&self.ctx, &self.program);
+        let (ctx, loc) = (&self.ctx, loc.0);
 
         let gl_buffer = ctx.create_buffer().ok_or("failed to create buffer")?;
         ctx.bind_buffer(BufferKind::Array as u32, Some(&gl_buffer));
@@ -112,11 +135,6 @@ impl WebGl {
                 UsagePattern::Static as u32,
             );
         }
-
-        let loc = ctx.get_attrib_location(program, attrib);
-
-        let make_err = |e| format!("failed to get location of '{}' (got {})", attrib, loc);
-        let loc = loc.try_into().map_err(make_err)?;
 
         ctx.enable_vertex_attrib_array(loc);
 
@@ -133,33 +151,20 @@ impl WebGl {
         return Ok(());
     }
 
-    pub fn bind_texture(
-        &mut self,
-        attrib: &'static str,
-        width: u32,
-        height: u32,
-        data: &[u8],
-    ) -> Result<(), JsValue> {
-        let (ctx, program) = (&self.ctx, &self.program);
+    pub fn bind_tex(&self, loc: ULoc, unit: u32, rect: Rect, data: &[u8]) -> Result<(), JsValue> {
+        let ctx = &self.ctx;
 
         let tex_type = Context::TEXTURE_2D;
         let data_type = Context::UNSIGNED_BYTE;
         let format = Context::LUMINANCE;
 
-        let texture_unit = self.textures_used;
-        self.textures_used += 1;
-
         ctx.pixel_storei(Context::UNPACK_ALIGNMENT, 1);
 
-        let loc = ctx.get_uniform_location(program, attrib);
-        let make_err = || format!("failed to get location of uniform '{}'", attrib);
-        let loc = loc.ok_or_else(make_err)?;
-
-        ctx.uniform1i(Some(&loc), texture_unit as i32);
+        ctx.uniform1i(Some(&loc), unit as i32);
 
         let tex = ctx.create_texture().unwrap();
 
-        ctx.active_texture(Context::TEXTURE0 + texture_unit);
+        ctx.active_texture(Context::TEXTURE0 + unit);
         ctx.bind_texture(tex_type, Some(&tex));
 
         let filter_type = Context::NEAREST as i32;
@@ -174,8 +179,8 @@ impl WebGl {
             tex_type,
             0,
             format as i32,
-            width as i32,
-            height as i32,
+            rect.width as i32,
+            rect.height as i32,
             0,
             format,
             data_type,

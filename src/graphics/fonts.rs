@@ -1,3 +1,4 @@
+use crate::util::*;
 use std::collections::hash_map::HashMap;
 use ttf_parser as ttf;
 
@@ -67,8 +68,8 @@ impl GlyphCache {
         };
     }
 
-    pub fn atlas_dims(&self) -> (u32, u32) {
-        return (self.atlas_width, self.atlas_height);
+    pub fn atlas_dims(&self) -> Rect {
+        return Rect::new(self.atlas_width, self.atlas_height);
     }
 
     pub fn atlas(&self) -> &[u8] {
