@@ -35,19 +35,11 @@ pub fn test_print() {
 }
 
 #[wasm_bindgen]
-pub fn render() -> Result<(), JsValue> {
+pub fn render(s: &str) -> Result<(), JsValue> {
     let mut cache = GlyphCache::new();
 
-    let mut file = text::File::new();
-
-    let text = "Hello World!\n\nWelcome to my stupid project to make a text editor.";
-    file.insert(0, text);
-
     let mut vertices = TextVertices::new(&mut cache, 28, 10);
-
-    for text in &file {
-        vertices.push(text);
-    }
+    vertices.push(s);
 
     vertices.render()?;
 

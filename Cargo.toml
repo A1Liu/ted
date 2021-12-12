@@ -29,7 +29,7 @@ features = [
   'HtmlCanvasElement',
   'WebGlBuffer',
   'WebGl2RenderingContext',
-  # 'WebGlVertexArrayObject',
+  'WebGlVertexArrayObject',
   'WebGlTexture',
   'WebGlProgram',
   'WebGlShader',

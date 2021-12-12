@@ -6,6 +6,7 @@ pub use web_sys::WebGl2RenderingContext as Context;
 pub use web_sys::WebGlBuffer;
 pub use web_sys::WebGlTexture as Texture;
 pub use web_sys::WebGlUniformLocation as ULoc;
+pub use web_sys::WebGlVertexArrayObject as VAO;
 use web_sys::{WebGlProgram, WebGlShader};
 
 pub trait WebGlType
@@ -29,7 +30,6 @@ where
 #[derive(Clone, Copy)]
 pub struct VLoc(u32);
 
-// Maybe later make this more convenient to use with multiple programs
 #[wasm_bindgen]
 pub struct WebGl {
     phantom: (),
@@ -76,6 +76,21 @@ impl WebGl {
         });
     }
 
+    pub fn vao(&self) -> Result<VAO, JsValue> {
+        return WEB_GL.with(|ctx| {
+            let vao = ctx.create_vertex_array().ok_or("Couldn't create VAO")?;
+            ctx.bind_vertex_array(Some(&vao));
+
+            return Ok(vao);
+        });
+    }
+
+    pub fn bind_vao(&self, vao: &VAO) {
+        return WEB_GL.with(|ctx| {
+            ctx.bind_vertex_array(Some(vao));
+        });
+    }
+
     pub fn draw(&self, triangles: i32) {
         return WEB_GL.with(|ctx| {
             ctx.clear_color(0.0, 0.0, 0.0, 1.0);
@@ -94,15 +109,13 @@ impl WebGl {
         });
     }
 
-    pub fn bind_uniform<T>(&self, loc: ULoc, value: T) -> Result<(), JsValue>
+    pub fn bind_uniform<T>(&self, loc: &ULoc, value: T)
     where
         T: WebGlType,
     {
         WEB_GL.with(|ctx| {
-            value.bind_uniform(ctx, Some(&loc));
+            value.bind_uniform(ctx, Some(loc));
         });
-
-        return Ok(());
     }
 
     pub fn write_buffer<T>(&self, buf: &Buffer<T>, data: &[T])
@@ -190,7 +203,7 @@ impl WebGl {
         return Ok(());
     }
 
-    pub fn bind_tex(&self, loc: &ULoc, unit: u32, tex: &Texture) -> Result<(), JsValue> {
+    pub fn bind_tex(&self, loc: &ULoc, unit: u32, tex: &Texture) {
         let tex_type = Context::TEXTURE_2D;
         let data_type = Context::UNSIGNED_BYTE;
         let format = Context::LUMINANCE;
@@ -199,8 +212,6 @@ impl WebGl {
             ctx.uniform1i(Some(loc), unit as i32);
             ctx.active_texture(Context::TEXTURE0 + unit);
             ctx.bind_texture(tex_type, Some(tex));
-
-            return Ok(());
         });
     }
 }

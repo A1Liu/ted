@@ -9,9 +9,16 @@ import { render, newWebgl } from "./Cargo.toml";
 //   overflow: hidden;
 // }
 
+const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 
-try {
-  render();
-} catch (e) {
-  console.log(e);
-}
+const repeat = async (func, ms = 1000, limit = 100) => {
+  while (limit-- > 0) {
+    func();
+    await timeout(ms);
+  }
+};
+
+let text = `Welcome to my stupid project to make a text editor.
+And now, Kirin J. Callinan's "Big Enough":\n`;
+
+repeat(() => { render(text); text += 'aaah '; }).catch(console.warn);
