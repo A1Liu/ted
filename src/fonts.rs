@@ -6,9 +6,11 @@ use ttf_parser as ttf;
 const MAX_ATLAS_WIDTH: u32 = 4096;
 const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
 
-const SIZE: usize = 100; // some kind of font thing idk.
-const PAD_H: u32 = 8; // in pixels
-const PAD_V: u32 = 16; // in pixels
+const SIZE: usize = 64; // some kind of font thing idk.
+const PAD_L: u32 = 8; // in pixels
+const PAD_R: u32 = 4; // in pixels
+const PAD_T: u32 = 4; // in pixels
+const PAD_B: u32 = 8; // in pixels
 
 const DEFAULT_CHARS: &'static str = core::concat!(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -110,7 +112,7 @@ impl GlyphCache {
             height = core::cmp::max(height, h);
         }
 
-        let (width, height) = (width + PAD_H * 2, height + PAD_V * 2);
+        let (width, height) = (width + PAD_L + PAD_R, height + PAD_T + PAD_B);
 
         if width < self.glyph_width && height < self.glyph_height {
             let glyph = self.add_char(&face, scale, character);
@@ -219,17 +221,18 @@ impl GlyphCache {
         let data_width = data.width as usize;
         let data = data.data;
 
-        let (pad_v, pad_h) = (PAD_V as usize, PAD_H as usize);
+        let (pad_l, pad_r) = (PAD_L as usize, PAD_R as usize);
+        let (pad_t, pad_b) = (PAD_T as usize, PAD_B as usize);
 
-        let data_begin_row = atlas_height - data_height - pad_v;
-        let data_end_row = atlas_height - pad_v;
-        let data_begin_col = glyph_x + pad_h;
-        let data_end_col = glyph_x + pad_h + data_width;
+        let data_begin_row = atlas_height - data_height - pad_b;
+        let data_end_row = atlas_height - pad_b;
+        let data_begin_col = glyph_x + pad_l;
+        let data_end_col = glyph_x + pad_l + data_width;
 
-        let glyph_begin_row = glyph_y + pad_v;
+        let glyph_begin_row = glyph_y + pad_t;
         // glyph_end_row == data_end_row
         // glyph_begin_col == data_begin_col
-        let glyph_end_col = glyph_x + glyph_width - pad_h;
+        let glyph_end_col = glyph_x + glyph_width - pad_r;
 
         // Empty out any space that might've been filled by a previous glyph
         for row in glyph_begin_row..data_begin_row {
