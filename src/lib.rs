@@ -3,21 +3,19 @@
 #![allow(unused_variables)]
 #![allow(unused_macros)]
 // Short-term allows
-/* /
+/* */
 #![allow(unused_imports)]
 #![allow(unused_mut)]
-/ */
+/* */
 
 #[cfg(target_arch = "wasm32")]
 #[macro_use]
 mod print_utils;
 
 mod btree;
-mod fonts;
 mod graphics;
 mod text;
 mod util;
-mod webgl;
 
 #[cfg(target_arch = "wasm32")]
 #[global_allocator]
