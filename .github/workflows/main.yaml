@@ -9,18 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Rust Cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            .cargo/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
+      - uses: Swatinem/rust-cache@v1
+        with:
+          target-dir: .cargo/target
       - run: cargo test
       - uses: jetli/wasm-pack-action@v0.3.0
       - uses: actions/setup-node@v2
