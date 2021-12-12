@@ -5,6 +5,12 @@ pub use wasm_bindgen::prelude::*;
 #[repr(transparent)]
 pub struct Idx(NonZeroUsize);
 
+impl Into<usize> for Idx {
+    fn into(self) -> usize {
+        return self.get();
+    }
+}
+
 impl std::fmt::Debug for Idx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         return write!(f, "{}", self.0);

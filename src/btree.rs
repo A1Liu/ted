@@ -1,9 +1,13 @@
 use crate::util::*;
 
-const B: usize = 6;
-
 #[derive(Clone, Copy)]
 pub struct ElemIdx(Idx);
+
+impl Into<usize> for ElemIdx {
+    fn into(self) -> usize {
+        return self.0.get();
+    }
+}
 
 pub trait BTreeInfo
 where
@@ -60,43 +64,9 @@ where
         return self.nodes[self.root.get()].info;
     }
 
-    pub fn get(&self, index: usize) -> Option<&T> {
-        let (idx, _) = self._find(false, index, |count, _| count)?;
+    pub fn get(&self, index: impl Into<usize>) -> Option<&T> {
+        let (idx, _) = self._find(false, index.into(), |count, _| count)?;
         return Some(&self.elements[idx.get()]);
-    }
-
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
-        let (idx, _) = self._find(false, index, |count, _| count)?;
-        return Some(&mut self.elements[idx.get()]);
-    }
-
-    pub fn get_idx(&self, index: usize) -> Option<ElemIdx> {
-        let (idx, _) = self._find(false, index, |count, _| count)?;
-        return Some(ElemIdx(idx));
-    }
-
-    pub fn key_inclusive<F>(&self, index: usize, get: F) -> Option<(&T, usize)>
-    where
-        F: Fn(T::Info) -> usize,
-    {
-        let (idx, remainder) = self._find(true, index, move |_, info| get(info))?;
-        return Some((&self.elements[idx.get()], remainder));
-    }
-
-    pub fn key_inclusive_mut<F>(&mut self, index: usize, get: F) -> Option<(&T, usize)>
-    where
-        F: Fn(T::Info) -> usize,
-    {
-        let (idx, remainder) = self._find(true, index, move |_, info| get(info))?;
-        return Some((&mut self.elements[idx.get()], remainder));
-    }
-
-    pub fn key_inclusive_idx<F>(&self, index: usize, get: F) -> Option<(ElemIdx, usize)>
-    where
-        F: Fn(T::Info) -> usize,
-    {
-        let (idx, remainder) = self._find(true, index, move |_, info| get(info))?;
-        return Some((ElemIdx(idx), remainder));
     }
 
     pub fn key<F>(&self, index: usize, get: F) -> Option<(&T, usize)>
@@ -107,12 +77,17 @@ where
         return Some((&self.elements[idx.get()], remainder));
     }
 
-    pub fn key_mut<F>(&mut self, index: usize, get: F) -> Option<(&T, usize)>
+    pub fn key_leq<F>(&self, index: usize, get: F) -> Option<(&T, usize)>
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._find(false, index, move |_, info| get(info))?;
-        return Some((&mut self.elements[idx.get()], remainder));
+        let (idx, remainder) = self._find(true, index, move |_, info| get(info))?;
+        return Some((&self.elements[idx.get()], remainder));
+    }
+
+    pub fn get_idx(&self, index: usize) -> Option<ElemIdx> {
+        let (idx, _) = self._find(false, index, |count, _| count)?;
+        return Some(ElemIdx(idx));
     }
 
     pub fn key_idx<F>(&self, index: usize, get: F) -> Option<(ElemIdx, usize)>
@@ -123,12 +98,44 @@ where
         return Some((ElemIdx(idx), remainder));
     }
 
-    #[inline]
-    pub fn add(&mut self, element: T) {
-        self.insert(self.nodes[self.root.get()].count, element);
+    pub fn key_leq_idx<F>(&self, index: usize, get: F) -> Option<(ElemIdx, usize)>
+    where
+        F: Fn(T::Info) -> usize,
+    {
+        let (idx, remainder) = self._find(true, index, move |_, info| get(info))?;
+        return Some((ElemIdx(idx), remainder));
     }
 
-    pub fn insert(&mut self, index: usize, elem: T) {
+    pub fn get_mut<E, F>(&mut self, index: impl Into<usize>, f: F) -> Option<E>
+    where
+        F: Fn(&mut T) -> E,
+    {
+        let (idx, _) = self._find(false, index.into(), |count, _| count)?;
+        return None;
+    }
+
+    // pub fn key_mut<F>(&mut self, index: usize, get: F) -> Option<(&T, usize)>
+    // where
+    //     F: Fn(T::Info) -> usize,
+    // {
+    //     let (idx, remainder) = self._find(false, index, move |_, info| get(info))?;
+    //     return Some((&mut self.elements[idx.get()], remainder));
+    // }
+
+    // pub fn key_leq_mut<F>(&mut self, index: usize, get: F) -> Option<(&T, usize)>
+    // where
+    //     F: Fn(T::Info) -> usize,
+    // {
+    //     let (idx, remainder) = self._find(true, index, move |_, info| get(info))?;
+    //     return Some((&mut self.elements[idx.get()], remainder));
+    // }
+
+    #[inline]
+    pub fn add(&mut self, element: T) -> ElemIdx {
+        return self.insert(self.nodes[self.root.get()].count, element);
+    }
+
+    pub fn insert(&mut self, index: usize, elem: T) -> ElemIdx {
         if index > self.nodes[self.root.get()].count {
             panic!("insert index was too high");
         }
@@ -148,26 +155,26 @@ where
             unreachable!();
         }
 
-        self.insert_into_leaf(node, index, elem);
+        return self.insert_into_leaf(node, index, elem);
     }
 
-    pub fn insert_before(&mut self, index: ElemIdx, elem: T) {
+    pub fn insert_before(&mut self, index: ElemIdx, elem: T) -> ElemIdx {
         let leaf = self.element_info[index.0.get()].parent;
         let mut kids_iter = self.nodes[leaf.get()].kids.into_iter();
         let index = kids_iter.position(|kid| kid == index.0).unwrap();
 
-        self.insert_into_leaf(leaf, index, elem);
+        return self.insert_into_leaf(leaf, index, elem);
     }
 
-    pub fn insert_after(&mut self, index: ElemIdx, elem: T) {
+    pub fn insert_after(&mut self, index: ElemIdx, elem: T) -> ElemIdx {
         let leaf = self.element_info[index.0.get()].parent;
         let mut kids_iter = self.nodes[leaf.get()].kids.into_iter();
         let index = kids_iter.position(|kid| kid == index.0).unwrap();
 
-        self.insert_into_leaf(leaf, index + 1, elem);
+        return self.insert_into_leaf(leaf, index + 1, elem);
     }
 
-    fn insert_into_leaf(&mut self, mut node: Idx, index: usize, elem: T) {
+    fn insert_into_leaf(&mut self, mut node: Idx, index: usize, elem: T) -> ElemIdx {
         let info = elem.get_info();
         let elem = self.allocate_elem(node, elem);
 
@@ -209,6 +216,8 @@ where
             self.root = self.new_node(false, [node, right]);
             self.levels += 1;
         });
+
+        return ElemIdx(elem);
     }
 
     fn allocate_elem(&mut self, parent: Idx, elem: T) -> Idx {
@@ -322,7 +331,8 @@ where
                 key -= val;
             }
 
-            unreachable!();
+            // This is probably the implementation of T::Info being wrong
+            return None;
         }
 
         for idx in &node.kids {
@@ -339,7 +349,19 @@ where
             key -= val;
         }
 
+        // This is probably the implementation of T::Info being wrong
         unreachable!();
+    }
+}
+
+impl<I, T> core::ops::Index<I> for BTree<T>
+where
+    T: BTreeItem,
+    I: Into<usize>,
+{
+    type Output = T;
+    fn index(&self, idx: I) -> &T {
+        self.get(idx).unwrap()
     }
 }
 
@@ -348,6 +370,8 @@ struct ElementInfo {
     parent: Idx,
     next_free: Option<Idx>,
 }
+
+const B: usize = 6;
 
 // We're using the trick from Basic algo with the combining lists thing! From
 // the 2-3 tree PSet. Very cute.

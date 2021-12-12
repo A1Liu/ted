@@ -2,24 +2,37 @@ use crate::btree::*;
 
 pub struct File {
     file_cursor: usize,
-    data: String,
+    data: BTree<BufferView>,
 }
 
 impl File {
     pub fn new() -> Self {
         return Self {
             file_cursor: 0,
-            data: String::new(),
+            data: BTree::new(),
         };
     }
 
-    pub fn insert(&mut self, text: &str) {}
+    pub fn insert(&mut self, text: &str) {
+        let res = self.data.key_leq_idx(self.file_cursor, BufferInfo::content);
+        let (buffer, rem) = res.unwrap_or_else(|| (self.data.add(BufferView::new()), 0));
+
+        self.file_cursor += text.len();
+    }
 }
 
 pub struct BufferView {
-    buffer: Box<[u8; 4096]>,
-    content_size: u16,
+    buffer: String,
     newline_count: u16,
+}
+
+impl BufferView {
+    pub fn new() -> Self {
+        return Self {
+            buffer: String::new(),
+            newline_count: 0,
+        };
+    }
 }
 
 #[derive(Default, Clone, Copy)]
@@ -51,7 +64,7 @@ impl BTreeItem for BufferView {
     type Info = BufferInfo;
     fn get_info(&self) -> BufferInfo {
         return BufferInfo {
-            content_size: self.content_size as usize,
+            content_size: self.buffer.len(),
             newline_count: self.newline_count as usize,
         };
     }
