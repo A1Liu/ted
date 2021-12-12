@@ -1,14 +1,5 @@
 use crate::util::*;
 
-#[derive(Clone, Copy)]
-pub struct ElemIdx(Idx);
-
-impl Into<usize> for ElemIdx {
-    fn into(self) -> usize {
-        return self.0.get();
-    }
-}
-
 pub trait BTreeInfo
 where
     Self: Sized + Copy + Default,
@@ -64,8 +55,8 @@ where
         return self.nodes[self.root.get()].info;
     }
 
-    pub fn get(&self, index: impl Into<usize>) -> Option<&T> {
-        let (idx, _) = self._find(false, index.into(), |count, _| count)?;
+    pub fn get(&self, index: impl BTreeIdx<T>) -> Option<&T> {
+        let idx = index.get(self)?;
         return Some(&self.elements[idx.get()]);
     }
 
@@ -73,7 +64,7 @@ where
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._find(false, index, move |_, info| get(info))?;
+        let (idx, remainder) = self.find(false, index, move |_, info| get(info))?;
         return Some((&self.elements[idx.get()], remainder));
     }
 
@@ -81,44 +72,57 @@ where
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._find(true, index, move |_, info| get(info))?;
+        let (idx, remainder) = self.find(true, index, move |_, info| get(info))?;
         return Some((&self.elements[idx.get()], remainder));
     }
 
     pub fn get_idx(&self, index: usize) -> Option<ElemIdx> {
-        let (idx, _) = self._find(false, index, |count, _| count)?;
-        return Some(ElemIdx(idx));
+        let (idx, _) = self.find(false, index, |count, _| count)?;
+        return Some(e_idx(idx));
     }
 
     pub fn key_idx<F>(&self, index: usize, get: F) -> Option<(ElemIdx, usize)>
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._find(false, index, move |_, info| get(info))?;
-        return Some((ElemIdx(idx), remainder));
+        let (idx, remainder) = self.find(false, index, move |_, info| get(info))?;
+        return Some((e_idx(idx), remainder));
     }
 
     pub fn key_leq_idx<F>(&self, index: usize, get: F) -> Option<(ElemIdx, usize)>
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._find(true, index, move |_, info| get(info))?;
-        return Some((ElemIdx(idx), remainder));
+        let (idx, remainder) = self.find(true, index, move |_, info| get(info))?;
+        return Some((e_idx(idx), remainder));
     }
 
-    pub fn get_mut<E, F>(&mut self, index: impl Into<usize>, f: F) -> Option<E>
+    pub fn get_mut<E, F>(&mut self, index: impl BTreeIdx<T>, f: F) -> Option<E>
     where
         F: Fn(&mut T) -> E,
     {
-        let (idx, _) = self._find(false, index.into(), |count, _| count)?;
-        return None;
+        let idx = index.get(self)?.get();
+
+        let elem = &mut self.elements[idx];
+        let result = f(elem);
+
+        let mut node = self.element_info[idx].parent;
+        self.update_node(true, node);
+        for _ in 0..self.levels {
+            node = self.nodes[node.get()].parent.unwrap();
+            self.update_node(true, node);
+        }
+
+        debug_assert_eq!(node, self.root);
+
+        return Some(result);
     }
 
     // pub fn key_mut<F>(&mut self, index: usize, get: F) -> Option<(&T, usize)>
     // where
     //     F: Fn(T::Info) -> usize,
     // {
-    //     let (idx, remainder) = self._find(false, index, move |_, info| get(info))?;
+    //     let (idx, remainder) = self.find(false, index, move |_, info| get(info))?;
     //     return Some((&mut self.elements[idx.get()], remainder));
     // }
 
@@ -126,7 +130,7 @@ where
     // where
     //     F: Fn(T::Info) -> usize,
     // {
-    //     let (idx, remainder) = self._find(true, index, move |_, info| get(info))?;
+    //     let (idx, remainder) = self.find(true, index, move |_, info| get(info))?;
     //     return Some((&mut self.elements[idx.get()], remainder));
     // }
 
@@ -217,7 +221,7 @@ where
             self.levels += 1;
         });
 
-        return ElemIdx(elem);
+        return e_idx(elem);
     }
 
     fn allocate_elem(&mut self, parent: Idx, elem: T) -> Idx {
@@ -305,7 +309,7 @@ where
         return idx;
     }
 
-    fn _find<F>(&self, inclusive: bool, mut key: usize, get: F) -> Option<(Idx, usize)>
+    pub fn find<F>(&self, inclusive: bool, mut key: usize, get: F) -> Option<(Idx, usize)>
     where
         F: Fn(usize, T::Info) -> usize,
     {
@@ -354,14 +358,46 @@ where
     }
 }
 
-impl<I, T> core::ops::Index<I> for BTree<T>
+impl<T> core::ops::Index<usize> for BTree<T>
 where
     T: BTreeItem,
-    I: Into<usize>,
 {
     type Output = T;
-    fn index(&self, idx: I) -> &T {
+    fn index(&self, idx: usize) -> &T {
         self.get(idx).unwrap()
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct ElemIdx(Idx);
+
+fn e_idx(i: Idx) -> ElemIdx {
+    return ElemIdx(i);
+}
+
+pub trait BTreeIdx<T>
+where
+    T: BTreeItem,
+{
+    fn get(self, tree: &BTree<T>) -> Option<Idx>;
+}
+
+impl<T> BTreeIdx<T> for usize
+where
+    T: BTreeItem,
+{
+    fn get(self, tree: &BTree<T>) -> Option<Idx> {
+        let (idx, _) = tree.find(false, self, |count, _| count)?;
+        return Some(idx);
+    }
+}
+
+impl<T> BTreeIdx<T> for ElemIdx
+where
+    T: BTreeItem,
+{
+    fn get(self, tree: &BTree<T>) -> Option<Idx> {
+        return Some(self.0);
     }
 }
 
