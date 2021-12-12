@@ -1,4 +1,3 @@
-use crate::util::*;
 use std::collections::hash_map::HashMap;
 use ttf_parser as ttf;
 
@@ -6,8 +5,10 @@ use ttf_parser as ttf;
 const MAX_ATLAS_WIDTH: u32 = 4096;
 const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
 
+// These affect how the font looks I think? I'm not really sure tbh.
+//                                  - Albert Liu, Dec 11, 2021 Sat 22:44 EST
 const SIZE: usize = 64; // some kind of font thing idk.
-const PAD_L: u32 = 8; // in pixels
+const PAD_L: u32 = 8; // in pixels or something?
 const PAD_R: u32 = 4; // in pixels
 const PAD_T: u32 = 4; // in pixels
 const PAD_B: u32 = 8; // in pixels

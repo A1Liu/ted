@@ -3,30 +3,26 @@
 #![allow(unused_variables)]
 #![allow(unused_macros)]
 // Short-term allows
-/* */
+/* /
 #![allow(unused_imports)]
 #![allow(unused_mut)]
-/* */
+/ */
 
 #[cfg(target_arch = "wasm32")]
 #[macro_use]
 mod print_utils;
 
-pub mod util;
-
 mod btree;
+mod fonts;
+mod graphics;
+mod text;
+mod util;
 mod webgl;
-
-pub mod fonts;
-pub mod graphics;
-pub mod large_text;
-pub mod text;
 
 #[cfg(target_arch = "wasm32")]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-pub use btree::*;
 use graphics::*;
 use util::*;
 
@@ -40,7 +36,7 @@ pub fn text() {
     let mut tree = btree::BTree::new();
     for i in 0..8 {
         println!("iter: {}", i);
-        tree.insert(0, large_text::BufferView::new());
+        tree.insert(0, text::BufferView::new());
     }
 }
 

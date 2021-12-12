@@ -1,5 +1,4 @@
 use crate::fonts::*;
-use crate::util::*;
 use crate::webgl::*;
 use wasm_bindgen::prelude::*;
 
