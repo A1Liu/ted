@@ -6,7 +6,7 @@ use ttf_parser as ttf;
 const MAX_ATLAS_WIDTH: u32 = 4096;
 const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
 
-const SIZE: usize = 200; // some kind of font thing idk.
+const SIZE: usize = 100; // some kind of font thing idk.
 const PAD_H: u32 = 8; // in pixels
 const PAD_V: u32 = 16; // in pixels
 

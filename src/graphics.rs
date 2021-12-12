@@ -38,7 +38,7 @@ pub fn render_text(ctx: web_sys::WebGl2RenderingContext, text: &str) -> Result<(
     let points = vec![pt(0, 0), pt(1, 0), pt(0, 1), pt(0, 1), pt(1, 0), pt(1, 1)];
     webgl.bind_array("in_pos", &points)?;
 
-    let glyph_list = cache.translate_glyphs("H");
+    let glyph_list = cache.translate_glyphs("e");
     webgl.bind_array("in_glyph_pos", &glyph_list.glyphs)?;
 
     let (atlas_width, atlas_height) = cache.atlas_dims();
