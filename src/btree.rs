@@ -61,65 +61,65 @@ where
     }
 
     pub fn get(&self, index: usize) -> Option<&T> {
-        let idx = self._get_idx(index)?;
+        let (idx, _) = self._find(false, index, |count, _| count)?;
         return Some(&self.elements[idx.get()]);
     }
 
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
-        let idx = self._get_idx(index)?;
+        let (idx, _) = self._find(false, index, |count, _| count)?;
         return Some(&mut self.elements[idx.get()]);
     }
 
     pub fn get_idx(&self, index: usize) -> Option<ElemIdx> {
-        let idx = self._get_idx(index)?;
+        let (idx, _) = self._find(false, index, |count, _| count)?;
         return Some(ElemIdx(idx));
     }
 
-    pub fn key_inclusive<F>(&self, index: usize, getter: F) -> Option<(&T, usize)>
+    pub fn key_inclusive<F>(&self, index: usize, get: F) -> Option<(&T, usize)>
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._key_idx(true, index, getter)?;
+        let (idx, remainder) = self._find(true, index, move |_, info| get(info))?;
         return Some((&self.elements[idx.get()], remainder));
     }
 
-    pub fn key_inclusive_mut<F>(&mut self, index: usize, getter: F) -> Option<(&T, usize)>
+    pub fn key_inclusive_mut<F>(&mut self, index: usize, get: F) -> Option<(&T, usize)>
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._key_idx(true, index, getter)?;
+        let (idx, remainder) = self._find(true, index, move |_, info| get(info))?;
         return Some((&mut self.elements[idx.get()], remainder));
     }
 
-    pub fn key_inclusive_idx<F>(&self, index: usize, getter: F) -> Option<(ElemIdx, usize)>
+    pub fn key_inclusive_idx<F>(&self, index: usize, get: F) -> Option<(ElemIdx, usize)>
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._key_idx(true, index, getter)?;
+        let (idx, remainder) = self._find(true, index, move |_, info| get(info))?;
         return Some((ElemIdx(idx), remainder));
     }
 
-    pub fn key<F>(&self, index: usize, getter: F) -> Option<(&T, usize)>
+    pub fn key<F>(&self, index: usize, get: F) -> Option<(&T, usize)>
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._key_idx(false, index, getter)?;
+        let (idx, remainder) = self._find(false, index, move |_, info| get(info))?;
         return Some((&self.elements[idx.get()], remainder));
     }
 
-    pub fn key_mut<F>(&mut self, index: usize, getter: F) -> Option<(&T, usize)>
+    pub fn key_mut<F>(&mut self, index: usize, get: F) -> Option<(&T, usize)>
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._key_idx(false, index, getter)?;
+        let (idx, remainder) = self._find(false, index, move |_, info| get(info))?;
         return Some((&mut self.elements[idx.get()], remainder));
     }
 
-    pub fn key_idx<F>(&self, index: usize, getter: F) -> Option<(ElemIdx, usize)>
+    pub fn key_idx<F>(&self, index: usize, get: F) -> Option<(ElemIdx, usize)>
     where
         F: Fn(T::Info) -> usize,
     {
-        let (idx, remainder) = self._key_idx(false, index, getter)?;
+        let (idx, remainder) = self._find(false, index, move |_, info| get(info))?;
         return Some((ElemIdx(idx), remainder));
     }
 
@@ -296,56 +296,31 @@ where
         return idx;
     }
 
-    fn _get_idx(&self, index: usize) -> Option<Idx> {
-        let mut node = self.nodes[self.root.get()];
-        if index >= node.count {
-            return None;
-        }
-
-        let mut running = index;
-        'outer: for _ in 0..self.levels {
-            for child_idx in &node.kids {
-                let child = self.nodes[child_idx.get()];
-                if running < child.count {
-                    node = child;
-                    continue 'outer;
-                }
-
-                running -= child.count;
-            }
-
-            unreachable!();
-        }
-
-        let index = node.kids.into_iter().nth(running);
-        return Some(index.unwrap());
-    }
-
-    fn _key_idx<F>(&self, inclusive: bool, index: usize, getter: F) -> Option<(Idx, usize)>
+    #[inline(always)]
+    fn _find<F>(&self, inclusive: bool, mut key: usize, get: F) -> Option<(Idx, usize)>
     where
-        F: Fn(T::Info) -> usize,
+        F: Fn(usize, T::Info) -> usize,
     {
-        let mut node = self.nodes[self.root.get()];
-        if index >= getter(node.info) {
+        let mut node = &self.nodes[self.root.get()];
+        if key >= get(node.count, node.info) {
             return None;
         }
 
-        let mut running = index;
         'outer: for _ in 0..self.levels {
             for child_idx in &node.kids {
-                let child = self.nodes[child_idx.get()];
-                let sum = getter(child.info);
-                if running < sum {
+                let child = &self.nodes[child_idx.get()];
+                let val = get(child.count, child.info);
+                if key < val {
                     node = child;
                     continue 'outer;
                 }
 
-                if inclusive && running == sum {
+                if inclusive && key == val {
                     node = child;
                     continue 'outer;
                 }
 
-                running -= sum;
+                key -= val;
             }
 
             unreachable!();
@@ -353,12 +328,16 @@ where
 
         for idx in &node.kids {
             let info = self.elements[idx.get()].get_info();
-            let size = getter(info);
-            if running < size {
-                return Some((idx, running));
+            let val = get(1, info);
+            if key < val {
+                return Some((idx, key));
             }
 
-            running -= size;
+            if inclusive && key == val {
+                return Some((idx, key));
+            }
+
+            key -= val;
         }
 
         unreachable!();
