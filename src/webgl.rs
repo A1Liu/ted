@@ -131,9 +131,6 @@ impl WebGl {
     ) -> Result<(), JsValue> {
         let (ctx, program) = (&self.ctx, &self.program);
 
-        dbg!(ctx.get_parameter(Context::MAX_TEXTURE_SIZE)?);
-        dbg!(data.len());
-
         let tex_type = Context::TEXTURE_2D;
         let data_type = Context::UNSIGNED_BYTE;
         let format = Context::LUMINANCE;

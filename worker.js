@@ -1,6 +1,13 @@
 import { render, test_print } from "./Cargo.toml";
 
-test_print();
+// .visually-hidden {
+//   position: absolute;
+//   left:     -10000px;
+//   top:      auto;
+//   width:    1px;
+//   height:   1px;
+//   overflow: hidden;
+// }
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("webgl2", {
