@@ -9,18 +9,21 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-winit = { version = "0.26.0", features = ["mint"] }
 mint = "0.5.8"
 
 # Eventually, we should swap to only using font-rs, and implement all the
 # font stuff correctly
-ttf-parser = { version = "0.13.4", features = [] }
+ttf-parser = { version = "0.13.4", default-features = false, features = [] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+winit = { version = "0.26.0", features = ["mint"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wee_alloc = "0.4.5"
 js-sys = "0.3.55"
-wasm-bindgen = "0.2.78"
+wasm-bindgen = { version = "0.2.78", default-features = false }
 console_error_panic_hook = "0.1.7"
+winit = { version = "0.26.0", default-features = false, features = ["mint"] }
 
 web-sys.version = "0.3.55"
 web-sys.features = [
