@@ -246,6 +246,7 @@ version = "0.0.1"
 dependencies = [
  "font-rs",
  "js-sys",
+ "mint",
  "ttf-parser",
  "wasm-bindgen",
  "web-sys",

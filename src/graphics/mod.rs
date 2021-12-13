@@ -3,6 +3,7 @@ mod webgl;
 
 use crate::util::*;
 pub use fonts::*;
+use mint::Point2;
 use wasm_bindgen::prelude::*;
 pub use webgl::*;
 
@@ -21,7 +22,7 @@ struct TextShader {
 
     // Resources
     tex: Texture,
-    in_pos: Buffer<Point>,
+    in_pos: Buffer<Point2<u32>>,
     in_glyph_pos: Buffer<Glyph>,
 }
 
@@ -59,7 +60,7 @@ impl TextShader {
     fn render(
         &self,
         atlas: Option<&[u8]>,
-        points: &[Point],
+        points: &[Point2<u32>],
         glyphs: &[Glyph],
         atlas_dims: Rect,
         dims: Rect,
@@ -91,7 +92,7 @@ thread_local! {
 
 pub struct TextVertices<'a> {
     cache: &'a mut GlyphCache,
-    points: Vec<Point>,
+    points: Vec<Point2<u32>>,
     glyphs: Vec<Glyph>,
     did_raster: bool,
     dims: Rect,
@@ -225,19 +226,12 @@ impl<'a> TextVertices<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
-#[repr(C)]
-struct Point {
-    x: u32,
-    y: u32,
-}
-
 #[inline]
-fn pt(x: u32, y: u32) -> Point {
-    return Point { x, y };
+fn pt(x: u32, y: u32) -> Point2<u32> {
+    return Point2 { x, y };
 }
 
-impl WebGlType for Point {
+impl WebGlType for Point2<u32> {
     const GL_TYPE: u32 = Context::UNSIGNED_INT;
     const SIZE: i32 = 2;
 

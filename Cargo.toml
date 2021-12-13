@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 winit = { version = "0.26.0", features = ["mint"] }
+mint = "0.5.8"
 
 # Eventually, we should swap to only using font-rs, and implement all the
 # font stuff correctly
