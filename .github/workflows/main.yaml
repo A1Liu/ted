@@ -16,8 +16,8 @@ jobs:
       - uses: Swatinem/rust-cache@v1
         with:
           target-dir: .cargo/target
-      - run: cargo test
       - uses: jetli/wasm-pack-action@v0.3.0
+      - run: cargo test
       - uses: actions/setup-node@v2
       - run: yarn install --frozen-lockfile
       - run: yarn build:website
