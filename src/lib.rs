@@ -56,13 +56,9 @@ mod wasm_exports {
         let mut cache = GlyphCache::new();
         let mut vertices = TextVertices::new(&mut cache, 28, 10);
 
-        dbg!();
         vertices.push(s);
 
-        dbg!();
         vertices.render()?;
-
-        dbg!();
 
         return Ok(());
     }

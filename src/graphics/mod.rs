@@ -142,7 +142,6 @@ impl<'a> TextVertices<'a> {
 
     pub fn push(&mut self, text: &str) -> bool {
         let (width, height) = (self.dims.width, self.dims.height);
-        dbg!();
 
         for c in text.chars() {
             if c == '\n' {
@@ -176,15 +175,11 @@ impl<'a> TextVertices<'a> {
                 continue;
             }
 
-            dbg!(c);
-
             let (none_left, place) = self.place_char(1);
             let (line, col) = match place {
                 Some(loc) => loc,
                 None => return true,
             };
-
-            dbg!(c);
 
             let (x, y) = (col, line);
 
@@ -197,18 +192,12 @@ impl<'a> TextVertices<'a> {
                 pt(x + 1, y + 1),
             ]);
 
-            dbg!(c);
-
             let mut tmp = [0; 4];
             let c_str = c.encode_utf8(&mut tmp);
-
-            dbg!(c);
 
             let glyph_list = self.cache.translate_glyphs(c_str);
             self.did_raster = self.did_raster || glyph_list.did_raster;
             self.glyphs.extend(glyph_list.glyphs);
-
-            dbg!(c);
 
             if none_left {
                 return true;
