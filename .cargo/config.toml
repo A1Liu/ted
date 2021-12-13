@@ -1,6 +1,8 @@
+[alias]
+wc = "check --target wasm32-unknown-unknown"
+
 [build]
 target-dir = ".cargo/target"
-target = "wasm32-unknown-unknown"
 
 # I am fucking furious. https://github.com/rust-lang/cargo/issues/9335
 #                               - Albert Liu, Dec 09, 2021 Thu 21:01 EST
