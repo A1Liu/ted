@@ -1,5 +1,4 @@
 use core::num::NonZeroUsize;
-pub use wasm_bindgen::prelude::*;
 
 #[derive(Clone, Copy, Default)]
 pub struct Rect {

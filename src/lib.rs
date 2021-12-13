@@ -18,30 +18,38 @@
 mod print_utils;
 
 mod btree;
-mod graphics;
 mod text;
 mod util;
 
 #[cfg(target_arch = "wasm32")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+pub use wasm_exports::*;
 
-use graphics::*;
-use util::*;
+#[cfg(target_arch = "wasm32")]
+mod graphics;
 
-#[wasm_bindgen]
-pub fn test_print() {
-    println!("Hello World!");
-}
+#[cfg(target_arch = "wasm32")]
+mod wasm_exports {
+    use crate::graphics::*;
+    use crate::util::*;
+    use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen]
-pub fn render(s: &str) -> Result<(), JsValue> {
-    let mut cache = GlyphCache::new();
+    #[global_allocator]
+    static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-    let mut vertices = TextVertices::new(&mut cache, 28, 10);
-    vertices.push(s);
+    #[wasm_bindgen]
+    pub fn test_print() {
+        println!("Hello World!");
+    }
 
-    vertices.render()?;
+    #[wasm_bindgen]
+    pub fn render(s: &str) -> Result<(), JsValue> {
+        let mut cache = GlyphCache::new();
 
-    return Ok(());
+        let mut vertices = TextVertices::new(&mut cache, 28, 10);
+        vertices.push(s);
+
+        vertices.render()?;
+
+        return Ok(());
+    }
 }
