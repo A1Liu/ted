@@ -43,6 +43,7 @@ opt-level = "s"
 [profile.release]
 opt-level = "z"
 panic = "abort"
+codegen-units = 1
 
 # For some reason, turning this on reduces the binary size from 1.5 MB to 22 KB.
 # I guess Zero-Cost Abstractions are only Zero-Cost if you're a big-brained
@@ -51,4 +52,5 @@ panic = "abort"
 lto = true
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = ['-O4', '-g']
+# Toggle this to get some extra debug info for size profiling
+# wasm-opt = ['-O4', '-g']
