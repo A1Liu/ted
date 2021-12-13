@@ -6,7 +6,7 @@ use winit::platform::web::WindowBuilderExtWebSys;
 use winit::window::{Window, WindowBuilder};
 
 // TODO pass in the canvas we wanna use
-pub fn start_window() {
+pub fn start_window() -> ! {
     let canvas = get_canvas().unwrap();
 
     let event_loop = EventLoop::new();
