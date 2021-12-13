@@ -5,6 +5,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - https://github.com/cmuratori/refterm
 - https://webgl2fundamentals.org/webgl/lessons/webgl-qna-how-to-use-the-stencil-buffer.html
 - https://medium.com/@evanwallace/easy-scalable-text-rendering-on-the-gpu-c3f4d782c5ac
+- https://docs.rs/winit/latest/winit/
 
 # Used Stuffs
 - https://docs.rs/ttf-parser/latest/ttf_parser/
