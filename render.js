@@ -18,8 +18,18 @@ const repeat = async (func, ms = 1000, limit = 100) => {
   }
 };
 
+try {
+  start();
+} catch (e) {}
+
 let text = `Welcome to my stupid project to make a text editor.
 And now, Kirin J. Callinan's "Big Enough":\n`;
+let previousFrame = null;
 
-start();
-repeat(() => { render(text); text += 'aaah '; }).catch(console.warn);
+const renderMain = () => {
+  previousFrame && cancelAnimationFrame(previousFrame);
+  previousFrame = requestAnimationFrame(() => render(text));
+  text += "aaah ";
+};
+
+repeat(renderMain).catch(console.warn);

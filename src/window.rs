@@ -5,9 +5,11 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::web::WindowBuilderExtWebSys;
 use winit::window::{Window, WindowBuilder};
 
+// TODO pass in the canvas we wanna use
 pub fn start_window() {
-    let event_loop = EventLoop::new();
     let canvas = get_canvas().unwrap();
+
+    let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_canvas(Some(canvas))
         .build(&event_loop)
@@ -20,7 +22,6 @@ pub fn start_window() {
         *flow = ControlFlow::Wait;
 
         let id = window.id();
-        println!("Event dispatched");
 
         match event {
             Event::WindowEvent { event, window_id } => {
@@ -33,7 +34,7 @@ pub fn start_window() {
     });
 }
 
-fn get_canvas() -> Result<web_sys::HtmlCanvasElement, JsValue> {
+pub fn get_canvas() -> Result<web_sys::HtmlCanvasElement, JsValue> {
     let document = web_sys::window().unwrap().document().unwrap();
     let canvas = document.get_element_by_id("canvas").unwrap();
     let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;

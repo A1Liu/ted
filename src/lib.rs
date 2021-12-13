@@ -43,7 +43,7 @@ mod wasm_exports {
     #[wasm_bindgen]
     pub fn start() {
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        // start_window();
+        start_window();
     }
 
     #[wasm_bindgen]
@@ -54,7 +54,7 @@ mod wasm_exports {
     #[wasm_bindgen]
     pub fn render(s: &str) -> Result<(), JsValue> {
         let mut cache = GlyphCache::new();
-        let mut vertices = TextVertices::new(&mut cache, 28, 10);
+        let mut vertices = TextVertices::new(&mut cache, 28, 15);
 
         vertices.push(s);
 
