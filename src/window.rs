@@ -1,3 +1,4 @@
+use crate::util::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use winit::event::{Event, WindowEvent};
@@ -7,7 +8,7 @@ use winit::window::{Window, WindowBuilder};
 
 // TODO pass in the canvas we wanna use
 pub fn start_window() -> ! {
-    let canvas = get_canvas().unwrap();
+    let canvas = expect(get_canvas());
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -35,8 +36,9 @@ pub fn start_window() -> ! {
 }
 
 pub fn get_canvas() -> Result<web_sys::HtmlCanvasElement, JsValue> {
-    let document = web_sys::window().unwrap().document().unwrap();
-    let canvas = document.get_element_by_id("canvas").unwrap();
+    let window = unwrap(web_sys::window());
+    let document = unwrap(window.document());
+    let canvas = unwrap(document.get_element_by_id("canvas"));
     let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
     return Ok(canvas);
 }

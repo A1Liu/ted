@@ -42,13 +42,12 @@ mod wasm_exports {
 
     #[wasm_bindgen]
     pub fn start() {
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        start_window();
-    }
+        #[cfg(debug_assertions)]
+        {
+            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+        }
 
-    #[wasm_bindgen]
-    pub fn test_print() {
-        println!("Hello World!");
+        start_window();
     }
 
     #[wasm_bindgen]

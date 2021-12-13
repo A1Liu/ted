@@ -2,14 +2,11 @@ use wasm_bindgen::prelude::*;
 
 #[macro_export]
 macro_rules! out {
-    (@DEBUG, $str:expr, $( $e:expr ),+ ) => {{
+    ($str:expr, $( $e:expr ),+ ) => {{
         #[cfg(debug_assertions)]
         {
-            out!(@CLEAN, core::concat!("[{}:{}] DEBUG: ", $str, "\n"), file!(), line!(), $( $e ),+ );
+            out!(@CLEAN, core::concat!("[{}:{}]: ", $str, "\n"), file!(), line!(), $( $e ),+ );
         }
-    }};
-    (@LOG, $str:expr, $( $e:expr ),+ ) => {{
-        out!(@CLEAN, core::concat!("[{}:{}]: ", $str, "\n"), file!(), line!(), $( $e ),+ );
     }};
     (@CLEAN, $str:expr, $( $e:expr ),+ ) => {{
         let s = format!( $str, $( $e ),+ );
@@ -20,40 +17,32 @@ macro_rules! out {
 #[macro_export]
 macro_rules! dbg {
     ($fmt:literal) => {{
-         out!(@DEBUG, "{}", $fmt);
+         out!("{}", $fmt);
     }};
     ($fmt:literal, $( $e:expr ),+ ) => {{
-         out!(@DEBUG, $fmt, $( $e ),+ );
+         out!($fmt, $( $e ),+ );
     }};
     ($expr:expr) => {{
-         out!(@DEBUG, "{} = {:?}", stringify!($expr), $expr);
+        out!("{} = {:?}", stringify!($expr), $expr);
     }};
     () => {{
-        out!(@DEBUG, "{}", "Nothing to see here");
-    }};
-}
-
-#[macro_export]
-macro_rules! panic {
-    ( $( $arg:tt )* ) => {{
-        println!( $( $arg )* );
-        core::panic!();
+        out!("{}", "Nothing to see here");
     }};
 }
 
 #[macro_export]
 macro_rules! println {
     ($fmt:literal) => {{
-         out!(@LOG, "{}", $fmt);
+         out!("{}", $fmt);
     }};
     ($fmt:literal, $( $e:expr ),+ ) => {{
-         out!(@LOG, $fmt, $( $e ),+ );
+         out!($fmt, $( $e ),+ );
     }};
     ($expr:expr) => {{
-         out!(@LOG, "{} = {:?}", stringify!($expr), $expr);
+         out!("{} = {:?}", stringify!($expr), $expr);
     }};
     () => {{
-        out!(@LOG, "Nothing to see here");
+        out!("{}", "Nothing to see here");
     }};
 }
 
@@ -61,6 +50,22 @@ macro_rules! println {
 macro_rules! print {
     ( $( $arg:tt )* ) => {{
         println!( $( $arg )* );
+    }};
+}
+
+#[macro_export]
+macro_rules! panic {
+    ( $( $arg:tt )* ) => {{
+        println!( $( $arg )* );
+        core::arch::wasm32::unreachable();
+    }};
+}
+
+#[macro_export]
+macro_rules! unreachable {
+    ( $( $arg:tt )* ) => {{
+        println!( $( $arg )* );
+        core::arch::wasm32::unreachable();
     }};
 }
 

@@ -1,11 +1,12 @@
 mod fonts;
 mod webgl;
 
-use crate::util::*;
 pub use fonts::*;
+pub use webgl::*;
+
+use crate::util::*;
 use mint::Point2;
 use wasm_bindgen::prelude::*;
-pub use webgl::*;
 
 struct TextShader {
     program: Program,
@@ -87,7 +88,7 @@ impl TextShader {
 }
 
 thread_local! {
-    static TEXT_SHADER: TextShader = TextShader::new().unwrap();
+    static TEXT_SHADER: TextShader = expect(TextShader::new());
 }
 
 pub struct TextVertices<'a> {

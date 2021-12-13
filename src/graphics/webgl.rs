@@ -1,4 +1,5 @@
 use crate::util::*;
+use crate::window::get_canvas;
 use js_sys::Object;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -30,7 +31,6 @@ where
 #[derive(Clone, Copy)]
 pub struct VLoc(u32);
 
-#[wasm_bindgen]
 pub struct WebGl {
     phantom: (),
 }
@@ -313,25 +313,16 @@ impl WebGlType for u32 {
 pub static gl: WebGl = WebGl { phantom: () };
 
 thread_local! {
-    static OFFSCREEN_CANVAS: web_sys::HtmlCanvasElement = get_canvas().unwrap();
-    pub static WEB_GL: Context = webgl_ctx().unwrap();
-}
-
-fn get_canvas() -> Result<web_sys::HtmlCanvasElement, JsValue> {
-    let document = web_sys::window().unwrap().document().unwrap();
-    let canvas = document.get_element_by_id("canvas").unwrap();
-    let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
-    return Ok(canvas);
+    static OFFSCREEN_CANVAS: web_sys::HtmlCanvasElement = expect(get_canvas());
+    pub static WEB_GL: Context = expect(webgl_ctx());
 }
 
 fn webgl_ctx() -> Result<Context, JsValue> {
     return OFFSCREEN_CANVAS.with(|canvas| {
         let options = webgl_context_options();
 
-        let ctx = canvas
-            .get_context_with_context_options("webgl2", &options)?
-            .unwrap()
-            .dyn_into::<Context>()?;
+        let canvas = canvas.get_context_with_context_options("webgl2", &options)?;
+        let ctx = unwrap(canvas).dyn_into::<Context>()?;
 
         ctx.pixel_storei(Context::UNPACK_ALIGNMENT, 1);
 

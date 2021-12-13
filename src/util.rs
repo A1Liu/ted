@@ -1,5 +1,22 @@
 use core::num::NonZeroUsize;
 
+pub fn expect<V, E>(res: Result<V, E>) -> V {
+    let err = match res {
+        Ok(v) => return v,
+        Err(err) => err,
+    };
+
+    panic!("Expected value");
+}
+
+pub fn unwrap<V>(opt: Option<V>) -> V {
+    if let Some(v) = opt {
+        return v;
+    }
+
+    panic!("Expected value");
+}
+
 #[derive(Clone, Copy, Default)]
 pub struct Rect {
     pub width: u32,
