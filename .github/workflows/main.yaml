@@ -23,7 +23,7 @@ jobs:
       - run: yarn install --frozen-lockfile
       - run: yarn build:website
       - run: |
-          echo text.a1liu.com >> .dist/CNAME
+          echo ted.a1liu.com >> .dist/CNAME
           touch .dist/.nojekyll
       - run: git config user.name github-actions
       - run: git config user.email github-actions@github.com
