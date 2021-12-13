@@ -1,17 +1,18 @@
 # Editor
 Text editor using WebGL and Rust/Wasm. Very much WIP.
 
-## Stuffs
-- https://github.com/cmuratori/refterm
-- https://webgl2fundamentals.org/webgl/lessons/webgl-qna-how-to-use-the-stencil-buffer.html
-- https://medium.com/@evanwallace/easy-scalable-text-rendering-on-the-gpu-c3f4d782c5ac
-- https://docs.rs/winit/latest/winit/
-- https://www.skypack.dev/view/esbuild-plugin-wasm-pack
+## Feature Stuffs
+- [ ] https://github.com/cmuratori/refterm
+- [ ] https://webgl2fundamentals.org/webgl/lessons/webgl-qna-how-to-use-the-stencil-buffer.html
+- [ ] https://medium.com/@evanwallace/easy-scalable-text-rendering-on-the-gpu-c3f4d782c5ac
+- [ ] https://docs.rs/winit/latest/winit/
+- [x] https://docs.rs/ttf-parser/latest/ttf_parser/
+- [x] https://github.com/raphlinus/font-rs
+- [x] https://webgl2fundamentals.org/webgl/lessons/webgl-how-it-works.html
 
-# Used Stuffs
-- https://docs.rs/ttf-parser/latest/ttf_parser/
-- https://github.com/raphlinus/font-rs
-- https://webgl2fundamentals.org/webgl/lessons/webgl-how-it-works.html
+## Size Opt Stuffs
+- https://github.com/johnthagen/min-sized-rust
+- https://www.skypack.dev/view/esbuild-plugin-wasm-pack
 
 ## Next Up
 - Getting input and inserting into the editor
