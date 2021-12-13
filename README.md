@@ -11,6 +11,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [x] https://webgl2fundamentals.org/webgl/lessons/webgl-how-it-works.html
 
 ## Size Opt Stuffs
+- https://github.com/rustwasm/wasm-pack/issues/737
 - https://github.com/johnthagen/min-sized-rust
 - https://www.skypack.dev/view/esbuild-plugin-wasm-pack
 
