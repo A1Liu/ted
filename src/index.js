@@ -1,4 +1,4 @@
-import { start, render, newWebgl } from "./Cargo.toml";
+import { start, render, newWebgl } from "../Cargo.toml";
 
 // .visually-hidden {
 //   position: absolute;
