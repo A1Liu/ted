@@ -310,6 +310,15 @@ impl WebGlType for u32 {
     }
 }
 
+// .visually-hidden {
+//   position: absolute;
+//   left:     -10000px;
+//   top:      auto;
+//   width:    1px;
+//   height:   1px;
+//   overflow: hidden;
+// }
+
 pub static gl: WebGl = WebGl { phantom: () };
 
 thread_local! {

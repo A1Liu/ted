@@ -1,17 +1,9 @@
 # Rust build directory
 /.cargo/target
 
-# PNG's
-*.png
-
 /.dist
 /.cache
 /pkg
-
-# Folders created by the HTTPS Certificate service Let's Encrypt
-/.letsencrypt
-/letsencrypt
-
 
 # Output of random tests during development
 a.out
