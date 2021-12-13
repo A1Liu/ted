@@ -15,12 +15,13 @@ mint = "0.5.8"
 # Eventually, we should swap to only using font-rs, and implement all the
 # font stuff correctly
 ttf-parser = { version = "0.13.4", features = [] }
-font-rs = "0.1.3"
+font-rs = { version = "0.1.3", features = [] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wee_alloc = "0.4.5"
 js-sys = "0.3.55"
 wasm-bindgen = "0.2.78"
+console_error_panic_hook = "0.1.7"
 
 web-sys.version = "0.3.55"
 web-sys.features = [

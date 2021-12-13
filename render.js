@@ -1,4 +1,4 @@
-import { render, newWebgl } from "./Cargo.toml";
+import { start, render, newWebgl } from "./Cargo.toml";
 
 // .visually-hidden {
 //   position: absolute;
@@ -21,4 +21,5 @@ const repeat = async (func, ms = 1000, limit = 100) => {
 let text = `Welcome to my stupid project to make a text editor.
 And now, Kirin J. Callinan's "Big Enough":\n`;
 
+start();
 repeat(() => { render(text); text += 'aaah '; }).catch(console.warn);

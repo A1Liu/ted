@@ -313,24 +313,30 @@ impl WebGlType for u32 {
 pub static gl: WebGl = WebGl { phantom: () };
 
 thread_local! {
-  pub static WEB_GL: Context = webgl_ctx().unwrap();
+    static OFFSCREEN_CANVAS: web_sys::HtmlCanvasElement = get_canvas().unwrap();
+    pub static WEB_GL: Context = webgl_ctx().unwrap();
 }
 
-fn webgl_ctx() -> Result<Context, JsValue> {
+fn get_canvas() -> Result<web_sys::HtmlCanvasElement, JsValue> {
     let document = web_sys::window().unwrap().document().unwrap();
     let canvas = document.get_element_by_id("canvas").unwrap();
     let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
+    return Ok(canvas);
+}
 
-    let options = webgl_context_options();
+fn webgl_ctx() -> Result<Context, JsValue> {
+    return OFFSCREEN_CANVAS.with(|canvas| {
+        let options = webgl_context_options();
 
-    let ctx = canvas
-        .get_context_with_context_options("webgl2", &options)?
-        .unwrap()
-        .dyn_into::<Context>()?;
+        let ctx = canvas
+            .get_context_with_context_options("webgl2", &options)?
+            .unwrap()
+            .dyn_into::<Context>()?;
 
-    ctx.pixel_storei(Context::UNPACK_ALIGNMENT, 1);
+        ctx.pixel_storei(Context::UNPACK_ALIGNMENT, 1);
 
-    return Ok(ctx);
+        return Ok(ctx);
+    });
 }
 
 #[wasm_bindgen(

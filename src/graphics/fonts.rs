@@ -95,10 +95,14 @@ impl GlyphCache {
             return GlyphList::new(false, glyphs);
         }
 
+        dbg!();
+
         let face = ttf::Face::from_slice(COURIER, 0).unwrap();
         if face.is_variable() || !face.is_monospaced() {
             panic!("Can't handle variable fonts");
         }
+
+        dbg!();
 
         let ppem = face.units_per_em();
         let scale = (SIZE as f32) / (ppem as f32);
@@ -110,6 +114,8 @@ impl GlyphCache {
             width = core::cmp::max(width, w);
             height = core::cmp::max(height, h);
         }
+
+        dbg!();
 
         let (width, height) = (width + PAD_L + PAD_R, height + PAD_T + PAD_B);
 
@@ -124,6 +130,8 @@ impl GlyphCache {
 
             return GlyphList::new(true, glyphs);
         }
+
+        dbg!();
 
         let chars = ();
         let character = ();
@@ -140,6 +148,8 @@ impl GlyphCache {
         for c in DEFAULT_CHARS.chars() {
             self.add_char(&face, scale, c);
         }
+
+        dbg!();
 
         for c in characters.chars() {
             let glyph = self.add_char(&face, scale, c);
@@ -191,8 +201,12 @@ impl GlyphCache {
             self.atlas_dims.height += self.glyph_dims.height;
         }
 
+        dbg!();
+
         let glyph_id = face.glyph_index(c).unwrap();
         let glyph_data = rasterize_glyph(face, scale, glyph_id);
+
+        dbg!();
 
         let x = self.atlas_current_row_width;
         self.atlas_current_row_width += self.glyph_dims.width;
@@ -285,8 +299,12 @@ fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData 
     let (metrics, z) = metrics_and_affine(rect, scale);
     let (width, height) = (metrics.width(), metrics.height());
 
+    dbg!();
+
     let mut builder = Builder::new(width, height, z);
     face.outline_glyph(id, &mut builder);
+
+    dbg!();
 
     let data = builder.raster.get_bitmap();
     return GlyphData {
@@ -321,8 +339,12 @@ impl ttf::OutlineBuilder for Builder {
         let pt = Point::new(x, y);
         let z = &self.affine;
 
+        dbg!();
+
         self.raster
             .draw_line(&affine_pt(z, &self.current), &affine_pt(z, &pt));
+
+        dbg!();
 
         self.current = pt;
     }
@@ -332,11 +354,15 @@ impl ttf::OutlineBuilder for Builder {
         let dest = Point::new(x, y);
         let z = &self.affine;
 
+        dbg!();
+
         self.raster.draw_quad(
             &affine_pt(z, &self.current),
             &affine_pt(z, &p1),
             &affine_pt(z, &dest),
         );
+
+        dbg!();
 
         self.current = dest;
     }
@@ -344,9 +370,7 @@ impl ttf::OutlineBuilder for Builder {
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
         // x1,y1 and x2,y2 are control points
         let dest = Point::new(x, y);
-        let z = &self.affine;
-        self.raster
-            .draw_line(&affine_pt(z, &self.current), &affine_pt(z, &dest));
+        self.raster.draw_line(&self.current, &dest);
 
         self.current = dest;
     }

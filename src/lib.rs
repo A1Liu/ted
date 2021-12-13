@@ -22,6 +22,9 @@ mod text;
 mod util;
 
 #[cfg(target_arch = "wasm32")]
+mod window;
+
+#[cfg(target_arch = "wasm32")]
 pub use wasm_exports::*;
 
 #[cfg(target_arch = "wasm32")]
@@ -31,10 +34,17 @@ mod graphics;
 mod wasm_exports {
     use crate::graphics::*;
     use crate::util::*;
+    use crate::window::*;
     use wasm_bindgen::prelude::*;
 
     #[global_allocator]
     static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
+    #[wasm_bindgen]
+    pub fn start() {
+        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+        // start_window();
+    }
 
     #[wasm_bindgen]
     pub fn test_print() {
@@ -44,11 +54,15 @@ mod wasm_exports {
     #[wasm_bindgen]
     pub fn render(s: &str) -> Result<(), JsValue> {
         let mut cache = GlyphCache::new();
-
         let mut vertices = TextVertices::new(&mut cache, 28, 10);
+
+        dbg!();
         vertices.push(s);
 
+        dbg!();
         vertices.render()?;
+
+        dbg!();
 
         return Ok(());
     }
