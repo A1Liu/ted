@@ -1,4 +1,4 @@
-# Editor
+# Ted
 Text editor using WebGL and Rust/Wasm. Very much WIP.
 
 ## Feature Stuffs
