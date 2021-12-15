@@ -25,7 +25,8 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Line numbers
 - Select text
 - Window sizing and whatnot
-- Command system for editor mutations
+- Command system for editor mutations. Like, literally, just use an enum to dispatch
+  events. That way its easy to swap out an implementation with another
 
 ## Mid-term
 - Find, Find and replace
@@ -47,4 +48,3 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
   - Windows have views into files that store stuff like where you cursor is
 - Files are managed globally, you call functions to modify the files and those
   functions might end up being IPC calls or whatever, to support multiple windows
-- 

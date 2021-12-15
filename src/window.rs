@@ -8,31 +8,36 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::web::WindowBuilderExtWebSys;
 use winit::window::{Window, WindowBuilder, WindowId};
 
+enum TedEvent {
+    TimerTick(usize),
+}
+
 const TEXT: &'static str = r#"Welcome to my stupid project to make a text editor.
 And now, Kirin J. Callinan's "Big Enough":
 "#;
 
 // TODO pass in the canvas we wanna use
 pub fn start_window() -> ! {
-    let canvas = expect(get_canvas());
+    // Because of how the event loop works, values in this outer scope do not
+    // get dropped. They either get captured or forgotten.
 
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_canvas(Some(canvas))
-        .build(&event_loop)
-        .unwrap();
 
-    let mut text = String::from(TEXT);
-    let mut cache = GlyphCache::new();
-    let mut handler = Handler {
-        window,
-        text,
-        cache,
+    let mut handler = {
+        let canvas = expect(get_canvas());
+        let window = WindowBuilder::new()
+            .with_canvas(Some(canvas))
+            .build(&event_loop)
+            .unwrap();
+
+        Handler::new(window)
     };
 
-    let mut vertices = TextVertices::new(&mut handler.cache, 28, 15);
-    vertices.push(&handler.text);
-    expect(vertices.render());
+    {
+        let mut vertices = TextVertices::new(&mut handler.cache, 28, 15);
+        vertices.push(&handler.text);
+        expect(vertices.render());
+    }
 
     event_loop.run(move |event, _, flow| {
         // ControlFlow::Wait pauses the event loop if no events are available to process.
@@ -54,6 +59,14 @@ struct Handler {
 }
 
 impl Handler {
+    fn new(window: Window) -> Self {
+        return Self {
+            window,
+            text: String::from(TEXT),
+            cache: GlyphCache::new(),
+        };
+    }
+
     fn window_event(&mut self, flow: &mut ControlFlow, event: WindowEvent, id: WindowId) {
         if event == WindowEvent::CloseRequested && self.window.id() == id {
             *flow = ControlFlow::Exit;
