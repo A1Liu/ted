@@ -59,22 +59,14 @@ mod wasm_exports {
     }
 
     #[wasm_bindgen(inline_js = r#"
-export const repeat = async (func, ms = 1000, limit = 100) => {
-  while (limit-- > 0) {
-    func();
-    await new Promise((res) => setTimeout(res, ms));
-  }
-};
-
 export const preventThrow = (fn) => {
   try {
     fn();
   } catch (e) {}
-};"#)]
+};
+"#)]
     extern "C" {
         #[wasm_bindgen(js_name = "preventThrow")]
         fn prevent_throw(func: &Closure<dyn FnMut() -> Result<(), JsValue>>);
-
-        fn repeat(func: &Closure<dyn FnMut() -> Result<(), JsValue>>);
     }
 }
