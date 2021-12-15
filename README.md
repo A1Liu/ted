@@ -36,7 +36,15 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 
 ## Far in the Future
 - Customization?
+- Cursor ref-counting or whatever works to get the behavior that Google docs has
 - Client-server architecture so that we can have nice things
 - Cross platform stuffs
 - Abstract away graphics stuff with cute macros and stuff
 
+
+## Architecture
+- Windows for rendering, tightly connected to graphics for each system
+  - Windows have views into files that store stuff like where you cursor is
+- Files are managed globally, you call functions to modify the files and those
+  functions might end up being IPC calls or whatever, to support multiple windows
+- 

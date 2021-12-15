@@ -17,6 +17,7 @@ ttf-parser = { version = "0.13.4", default-features = false, features = [] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 winit = { version = "0.26.0", features = ["mint"] }
+glutin = "0.28.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wee_alloc = "0.4.5"
