@@ -3,6 +3,8 @@
 in uvec2 in_pos;
 in uvec2 in_glyph_pos;
 
+uniform uvec2 u_cursor_pos;
+
 uniform float u_width;
 uniform float u_height;
 
@@ -10,6 +12,8 @@ uniform uint u_atlas_width;
 uniform uint u_atlas_height;
 
 out vec2 v_glyph_pos;
+
+out float v_is_cursor;
 
 void main() {
     vec4 temp_out = vec4(0.0, 0.0, 0.0, 1.0);
@@ -28,6 +32,9 @@ void main() {
 
     vec2 temp_glyph_out = vec2(in_glyph_pos) / vec2(atlas_dims);
 
+    bool is_cursor = u_cursor_pos == in_pos;
+
     gl_Position = temp_out;
     v_glyph_pos = temp_glyph_out;
+    v_is_cursor = float(is_cursor);
 }

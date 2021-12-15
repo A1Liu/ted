@@ -1,4 +1,5 @@
 use crate::util::*;
+use mint::Point2;
 use std::collections::hash_map::HashMap;
 use ttf_parser as ttf;
 
@@ -21,12 +22,7 @@ const DEFAULT_CHARS: &'static str = core::concat!(
     r#"`~!@#$%^&*()_+-=[]{};':",.<>/?\|"#
 );
 
-#[derive(Clone, Copy, Debug)]
-#[repr(C)]
-pub struct Glyph {
-    pub x: u32,
-    pub y: u32,
-}
+pub type Glyph = Point2<u32>;
 
 pub struct GlyphData {
     pub data: Vec<u8>,

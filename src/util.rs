@@ -1,20 +1,39 @@
 use core::num::NonZeroUsize;
 
-pub fn expect<V, E>(res: Result<V, E>) -> V {
-    let err = match res {
-        Ok(v) => return v,
-        Err(err) => err,
-    };
+pub fn expect<V, E>(res: Result<V, E>) -> V
+where
+    E: core::fmt::Debug,
+{
+    #[cfg(debug_assertions)]
+    {
+        return res.unwrap();
+    }
 
-    panic!("Expected value");
+    #[cfg(not(debug_assertions))]
+    {
+        let err = match res {
+            Ok(v) => return v,
+            Err(err) => err,
+        };
+
+        panic!("Expected value");
+    }
 }
 
 pub fn unwrap<V>(opt: Option<V>) -> V {
-    if let Some(v) = opt {
-        return v;
+    #[cfg(debug_assertions)]
+    {
+        return opt.unwrap();
     }
 
-    panic!("Expected value");
+    #[cfg(not(debug_assertions))]
+    {
+        if let Some(v) = opt {
+            return v;
+        }
+
+        panic!("Expected value");
+    }
 }
 
 #[derive(Clone, Copy, Default)]

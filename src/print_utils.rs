@@ -57,6 +57,10 @@ macro_rules! print {
 macro_rules! panic {
     ( $( $arg:tt )* ) => {{
         println!( $( $arg )* );
+        #[cfg(debug_assertions)]
+        core::panic!();
+
+        #[cfg(not(debug_assertions))]
         core::arch::wasm32::unreachable();
     }};
 }
@@ -64,8 +68,7 @@ macro_rules! panic {
 #[macro_export]
 macro_rules! unreachable {
     ( $( $arg:tt )* ) => {{
-        println!( $( $arg )* );
-        core::arch::wasm32::unreachable();
+        panic!()
     }};
 }
 

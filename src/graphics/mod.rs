@@ -15,6 +15,7 @@ struct TextShader {
     vao: VAO,
 
     // Uniform Locations
+    u_cursor_pos: ULoc,
     u_glyph_atlas: ULoc,
     u_width: ULoc,
     u_height: ULoc,
@@ -36,6 +37,8 @@ impl TextShader {
         let vao = gl.vao()?;
         let in_pos = gl.attr_buffer(&program, "in_pos")?;
         let in_glyph_pos = gl.attr_buffer(&program, "in_glyph_pos")?;
+
+        let u_cursor_pos = gl.uloc(&program, "u_cursor_pos")?;
         let u_glyph_atlas = gl.uloc(&program, "u_glyph_atlas")?;
         let u_width = gl.uloc(&program, "u_width")?;
         let u_height = gl.uloc(&program, "u_height")?;
@@ -50,6 +53,7 @@ impl TextShader {
             in_pos,
             in_glyph_pos,
             u_glyph_atlas,
+            u_cursor_pos,
             u_width,
             u_height,
             u_atlas_width,
@@ -76,6 +80,7 @@ impl TextShader {
 
         gl.bind_vao(&self.vao);
         gl.bind_tex(&self.u_glyph_atlas, 0, &self.tex);
+        gl.bind_uniform(&self.u_cursor_pos, pt(0, 0));
         gl.bind_uniform(&self.u_width, dims.width as f32);
         gl.bind_uniform(&self.u_height, dims.height as f32);
         gl.bind_uniform(&self.u_atlas_width, atlas_dims.width);
@@ -232,32 +237,4 @@ fn pt(x: u32, y: u32) -> Point2<u32> {
     return Point2 { x, y };
 }
 
-impl WebGlType for Point2<u32> {
-    const GL_TYPE: u32 = Context::UNSIGNED_INT;
-    const SIZE: i32 = 2;
-
-    unsafe fn view(array: &[Self]) -> js_sys::Object {
-        let ptr = array.as_ptr() as *const u32;
-        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 2);
-        return js_sys::Uint32Array::view(buffer).into();
-    }
-
-    fn is_int() -> bool {
-        return true;
-    }
-}
-
-impl WebGlType for Glyph {
-    const GL_TYPE: u32 = Context::UNSIGNED_INT;
-    const SIZE: i32 = 2;
-
-    unsafe fn view(array: &[Self]) -> js_sys::Object {
-        let ptr = array.as_ptr() as *const u32;
-        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 2);
-        return js_sys::Uint32Array::view(buffer).into();
-    }
-
-    fn is_int() -> bool {
-        return true;
-    }
-}
+type Point = Point2<u32>;
