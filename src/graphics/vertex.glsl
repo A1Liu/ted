@@ -11,7 +11,10 @@ uniform uint u_atlas_height;
 
 out vec2 v_glyph_pos;
 
-out float v_is_cursor;
+// 0 is normal
+// 1 is cursor
+// 2 is selected
+flat out int v_block_kind;
 
 void main() {
     vec4 temp_out = vec4(0.0, 0.0, 0.0, 1.0);
@@ -32,5 +35,5 @@ void main() {
 
     gl_Position = temp_out;
     v_glyph_pos = temp_glyph_out;
-    v_is_cursor = 1.0;
+    v_block_kind = 1;
 }
