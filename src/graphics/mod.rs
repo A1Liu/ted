@@ -15,7 +15,6 @@ struct TextShader {
     vao: VAO,
 
     // Uniform Locations
-    u_cursor_pos: ULoc,
     u_glyph_atlas: ULoc,
     u_width: ULoc,
     u_height: ULoc,
@@ -38,7 +37,6 @@ impl TextShader {
         let in_pos = gl.attr_buffer(&program, "in_pos")?;
         let in_glyph_pos = gl.attr_buffer(&program, "in_glyph_pos")?;
 
-        let u_cursor_pos = gl.uloc(&program, "u_cursor_pos")?;
         let u_glyph_atlas = gl.uloc(&program, "u_glyph_atlas")?;
         let u_width = gl.uloc(&program, "u_width")?;
         let u_height = gl.uloc(&program, "u_height")?;
@@ -53,7 +51,6 @@ impl TextShader {
             in_pos,
             in_glyph_pos,
             u_glyph_atlas,
-            u_cursor_pos,
             u_width,
             u_height,
             u_atlas_width,
@@ -80,7 +77,6 @@ impl TextShader {
 
         gl.bind_vao(&self.vao);
         gl.bind_tex(&self.u_glyph_atlas, 0, &self.tex);
-        gl.bind_uniform(&self.u_cursor_pos, pt(0, 0));
         gl.bind_uniform(&self.u_width, dims.width as f32);
         gl.bind_uniform(&self.u_height, dims.height as f32);
         gl.bind_uniform(&self.u_atlas_width, atlas_dims.width);
