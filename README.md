@@ -46,5 +46,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 ## Architecture
 - Windows for rendering, tightly connected to graphics for each system
   - Windows have views into files that store stuff like where you cursor is
+  - Views do word wrapping by creating a string and inserting newlines, windows
+    render as if there is no word wrapping, and cut off stuff when necessary
 - Files are managed globally, you call functions to modify the files and those
   functions might end up being IPC calls or whatever, to support multiple windows
