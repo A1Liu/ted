@@ -68,12 +68,13 @@ impl Handler {
     }
 
     fn window_event(&mut self, flow: &mut ControlFlow, event: WindowEvent, id: WindowId) {
-        if event == WindowEvent::CloseRequested && self.window.id() == id {
-            *flow = ControlFlow::Exit;
-            return;
-        }
-
         match event {
+            WindowEvent::CloseRequested => {
+                if self.window.id() == id {
+                    *flow = ControlFlow::Exit;
+                }
+            }
+
             WindowEvent::KeyboardInput {
                 device_id,
                 input,
@@ -108,6 +109,7 @@ impl Handler {
                 vertices.push(&self.text);
                 expect(vertices.render());
             }
+
             _ => {}
         }
     }
