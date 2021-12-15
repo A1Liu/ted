@@ -13,7 +13,7 @@ enum TedEvent {
 }
 
 const TEXT: &'static str = r#"Welcome to my stupid project to make a text editor.
-And now, Kirin J. Callinan's "Big Enough":
+Try typing!
 "#;
 
 // TODO pass in the canvas we wanna use
