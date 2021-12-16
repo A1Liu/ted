@@ -97,61 +97,93 @@ pub struct TextVertices<'a> {
     glyphs: Vec<Glyph>,
     did_raster: bool,
     dims: Rect,
-    current_line: u32,
-    current_column: u32,
-    cursor_pos: Option<Point2<u32>>,
-    cursor_drawn: bool,
+    pos: Point2<u32>,
 }
 
 impl<'a> TextVertices<'a> {
     // TODO do calculations to determine what the actual dimensions should be
     // based on the canvas
     pub fn new(cache: &'a mut GlyphCache, dims: Rect, cursor_pos: Option<Point2<u32>>) -> Self {
+        let glyph_list = cache.translate_glyphs(" ");
+        let did_raster = glyph_list.did_raster;
+
+        let size = (dims.width * dims.height) as usize;
+        let mut glyphs = Vec::with_capacity(size * 6);
+        let mut points = Vec::with_capacity(size * 6);
+
+        for y in 0..dims.height {
+            for x in 0..dims.width {
+                points.extend_from_slice(&[
+                    pt(x, y, 0),
+                    pt(x + 1, y, 0),
+                    pt(x, y + 1, 0),
+                    pt(x, y + 1, 0),
+                    pt(x + 1, y, 0),
+                    pt(x + 1, y + 1, 0),
+                ]);
+
+                glyphs.extend_from_slice(&glyph_list.glyphs);
+            }
+        }
+
+        // For z:
+        // 0 is normal
+        // 1 is cursor
+        // 2 is selected
+        // Set the block mode for the points that represent the cursor
+        if let Some(pos) = cursor_pos {
+            let idx = ((pos.y * dims.width + pos.x) * 6) as usize;
+
+            for idx in idx..(idx + 6) {
+                points[idx].z = 1;
+            }
+        }
+
         return Self {
             cache,
-            points: Vec::new(),
-            glyphs: Vec::new(),
-            did_raster: false,
+            points,
+            glyphs,
+            did_raster,
             dims,
-            current_line: 0,
-            current_column: 0,
-            cursor_pos,
-            cursor_drawn: false,
+            pos: Point2 { x: 0, y: 0 },
         };
     }
 
-    fn place_char(&mut self, len: u32) -> (bool, Option<(u32, u32)>) {
-        let (width, height) = (self.dims.width, self.dims.height);
+    fn place_char(&mut self, repeat: u32, c: char) -> bool {
+        let mut tmp = [0; 4];
+        let c_str = c.encode_utf8(&mut tmp);
 
-        loop {
-            if self.current_line >= height {
-                return (true, None);
+        // TODO This assumes characters are 1 glyph
+        let glyph_list = self.cache.translate_glyphs(c_str);
+        self.did_raster = self.did_raster || glyph_list.did_raster;
+
+        let mut write_len = repeat;
+
+        let mut pos = self.pos;
+        for y in pos.y..self.dims.height {
+            for x in pos.x..self.dims.width {
+                if write_len == 0 {
+                    self.pos = Point2 { x, y };
+                    return false;
+                }
+
+                // we write!
+                let idx = ((y * self.dims.width + x) * 6) as usize;
+                self.glyphs[idx..(idx + 6)].copy_from_slice(&glyph_list.glyphs);
+                write_len -= 1;
             }
 
-            let col = self.current_column;
-            let end = col + len;
-            if end < width {
-                self.current_column += len;
-                return (false, Some((self.current_line, col)));
-            }
-
-            self.current_column = 0;
-            let line = self.current_line;
-            self.current_line += 1;
-
-            if col == 0 || end == width {
-                return (self.current_line >= height, Some((line, col)));
-            }
+            pos.x = 0;
+            write_len = 0; // Don't do any wrapping work here
         }
+
+        return true;
     }
 
     pub fn push(&mut self, text: &str) -> bool {
-        let (width, height) = (self.dims.width, self.dims.height);
-
         for c in text.chars() {
             if c == '\n' {
-                let (none_left, place) = self.place_char(width - self.current_column);
-                if none_left || place.is_none() {
+                if self.place_char(self.dims.width - self.pos.x, ' ') {
                     return true;
                 }
 
@@ -159,8 +191,7 @@ impl<'a> TextVertices<'a> {
             }
 
             if c == '\t' {
-                let (none_left, place) = self.place_char(2);
-                if none_left || place.is_none() {
+                if self.place_char(2, ' ') {
                     return true;
                 }
 
@@ -168,8 +199,7 @@ impl<'a> TextVertices<'a> {
             }
 
             if c.is_whitespace() {
-                let (none_left, place) = self.place_char(1);
-                if none_left || place.is_none() {
+                if self.place_char(1, ' ') {
                     return true;
                 }
 
@@ -180,40 +210,7 @@ impl<'a> TextVertices<'a> {
                 continue;
             }
 
-            let (none_left, place) = self.place_char(1);
-            let (line, col) = match place {
-                Some(loc) => loc,
-                None => return true,
-            };
-
-            let (x, y) = (col, line);
-
-            let pos = Point2 { x, y };
-            let block_mode = match self.cursor_pos {
-                Some(cursor) if cursor == pos => {
-                    self.cursor_drawn = true;
-                    1
-                }
-                _ => 0,
-            };
-
-            self.points.extend_from_slice(&[
-                pt(x, y, block_mode),
-                pt(x + 1, y, block_mode),
-                pt(x, y + 1, block_mode),
-                pt(x, y + 1, block_mode),
-                pt(x + 1, y, block_mode),
-                pt(x + 1, y + 1, block_mode),
-            ]);
-
-            let mut tmp = [0; 4];
-            let c_str = c.encode_utf8(&mut tmp);
-
-            let glyph_list = self.cache.translate_glyphs(c_str);
-            self.did_raster = self.did_raster || glyph_list.did_raster;
-            self.glyphs.extend(glyph_list.glyphs);
-
-            if none_left {
+            if self.place_char(1, c) {
                 return true;
             }
         }
@@ -222,26 +219,6 @@ impl<'a> TextVertices<'a> {
     }
 
     pub fn render(&mut self) -> Result<(), JsValue> {
-        match self.cursor_pos {
-            Some(Point2 { x, y }) if !self.cursor_drawn => {
-                let block_mode = 1;
-
-                self.points.extend_from_slice(&[
-                    pt(x, y, block_mode),
-                    pt(x + 1, y, block_mode),
-                    pt(x, y + 1, block_mode),
-                    pt(x, y + 1, block_mode),
-                    pt(x + 1, y, block_mode),
-                    pt(x + 1, y + 1, block_mode),
-                ]);
-
-                let glyph_list = self.cache.translate_glyphs(" ");
-                self.did_raster = self.did_raster || glyph_list.did_raster;
-                self.glyphs.extend(glyph_list.glyphs);
-            }
-            _ => {}
-        }
-
         let atlas = match self.did_raster {
             true => Some(self.cache.atlas()),
             false => None,

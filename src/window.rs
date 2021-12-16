@@ -88,7 +88,7 @@ impl Handler {
     fn ted_event(&mut self, evt: TedEvent) {
         match evt {
             TedEvent::Tick(tick) => {
-                if tick % 8 == 0 {
+                if tick % 12 == 0 {
                     self.cursor_on = !self.cursor_on;
                     self.window.request_redraw();
                 }
