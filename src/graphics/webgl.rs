@@ -236,25 +236,13 @@ fn compile_shader(
     context: &Context,
     shader_type: ShaderType,
     source: &str,
-) -> Result<WebGlShader, String> {
-    let shader = context
-        .create_shader(shader_type as u32)
-        .ok_or_else(|| String::from("Unable to create shader object"))?;
+) -> Result<WebGlShader, JsValue> {
+    let shader = context.create_shader(shader_type as u32);
+    let shader = shader.ok_or_else(|| "Unable to create shader object")?;
     context.shader_source(&shader, source);
     context.compile_shader(&shader);
 
-    let success = context
-        .get_shader_parameter(&shader, Context::COMPILE_STATUS)
-        .as_bool()
-        .unwrap_or(false);
-
-    if success {
-        Ok(shader)
-    } else {
-        Err(context
-            .get_shader_info_log(&shader)
-            .unwrap_or_else(|| String::from("Unknown error creating shader")))
-    }
+    return Ok(shader);
 }
 
 fn link_program(

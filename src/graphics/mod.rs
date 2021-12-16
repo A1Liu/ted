@@ -223,16 +223,11 @@ impl<'a> TextVertices<'a> {
     }
 
     pub fn render(&mut self) -> Result<(), JsValue> {
-        let atlas = match self.did_raster {
-            true => Some(self.cache.atlas()),
-            false => None,
-        };
-
+        let atlas = self.did_raster.then(|| self.cache.atlas());
         let atlas_dims = self.cache.atlas_dims();
-        let dims = self.dims;
 
         TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
-            shader.render(atlas, &self.points, &self.glyphs, atlas_dims, dims)?;
+            shader.render(atlas, &self.points, &self.glyphs, atlas_dims, self.dims)?;
 
             return Ok(());
         })?;
