@@ -1,4 +1,12 @@
 use core::num::NonZeroUsize;
+pub use mint::*;
+use winit::event_loop::EventLoopProxy;
+
+#[cfg(target_arch = "wasm32")]
+pub use wasm_bindgen::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+pub use wasm_bindgen::JsCast;
 
 pub fn expect<V, E>(res: Result<V, E>) -> V
 where
@@ -75,4 +83,12 @@ impl Idx {
     pub fn get(self) -> usize {
         return self.0.get() - 1;
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub type JsFunc = dyn 'static + FnMut() -> Result<(), JsValue>;
+
+#[cfg(target_arch = "wasm32")]
+pub fn enclose(f: impl 'static + FnMut() -> Result<(), JsValue>) -> Closure<JsFunc> {
+    return Closure::wrap(Box::new(f) as Box<JsFunc>);
 }

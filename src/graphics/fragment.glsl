@@ -4,7 +4,7 @@ precision mediump float;
 in vec2 v_glyph_pos;
 
 // see vertex shader for more info on v_block_kind
-flat in int v_block_kind;
+flat in uint v_block_kind;
 
 uniform sampler2D u_glyph_atlas;
 
@@ -17,17 +17,17 @@ void main() {
 
     float text_px = texture(u_glyph_atlas, v_glyph_pos).x;
 
-    if (v_block_kind == 0) {
+    if (v_block_kind == 0u) {
         vec4 fg_color = text_px * in_fg;
         vec4 bg_color = in_bg + (text_px * -in_bg);
 
         out_color = bg_color + fg_color;
-    } else if (v_block_kind == 1) {
+    } else if (v_block_kind == 1u) {
         vec4 fg_color = in_cursor + (text_px * -in_cursor);
         vec4 bg_color = text_px * in_bg;
 
         out_color = bg_color + fg_color;
-    } else if (v_block_kind == 2) {
+    } else if (v_block_kind == 2u) {
         out_color = vec4(0.9, 0.1, 1.0, 1.0);
     } else {
         out_color = vec4(0.9, 0.1, 1.0, 1.0);

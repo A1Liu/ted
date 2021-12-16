@@ -1,15 +1,14 @@
 use crate::graphics::*;
 use crate::util::*;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
 use winit::event;
 use winit::event::{ElementState, Event, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
 use winit::platform::web::WindowBuilderExtWebSys;
 use winit::window::{Window, WindowBuilder, WindowId};
 
-enum TedEvent {
-    TimerTick(usize),
+#[cfg_attr(debug_assertions, derive(Debug))]
+pub enum TedEvent {
+    Tick(usize),
 }
 
 const TEXT: &'static str = r#"Welcome to my stupid project to make a text editor.
@@ -21,7 +20,12 @@ pub fn start_window() -> ! {
     // Because of how the event loop works, values in this outer scope do not
     // get dropped. They either get captured or forgotten.
 
-    let event_loop = EventLoop::new();
+    let event_loop: EventLoop<TedEvent> = EventLoop::with_user_event();
+
+    {
+        let event_loop_proxy = event_loop.create_proxy();
+        setup_tick(event_loop_proxy);
+    }
 
     let mut handler = {
         let canvas = expect(get_canvas());
@@ -33,11 +37,7 @@ pub fn start_window() -> ! {
         Handler::new(window)
     };
 
-    {
-        let mut vertices = TextVertices::new(&mut handler.cache, 28, 15);
-        vertices.push(&handler.text);
-        expect(vertices.render());
-    }
+    handler.redraw(handler.window.id());
 
     event_loop.run(move |event, _, flow| {
         // ControlFlow::Wait pauses the event loop if no events are available to process.
@@ -47,6 +47,8 @@ pub fn start_window() -> ! {
 
         match event {
             Event::WindowEvent { event, window_id } => handler.window_event(flow, event, window_id),
+            Event::UserEvent(ted_event) => handler.ted_event(ted_event),
+            Event::RedrawRequested(window_id) => handler.redraw(window_id),
             _ => (),
         }
     });
@@ -54,17 +56,44 @@ pub fn start_window() -> ! {
 
 struct Handler {
     window: Window,
+    window_dims: Rect,
     text: String,
     cache: GlyphCache,
+    cursor_pos: Point2<u32>,
+    cursor_on: bool,
 }
 
 impl Handler {
     fn new(window: Window) -> Self {
         return Self {
             window,
+            window_dims: Rect::new(28, 15),
             text: String::from(TEXT),
             cache: GlyphCache::new(),
+            cursor_pos: Point2 { x: 0, y: 0 },
+            cursor_on: true,
         };
+    }
+
+    fn redraw(&mut self, window_id: WindowId) {
+        let cursor_pos = match self.cursor_on {
+            true => Some(self.cursor_pos),
+            false => None,
+        };
+        let mut vertices = TextVertices::new(&mut self.cache, self.window_dims, cursor_pos);
+        vertices.push(&self.text);
+        expect(vertices.render());
+    }
+
+    fn ted_event(&mut self, evt: TedEvent) {
+        match evt {
+            TedEvent::Tick(tick) => {
+                if tick % 8 == 0 {
+                    self.cursor_on = !self.cursor_on;
+                    self.window.request_redraw();
+                }
+            }
+        }
     }
 
     fn window_event(&mut self, flow: &mut ControlFlow, event: WindowEvent, id: WindowId) {
@@ -84,6 +113,7 @@ impl Handler {
                     return;
                 }
 
+                // https://docs.rs/winit/0.26.0/winit/event/enum.VirtualKeyCode.html
                 let key = match input.virtual_keycode {
                     Some(key) => key,
                     None => return,
@@ -94,8 +124,35 @@ impl Handler {
                 #[allow(deprecated)]
                 let modifiers = input.modifiers;
 
-                if modifiers.ctrl() || modifiers.ctrl() || modifiers.alt() {
+                if modifiers.ctrl() || modifiers.logo() || modifiers.alt() {
                     return;
+                }
+
+                self.cursor_on = true;
+                self.window.request_redraw();
+
+                match key {
+                    event::VirtualKeyCode::Left => {
+                        self.cursor_pos.x = self.cursor_pos.x.saturating_sub(1);
+                        return;
+                    }
+                    event::VirtualKeyCode::Up => {
+                        self.cursor_pos.y = self.cursor_pos.y.saturating_sub(1);
+                        return;
+                    }
+                    event::VirtualKeyCode::Right => {
+                        if self.cursor_pos.x < self.window_dims.width - 1 {
+                            self.cursor_pos.x += 1;
+                        }
+                        return;
+                    }
+                    event::VirtualKeyCode::Down => {
+                        if self.cursor_pos.y < self.window_dims.height - 1 {
+                            self.cursor_pos.y += 1;
+                        }
+                        return;
+                    }
+                    _ => {}
                 }
 
                 let c = match keycode_char(modifiers, key) {
@@ -105,9 +162,7 @@ impl Handler {
 
                 self.text.push(c);
 
-                let mut vertices = TextVertices::new(&mut self.cache, 28, 15);
-                vertices.push(&self.text);
-                expect(vertices.render());
+                self.window.request_redraw();
             }
 
             _ => {}
@@ -185,4 +240,33 @@ fn keycode_char(modifiers: event::ModifiersState, key: event::VirtualKeyCode) ->
     };
 
     return Some(c);
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn setup_tick(proxy: EventLoopProxy<TedEvent>) {
+    let window = unwrap(web_sys::window());
+    let mut ticks = 0;
+
+    let closure = enclose(move || {
+        expect(proxy.send_event(TedEvent::Tick(ticks)));
+        ticks += 1;
+
+        return Ok(());
+    });
+
+    repeat(&closure, 16);
+
+    closure.forget();
+}
+
+#[wasm_bindgen(inline_js = r#"
+export const repeat = async (func, ms) => {
+  while (true) {
+    func();
+    await new Promise((res) => setTimeout(res, ms));
+  }
+};
+"#)]
+extern "C" {
+    fn repeat(func: &Closure<JsFunc>, ms: i32);
 }

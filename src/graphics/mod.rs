@@ -5,7 +5,6 @@ pub use fonts::*;
 pub use webgl::*;
 
 use crate::util::*;
-use mint::Point2;
 use wasm_bindgen::prelude::*;
 
 struct TextShader {
@@ -23,7 +22,7 @@ struct TextShader {
 
     // Resources
     tex: Texture,
-    in_pos: Buffer<Point2<u32>>,
+    in_pos: Buffer<Vector3<u32>>,
     in_glyph_pos: Buffer<Glyph>,
 }
 
@@ -62,7 +61,7 @@ impl TextShader {
     fn render(
         &self,
         atlas: Option<&[u8]>,
-        points: &[Point2<u32>],
+        points: &[Vector3<u32>],
         glyphs: &[Glyph],
         atlas_dims: Rect,
         dims: Rect,
@@ -94,26 +93,30 @@ thread_local! {
 
 pub struct TextVertices<'a> {
     cache: &'a mut GlyphCache,
-    points: Vec<Point2<u32>>,
+    points: Vec<Vector3<u32>>,
     glyphs: Vec<Glyph>,
     did_raster: bool,
     dims: Rect,
     current_line: u32,
     current_column: u32,
+    cursor_pos: Option<Point2<u32>>,
+    cursor_drawn: bool,
 }
 
 impl<'a> TextVertices<'a> {
     // TODO do calculations to determine what the actual dimensions should be
     // based on the canvas
-    pub fn new(cache: &'a mut GlyphCache, width: u32, height: u32) -> Self {
+    pub fn new(cache: &'a mut GlyphCache, dims: Rect, cursor_pos: Option<Point2<u32>>) -> Self {
         return Self {
             cache,
             points: Vec::new(),
             glyphs: Vec::new(),
             did_raster: false,
-            dims: Rect::new(width, height),
+            dims,
             current_line: 0,
             current_column: 0,
+            cursor_pos,
+            cursor_drawn: false,
         };
     }
 
@@ -185,13 +188,22 @@ impl<'a> TextVertices<'a> {
 
             let (x, y) = (col, line);
 
+            let pos = Point2 { x, y };
+            let block_mode = match self.cursor_pos {
+                Some(cursor) if cursor == pos => {
+                    self.cursor_drawn = true;
+                    1
+                }
+                _ => 0,
+            };
+
             self.points.extend_from_slice(&[
-                pt(x, y),
-                pt(x + 1, y),
-                pt(x, y + 1),
-                pt(x, y + 1),
-                pt(x + 1, y),
-                pt(x + 1, y + 1),
+                pt(x, y, block_mode),
+                pt(x + 1, y, block_mode),
+                pt(x, y + 1, block_mode),
+                pt(x, y + 1, block_mode),
+                pt(x + 1, y, block_mode),
+                pt(x + 1, y + 1, block_mode),
             ]);
 
             let mut tmp = [0; 4];
@@ -209,7 +221,27 @@ impl<'a> TextVertices<'a> {
         return false;
     }
 
-    pub fn render(&self) -> Result<(), JsValue> {
+    pub fn render(&mut self) -> Result<(), JsValue> {
+        match self.cursor_pos {
+            Some(Point2 { x, y }) if !self.cursor_drawn => {
+                let block_mode = 1;
+
+                self.points.extend_from_slice(&[
+                    pt(x, y, block_mode),
+                    pt(x + 1, y, block_mode),
+                    pt(x, y + 1, block_mode),
+                    pt(x, y + 1, block_mode),
+                    pt(x + 1, y, block_mode),
+                    pt(x + 1, y + 1, block_mode),
+                ]);
+
+                let glyph_list = self.cache.translate_glyphs(" ");
+                self.did_raster = self.did_raster || glyph_list.did_raster;
+                self.glyphs.extend(glyph_list.glyphs);
+            }
+            _ => {}
+        }
+
         let atlas = match self.did_raster {
             true => Some(self.cache.atlas()),
             false => None,
@@ -218,7 +250,7 @@ impl<'a> TextVertices<'a> {
         let atlas_dims = self.cache.atlas_dims();
         let dims = self.dims;
 
-        TEXT_SHADER.with(move |shader| -> Result<(), JsValue> {
+        TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
             shader.render(atlas, &self.points, &self.glyphs, atlas_dims, dims)?;
 
             return Ok(());
@@ -228,9 +260,20 @@ impl<'a> TextVertices<'a> {
     }
 }
 
+// For z:
+// 0 is normal
+// 1 is cursor
+// 2 is selected
+
 #[inline]
-fn pt(x: u32, y: u32) -> Point2<u32> {
-    return Point2 { x, y };
+fn pt(x: u32, y: u32, block_type: u32) -> Vector3<u32> {
+    let z = block_type;
+    return Vector3 { x, y, z };
 }
 
-type Point = Point2<u32>;
+#[inline]
+fn cursor(x: u32, y: u32) -> Vector3<u32> {
+    return Vector3 { x, y, z: 1 };
+}
+
+type TextSlot = Vector3<u32>;

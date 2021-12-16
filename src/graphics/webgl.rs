@@ -1,7 +1,6 @@
 use crate::util::*;
 use crate::window::get_canvas;
 use js_sys::Object;
-use mint::Point2;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 pub use web_sys::WebGl2RenderingContext as Context;
@@ -308,6 +307,25 @@ impl WebGlType for u32 {
 
     fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
         ctx.uniform1ui(loc, self);
+    }
+}
+
+impl WebGlType for Vector3<u32> {
+    const GL_TYPE: u32 = Context::UNSIGNED_INT;
+    const SIZE: i32 = 3;
+
+    unsafe fn view(array: &[Self]) -> js_sys::Object {
+        let ptr = array.as_ptr() as *const u32;
+        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 3);
+        return js_sys::Uint32Array::view(buffer).into();
+    }
+
+    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
+        ctx.uniform3ui(loc, self.x, self.y, self.z);
+    }
+
+    fn is_int() -> bool {
+        return true;
     }
 }
 

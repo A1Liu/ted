@@ -1,6 +1,6 @@
 #version 300 es
 
-in uvec2 in_pos;
+in uvec3 in_pos;
 in uvec2 in_glyph_pos;
 
 uniform float u_width;
@@ -11,15 +11,12 @@ uniform uint u_atlas_height;
 
 out vec2 v_glyph_pos;
 
-// 0 is normal
-// 1 is cursor
-// 2 is selected
-flat out int v_block_kind;
+flat out uint v_block_kind;
 
 void main() {
     vec4 temp_out = vec4(0.0, 0.0, 0.0, 1.0);
 
-    vec2 pos = vec2(in_pos);
+    vec2 pos = vec2(in_pos.xy);
     float width = u_width / 2.0;
     float height = u_height / 2.0;
 
@@ -35,5 +32,5 @@ void main() {
 
     gl_Position = temp_out;
     v_glyph_pos = temp_glyph_out;
-    v_block_kind = 1;
+    v_block_kind = uint(in_pos.z);
 }

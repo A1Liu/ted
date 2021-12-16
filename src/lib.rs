@@ -38,12 +38,6 @@ mod wasm_exports {
     use wasm_bindgen::prelude::*;
     use wasm_bindgen::JsCast;
 
-    fn enclose(
-        f: impl 'static + FnMut() -> Result<(), JsValue>,
-    ) -> Closure<dyn 'static + FnMut() -> Result<(), JsValue>> {
-        return Closure::wrap(Box::new(f) as Box<dyn FnMut() -> Result<(), JsValue>>);
-    }
-
     #[global_allocator]
     static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
