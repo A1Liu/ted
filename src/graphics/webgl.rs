@@ -191,8 +191,8 @@ impl WebGl {
                 tex_type,
                 0,
                 format as i32,
-                rect.width as i32,
-                rect.height as i32,
+                rect.x as i32,
+                rect.y as i32,
                 0,
                 format,
                 data_type,
@@ -307,6 +307,25 @@ impl WebGlType for u32 {
 
     fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
         ctx.uniform1ui(loc, self);
+    }
+}
+
+impl WebGlType for Vector2<f32> {
+    const GL_TYPE: u32 = Context::FLOAT;
+    const SIZE: i32 = 2;
+
+    unsafe fn view(array: &[Self]) -> js_sys::Object {
+        let ptr = array.as_ptr() as *const f32;
+        let buffer: &[f32] = core::slice::from_raw_parts(ptr, array.len() * 2);
+        return js_sys::Float32Array::view(buffer).into();
+    }
+
+    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
+        ctx.uniform2f(loc, self.x, self.y);
+    }
+
+    fn is_int() -> bool {
+        return true;
     }
 }
 

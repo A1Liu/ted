@@ -67,7 +67,7 @@ impl Handler {
     fn new(window: Window) -> Self {
         return Self {
             window,
-            window_dims: Rect::new(28, 15),
+            window_dims: new_rect(28, 15),
             text: String::from(TEXT),
             cache: GlyphCache::new(),
             cursor_pos: Point2 { x: 0, y: 0 },
@@ -141,13 +141,13 @@ impl Handler {
                         return;
                     }
                     event::VirtualKeyCode::Right => {
-                        if self.cursor_pos.x < self.window_dims.width - 1 {
+                        if self.cursor_pos.x < self.window_dims.x - 1 {
                             self.cursor_pos.x += 1;
                         }
                         return;
                     }
                     event::VirtualKeyCode::Down => {
-                        if self.cursor_pos.y < self.window_dims.height - 1 {
+                        if self.cursor_pos.y < self.window_dims.y - 1 {
                             self.cursor_pos.y += 1;
                         }
                         return;

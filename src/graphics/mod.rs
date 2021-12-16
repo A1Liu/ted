@@ -15,10 +15,8 @@ struct TextShader {
 
     // Uniform Locations
     u_glyph_atlas: ULoc,
-    u_width: ULoc,
-    u_height: ULoc,
-    u_atlas_width: ULoc,
-    u_atlas_height: ULoc,
+    u_dims: ULoc,
+    u_atlas_dims: ULoc,
 
     // Resources
     tex: Texture,
@@ -37,10 +35,8 @@ impl TextShader {
         let in_glyph_pos = gl.attr_buffer(&program, "in_glyph_pos")?;
 
         let u_glyph_atlas = gl.uloc(&program, "u_glyph_atlas")?;
-        let u_width = gl.uloc(&program, "u_width")?;
-        let u_height = gl.uloc(&program, "u_height")?;
-        let u_atlas_width = gl.uloc(&program, "u_atlas_width")?;
-        let u_atlas_height = gl.uloc(&program, "u_atlas_height")?;
+        let u_dims = gl.uloc(&program, "u_dims")?;
+        let u_atlas_dims = gl.uloc(&program, "u_atlas_dims")?;
 
         let tex = gl.tex(&u_glyph_atlas, 0)?;
 
@@ -50,10 +46,8 @@ impl TextShader {
             in_pos,
             in_glyph_pos,
             u_glyph_atlas,
-            u_width,
-            u_height,
-            u_atlas_width,
-            u_atlas_height,
+            u_dims,
+            u_atlas_dims,
             tex,
         });
     }
@@ -76,10 +70,20 @@ impl TextShader {
 
         gl.bind_vao(&self.vao);
         gl.bind_tex(&self.u_glyph_atlas, 0, &self.tex);
-        gl.bind_uniform(&self.u_width, dims.width as f32);
-        gl.bind_uniform(&self.u_height, dims.height as f32);
-        gl.bind_uniform(&self.u_atlas_width, atlas_dims.width);
-        gl.bind_uniform(&self.u_atlas_height, atlas_dims.height);
+
+        let u_dims = Vector2 {
+            x: dims.x as f32,
+            y: dims.y as f32,
+        };
+
+        gl.bind_uniform(&self.u_dims, u_dims);
+
+        let u_atlas_dims = Vector2 {
+            x: atlas_dims.x as f32,
+            y: atlas_dims.y as f32,
+        };
+
+        gl.bind_uniform(&self.u_atlas_dims, u_atlas_dims);
 
         gl.draw(points.len() as i32);
 
@@ -107,12 +111,12 @@ impl<'a> TextVertices<'a> {
         let glyph_list = cache.translate_glyphs(" ");
         let did_raster = glyph_list.did_raster;
 
-        let size = (dims.width * dims.height) as usize;
+        let size = (dims.x * dims.y) as usize;
         let mut glyphs = Vec::with_capacity(size * 6);
         let mut points = Vec::with_capacity(size * 6);
 
-        for y in 0..dims.height {
-            for x in 0..dims.width {
+        for y in 0..dims.y {
+            for x in 0..dims.x {
                 points.extend_from_slice(&[
                     pt(x, y, 0),
                     pt(x + 1, y, 0),
@@ -132,7 +136,7 @@ impl<'a> TextVertices<'a> {
         // 2 is selected
         // Set the block mode for the points that represent the cursor
         if let Some(pos) = cursor_pos {
-            let idx = ((pos.y * dims.width + pos.x) * 6) as usize;
+            let idx = ((pos.y * dims.x + pos.x) * 6) as usize;
 
             for idx in idx..(idx + 6) {
                 points[idx].z = 1;
@@ -160,15 +164,15 @@ impl<'a> TextVertices<'a> {
         let mut write_len = repeat;
 
         let mut pos = self.pos;
-        for y in pos.y..self.dims.height {
-            for x in pos.x..self.dims.width {
+        for y in pos.y..self.dims.y {
+            for x in pos.x..self.dims.x {
                 if write_len == 0 {
                     self.pos = Point2 { x, y };
                     return false;
                 }
 
                 // we write!
-                let idx = ((y * self.dims.width + x) * 6) as usize;
+                let idx = ((y * self.dims.x + x) * 6) as usize;
                 self.glyphs[idx..(idx + 6)].copy_from_slice(&glyph_list.glyphs);
                 write_len -= 1;
             }
@@ -183,7 +187,7 @@ impl<'a> TextVertices<'a> {
     pub fn push(&mut self, text: &str) -> bool {
         for c in text.chars() {
             if c == '\n' {
-                if self.place_char(self.dims.width - self.pos.x, ' ') {
+                if self.place_char(self.dims.x - self.pos.x, ' ') {
                     return true;
                 }
 

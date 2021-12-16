@@ -53,8 +53,8 @@ impl GlyphCache {
         return GlyphCache {
             descriptors: HashMap::new(),
             atlas: Vec::new(),
-            glyph_dims: Rect::new(0, 0),
-            atlas_dims: Rect::new(MAX_ATLAS_WIDTH, 0),
+            glyph_dims: new_rect(0, 0),
+            atlas_dims: new_rect(MAX_ATLAS_WIDTH, 0),
             atlas_current_row_width: MAX_ATLAS_WIDTH,
         };
     }
@@ -107,7 +107,7 @@ impl GlyphCache {
 
         let (width, height) = (width + PAD_L + PAD_R, height + PAD_T + PAD_B);
 
-        if width < self.glyph_dims.width && height < self.glyph_dims.height {
+        if width < self.glyph_dims.x && height < self.glyph_dims.y {
             let glyph = self.add_char(&face, scale, character);
             self.add_glyph_to_list(&mut glyphs, glyph);
 
@@ -126,10 +126,10 @@ impl GlyphCache {
         self.descriptors.clear();
         self.atlas.clear();
 
-        self.glyph_dims = Rect::new(width, height);
-        self.atlas_dims.width = MAX_ATLAS_WIDTH / width * width;
-        self.atlas_dims.height = 0;
-        self.atlas_current_row_width = self.atlas_dims.width;
+        self.glyph_dims = new_rect(width, height);
+        self.atlas_dims.x = MAX_ATLAS_WIDTH / width * width;
+        self.atlas_dims.y = 0;
+        self.atlas_current_row_width = self.atlas_dims.x;
 
         for c in DEFAULT_CHARS.chars() {
             self.add_char(&face, scale, c);
@@ -146,13 +146,13 @@ impl GlyphCache {
     fn add_glyph_to_list(&self, list: &mut Vec<Glyph>, mut glyph: Glyph) {
         let top_left = glyph;
 
-        glyph.x += self.glyph_dims.width;
+        glyph.x += self.glyph_dims.x;
         let top_right = glyph;
 
-        glyph.y += self.glyph_dims.height;
+        glyph.y += self.glyph_dims.y;
         let bot_right = glyph;
 
-        glyph.x -= self.glyph_dims.width;
+        glyph.x -= self.glyph_dims.x;
         let bot_left = glyph;
 
         list.push(top_left);
@@ -166,15 +166,15 @@ impl GlyphCache {
 
     fn add_char(&mut self, face: &ttf::Face, scale: f32, c: char) -> Glyph {
         if let Some(&glyph) = self.descriptors.get(&c) {
-            if (self.atlas_dims.height * self.atlas_dims.width) != (self.atlas.len() as u32) {
+            if (self.atlas_dims.y * self.atlas_dims.x) != (self.atlas.len() as u32) {
                 panic!("atlas is in invalid state");
             }
 
             return glyph;
         }
 
-        if self.atlas_current_row_width + self.glyph_dims.width >= self.atlas_dims.width {
-            let glyph_row_size = self.atlas_dims.width * self.glyph_dims.height;
+        if self.atlas_current_row_width + self.glyph_dims.x >= self.atlas_dims.x {
+            let glyph_row_size = self.atlas_dims.x * self.glyph_dims.y;
 
             self.atlas.reserve(glyph_row_size as usize);
             for _ in 0..glyph_row_size {
@@ -182,21 +182,21 @@ impl GlyphCache {
             }
 
             self.atlas_current_row_width = 0;
-            self.atlas_dims.height += self.glyph_dims.height;
+            self.atlas_dims.y += self.glyph_dims.y;
         }
 
         let glyph_id = face.glyph_index(c).unwrap();
         let glyph_data = rasterize_glyph(face, scale, glyph_id);
 
         let x = self.atlas_current_row_width;
-        self.atlas_current_row_width += self.glyph_dims.width;
-        let y = self.atlas_dims.height - self.glyph_dims.height;
+        self.atlas_current_row_width += self.glyph_dims.x;
+        let y = self.atlas_dims.y - self.glyph_dims.y;
 
         let glyph = Glyph { x, y };
         self.write_glyph_data(glyph, glyph_data);
         self.descriptors.insert(c, glyph);
 
-        if (self.atlas_dims.height * self.atlas_dims.width) != (self.atlas.len() as u32) {
+        if (self.atlas_dims.y * self.atlas_dims.x) != (self.atlas.len() as u32) {
             panic!("atlas is in invalid state");
         }
 
@@ -207,12 +207,12 @@ impl GlyphCache {
         let glyph_x = glyph.x as usize;
         let glyph_y = glyph.y as usize;
 
-        let atlas_height = self.atlas_dims.height as usize;
-        let atlas_width = self.atlas_dims.width as usize;
-        let glyph_height = self.glyph_dims.height as usize;
-        let glyph_width = self.glyph_dims.width as usize;
-        let data_height = data.dims.height as usize;
-        let data_width = data.dims.width as usize;
+        let atlas_height = self.atlas_dims.y as usize;
+        let atlas_width = self.atlas_dims.x as usize;
+        let glyph_height = self.glyph_dims.y as usize;
+        let glyph_width = self.glyph_dims.x as usize;
+        let data_height = data.dims.y as usize;
+        let data_width = data.dims.x as usize;
         let data = data.data;
 
         let (pad_l, pad_r) = (PAD_L as usize, PAD_R as usize);
@@ -270,7 +270,7 @@ fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData 
         Some(rect) => rect,
         None => {
             return GlyphData {
-                dims: Rect::new(0, 0),
+                dims: new_rect(0, 0),
                 data: Vec::new(),
             }
         }
@@ -284,7 +284,7 @@ fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData 
 
     let data = builder.raster.get_bitmap();
     return GlyphData {
-        dims: Rect::new(width, height),
+        dims: new_rect(width, height),
         data,
     };
 }

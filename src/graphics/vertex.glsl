@@ -3,34 +3,20 @@
 in uvec3 in_pos;
 in uvec2 in_glyph_pos;
 
-uniform float u_width;
-uniform float u_height;
-
-uniform uint u_atlas_width;
-uniform uint u_atlas_height;
+uniform vec2 u_dims;
+uniform vec2 u_atlas_dims;
 
 out vec2 v_glyph_pos;
-
 flat out uint v_block_kind;
 
+const vec2 c_pos_transform = vec2(1.0, -1.0);
+const vec2 c_pos_offset = vec2(-1.0, 1.0);
+
 void main() {
-    vec4 temp_out = vec4(0.0, 0.0, 0.0, 1.0);
+    vec2 pos = vec2(in_pos.xy) / u_dims * 2.0;
+    pos = pos * c_pos_transform + c_pos_offset;
 
-    vec2 pos = vec2(in_pos.xy);
-    float width = u_width / 2.0;
-    float height = u_height / 2.0;
-
-    float x = (pos.x / width) - 1.0;
-    float y = -(pos.y / height) + 1.0;
-
-    temp_out.x = x;
-    temp_out.y = y;
-
-    uvec2 atlas_dims = uvec2(u_atlas_width, u_atlas_height);
-
-    vec2 temp_glyph_out = vec2(in_glyph_pos) / vec2(atlas_dims);
-
-    gl_Position = temp_out;
-    v_glyph_pos = temp_glyph_out;
+    gl_Position = vec4(pos, 0.0, 1.0);
+    v_glyph_pos = vec2(in_glyph_pos) / vec2(u_atlas_dims);
     v_block_kind = uint(in_pos.z);
 }

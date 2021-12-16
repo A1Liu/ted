@@ -44,16 +44,10 @@ pub fn unwrap<V>(opt: Option<V>) -> V {
     }
 }
 
-#[derive(Clone, Copy, Default)]
-pub struct Rect {
-    pub width: u32,
-    pub height: u32,
-}
+pub type Rect = Vector2<u32>;
 
-impl Rect {
-    pub fn new(width: u32, height: u32) -> Self {
-        return Self { width, height };
-    }
+pub fn new_rect(x: u32, y: u32) -> Rect {
+    return Vector2 { x, y };
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

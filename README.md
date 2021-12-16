@@ -7,6 +7,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://webgl2fundamentals.org/webgl/lessons/webgl-qna-how-to-use-the-stencil-buffer.html
 - [ ] https://medium.com/@evanwallace/easy-scalable-text-rendering-on-the-gpu-c3f4d782c5ac
 - [ ] https://docs.rs/winit/latest/winit/
+- [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
 - [x] https://docs.rs/ttf-parser/latest/ttf_parser/
 - [x] https://github.com/raphlinus/font-rs
 - [x] https://webgl2fundamentals.org/webgl/lessons/webgl-how-it-works.html
