@@ -20,15 +20,15 @@ mod print_utils;
 mod btree;
 mod text;
 mod util;
+mod view;
 
+#[cfg(target_arch = "wasm32")]
+mod graphics;
 #[cfg(target_arch = "wasm32")]
 mod window;
 
 #[cfg(target_arch = "wasm32")]
 pub use wasm_exports::*;
-
-#[cfg(target_arch = "wasm32")]
-mod graphics;
 
 #[cfg(target_arch = "wasm32")]
 mod wasm_exports {

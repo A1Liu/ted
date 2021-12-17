@@ -8,40 +8,30 @@ pub use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 pub use wasm_bindgen::JsCast;
 
+#[cfg(debug_assertions)]
 pub fn expect<V, E>(res: Result<V, E>) -> V
 where
     E: core::fmt::Debug,
 {
-    #[cfg(debug_assertions)]
-    {
-        return res.unwrap();
-    }
+    return res.unwrap();
+}
 
-    #[cfg(not(debug_assertions))]
-    {
-        let err = match res {
-            Ok(v) => return v,
-            Err(err) => err,
-        };
+#[cfg(not(debug_assertions))]
+pub fn expect<V, E>(res: Result<V, E>) -> V {
+    let err = match res {
+        Ok(v) => return v,
+        Err(err) => err,
+    };
 
-        panic!("Expected value");
-    }
+    panic!("Expected value");
 }
 
 pub fn unwrap<V>(opt: Option<V>) -> V {
-    #[cfg(debug_assertions)]
-    {
-        return opt.unwrap();
+    if let Some(v) = opt {
+        return v;
     }
 
-    #[cfg(not(debug_assertions))]
-    {
-        if let Some(v) = opt {
-            return v;
-        }
-
-        panic!("Expected value");
-    }
+    panic!("Expected value");
 }
 
 pub type Rect = Vector2<u32>;
