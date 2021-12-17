@@ -195,7 +195,7 @@ where
 
     pub fn insert(&mut self, index: usize, elem: T) -> ElemIdx {
         if index > self.nodes[self.root.get()].count {
-            panic!("insert index was too high");
+            core::panic!("insert index was too high");
         }
 
         let (mut node, mut index) = (self.root, index);
@@ -210,7 +210,7 @@ where
                 index -= count;
             }
 
-            unreachable!();
+            core::unreachable!();
         }
 
         return self.insert_into_leaf(node, index, elem);
@@ -488,7 +488,7 @@ where
     fn assert_not_leaf(&self) {
         #[cfg(debug_assertions)]
         if self.is_leaf {
-            panic!("thought it wouldnt be a leaf but it was")
+            core::panic!("thought it wouldnt be a leaf but it was")
         }
     }
 
@@ -496,7 +496,7 @@ where
     fn assert_is_leaf(&self) {
         #[cfg(debug_assertions)]
         if !self.is_leaf {
-            panic!("thought it would be a leaf but it wasnt")
+            core::panic!("thought it would be a leaf but it wasnt")
         }
     }
 
@@ -544,7 +544,7 @@ impl Kids {
 
     fn insert(&mut self, mut index: usize, mut value: Idx) -> Option<Self> {
         if index > B || (index > 0 && self.value[index - 1].is_none()) {
-            panic!("index out of bounds");
+            core::panic!("index out of bounds");
         }
 
         while index < B {
