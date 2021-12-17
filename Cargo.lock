@@ -278,6 +278,7 @@ dependencies = [
  "glutin",
  "js-sys",
  "mint",
+ "string",
  "ttf-parser",
  "wasm-bindgen",
  "web-sys",
@@ -801,6 +802,10 @@ dependencies = [
  "wayland-cursor",
  "wayland-protocols",
 ]
+
+[[package]]
+name = "string"
+version = "0.0.1"
 
 [[package]]
 name = "strsim"
