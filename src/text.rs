@@ -1,4 +1,4 @@
-use crate::btree::*;
+use btree::*;
 
 pub struct File {
     data: BTree<TextBuffer>,

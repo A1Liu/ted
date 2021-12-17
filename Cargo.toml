@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 mint = "0.5.8"
+btree = { path = "./btree" }
 
 # Eventually, we should swap to only using font-rs, and implement all the
 # font stuff correctly

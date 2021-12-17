@@ -17,7 +17,6 @@
 #[macro_use]
 mod print_utils;
 
-mod btree;
 mod text;
 mod util;
 
