@@ -1,5 +1,4 @@
 use crate::util::*;
-use crate::window::get_canvas;
 use js_sys::Object;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;

@@ -76,3 +76,12 @@ pub type JsFunc = dyn 'static + FnMut() -> Result<(), JsValue>;
 pub fn enclose(f: impl 'static + FnMut() -> Result<(), JsValue>) -> Closure<JsFunc> {
     return Closure::wrap(Box::new(f) as Box<JsFunc>);
 }
+
+#[cfg(target_arch = "wasm32")]
+pub fn get_canvas() -> Result<web_sys::HtmlCanvasElement, JsValue> {
+    let window = unwrap(web_sys::window());
+    let document = unwrap(window.document());
+    let canvas = unwrap(document.get_element_by_id("canvas"));
+    let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
+    return Ok(canvas);
+}

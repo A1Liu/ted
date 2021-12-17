@@ -3,7 +3,6 @@ use crate::util::*;
 use winit::event;
 use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
-use winit::platform::web::WindowBuilderExtWebSys;
 use winit::window::{Window, WindowBuilder, WindowId};
 
 #[cfg_attr(debug_assertions, derive(Debug))]
@@ -11,50 +10,7 @@ pub enum TedEvent {
     Tick(usize),
 }
 
-const TEXT: &'static str = r#"Welcome to my stupid project to make a text editor.
-Try typing!
-"#;
-
-// TODO pass in the canvas we wanna use
-pub fn start_window() -> ! {
-    // Because of how the event loop works, values in this outer scope do not
-    // get dropped. They either get captured or forgotten.
-
-    let event_loop: EventLoop<TedEvent> = EventLoop::with_user_event();
-
-    {
-        let event_loop_proxy = event_loop.create_proxy();
-        setup_tick(event_loop_proxy);
-    }
-
-    let mut handler = {
-        let canvas = expect(get_canvas());
-        let window = WindowBuilder::new()
-            .with_canvas(Some(canvas))
-            .build(&event_loop)
-            .unwrap();
-
-        Handler::new(window)
-    };
-
-    handler.redraw(handler.window.id());
-
-    event_loop.run(move |event, _, flow| {
-        // ControlFlow::Wait pauses the event loop if no events are available to process.
-        // This is ideal for non-game applications that only update in response to user
-        // input, and uses significantly less power/CPU time than ControlFlow::Poll.
-        *flow = ControlFlow::Wait;
-
-        match event {
-            Event::WindowEvent { event, window_id } => handler.window_event(flow, event, window_id),
-            Event::UserEvent(ted_event) => handler.ted_event(ted_event),
-            Event::RedrawRequested(window_id) => handler.redraw(window_id),
-            _ => (),
-        }
-    });
-}
-
-struct Handler {
+pub struct Handler {
     window: Window,
     window_dims: Rect,
     text: String,
@@ -64,14 +20,39 @@ struct Handler {
 }
 
 impl Handler {
-    fn new(window: Window) -> Self {
+    pub fn new(window: Window, text: String) -> Self {
         return Self {
             window,
             window_dims: new_rect(28, 15),
-            text: String::from(TEXT),
+            text,
             cache: GlyphCache::new(),
             cursor_pos: Point2 { x: 0, y: 0 },
             cursor_on: true,
+        };
+    }
+
+    pub fn into_runner(
+        mut self,
+    ) -> impl 'static
+           + FnMut(
+        Event<'_, TedEvent>,
+        &winit::event_loop::EventLoopWindowTarget<TedEvent>,
+        &mut ControlFlow,
+    ) {
+        return move |event, _, flow| {
+            // ControlFlow::Wait pauses the event loop if no events are available to process.
+            // This is ideal for non-game applications that only update in response to user
+            // input, and uses significantly less power/CPU time than ControlFlow::Poll.
+            *flow = ControlFlow::Wait;
+
+            match event {
+                Event::WindowEvent { event, window_id } => {
+                    self.window_event(flow, event, window_id)
+                }
+                Event::UserEvent(ted_event) => self.ted_event(ted_event),
+                Event::RedrawRequested(window_id) => self.redraw(window_id),
+                _ => (),
+            }
         };
     }
 
@@ -80,6 +61,7 @@ impl Handler {
             true => Some(self.cursor_pos),
             false => None,
         };
+
         let mut vertices = TextVertices::new(&mut self.cache, self.window_dims, cursor_pos);
         vertices.push(&self.text);
         expect(vertices.render());
@@ -170,14 +152,6 @@ impl Handler {
     }
 }
 
-pub fn get_canvas() -> Result<web_sys::HtmlCanvasElement, JsValue> {
-    let window = unwrap(web_sys::window());
-    let document = unwrap(window.document());
-    let canvas = unwrap(document.get_element_by_id("canvas"));
-    let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
-    return Ok(canvas);
-}
-
 // https://docs.rs/winit/0.26.0/winit/event/enum.VirtualKeyCode.html
 fn keycode_char(modifiers: event::ModifiersState, key: event::VirtualKeyCode) -> Option<char> {
     use event::VirtualKeyCode::*;
@@ -240,33 +214,4 @@ fn keycode_char(modifiers: event::ModifiersState, key: event::VirtualKeyCode) ->
     };
 
     return Some(c);
-}
-
-#[cfg(target_arch = "wasm32")]
-pub fn setup_tick(proxy: EventLoopProxy<TedEvent>) {
-    let window = unwrap(web_sys::window());
-    let mut ticks = 0;
-
-    let closure = enclose(move || {
-        expect(proxy.send_event(TedEvent::Tick(ticks)));
-        ticks += 1;
-
-        return Ok(());
-    });
-
-    repeat(&closure, 16);
-
-    closure.forget();
-}
-
-#[wasm_bindgen(inline_js = r#"
-export const repeat = async (func, ms) => {
-  while (true) {
-    func();
-    await new Promise((res) => setTimeout(res, ms));
-  }
-};
-"#)]
-extern "C" {
-    fn repeat(func: &Closure<JsFunc>, ms: i32);
 }
