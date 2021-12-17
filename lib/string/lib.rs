@@ -37,3 +37,13 @@ where
         return &self.bytes;
     }
 }
+
+impl<T> core::ops::Deref for IString<T>
+where
+    T: StringSize,
+{
+    type Target = str;
+    fn deref(&self) -> &str {
+        return unsafe { core::str::from_utf8_unchecked(&self.bytes) };
+    }
+}

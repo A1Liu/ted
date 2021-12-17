@@ -22,28 +22,32 @@ impl File {
             None => self.data.add(TextBuffer::new()),
         };
 
-        self.insert_at(last, text);
+        let offset = self.data.get(last).unwrap().get_info().content_size;
+        self.insert_at(last, offset, text);
     }
 
     pub fn insert(&mut self, idx: usize, text: &str) {
         let res = self.data.key_leq_idx(idx, BufferInfo::content);
-        let (idx, _) = match res {
+        let (idx, offset) = match res {
             None => (self.data.add(TextBuffer::new()), 0),
             Some(res) => res,
         };
 
-        self.insert_at(idx, text);
+        self.insert_at(idx, offset, text);
     }
 
-    fn insert_at(&mut self, idx: ElemIdx, text: &str) {
+    fn insert_at(&mut self, idx: ElemIdx, mut offset: usize, text: &str) {
         let remaining_chars = self.data.get_mut(idx, |buf| {
             let mut iter = text.chars();
-            if buf.buffer.len() >= TextBuffer::MAX_LEN {
+            if buf.is_full() {
                 return iter;
             }
 
             for c in &mut iter {
-                if buf.push(c) {
+                let is_full = buf.insert(offset, c);
+                offset += 1;
+
+                if is_full {
                     break;
                 }
             }
@@ -179,6 +183,7 @@ impl<'a> Iterator for FileIter<'a> {
 
 struct TextBuffer {
     buffer: String,
+    char_count: u16,
     newline_count: u16,
 }
 
@@ -192,21 +197,41 @@ impl TextBuffer {
     pub fn new() -> Self {
         return Self {
             buffer: String::new(),
+            char_count: 0,
             newline_count: 0,
         };
     }
 
-    pub fn push(&mut self, c: char) -> bool {
+    pub fn is_full(&self) -> bool {
+        return self.buffer.len() >= TextBuffer::MAX_LEN;
+    }
+
+    pub fn insert(&mut self, idx: usize, c: char) -> bool {
         if self.buffer.len() == 0 {
-            self.buffer.reserve(TextBuffer::MAX_LEN);
+            self.buffer.reserve(TextBuffer::MAX_LEN + 4);
         }
 
-        self.buffer.push(c);
+        self.buffer.insert(idx, c);
+        self.char_count += 1;
         if c == '\n' {
             self.newline_count += 1;
         }
 
-        return self.buffer.len() >= TextBuffer::MAX_LEN;
+        return self.is_full();
+    }
+
+    pub fn push(&mut self, c: char) -> bool {
+        if self.buffer.len() == 0 {
+            self.buffer.reserve(TextBuffer::MAX_LEN + 4);
+        }
+
+        self.buffer.push(c);
+        self.char_count += 1;
+        if c == '\n' {
+            self.newline_count += 1;
+        }
+
+        return self.is_full();
     }
 }
 
@@ -240,7 +265,7 @@ impl BTreeItem for TextBuffer {
 
     fn get_info(&self) -> BufferInfo {
         return BufferInfo {
-            content_size: self.buffer.len(),
+            content_size: self.char_count as usize,
             newline_count: self.newline_count as usize,
         };
     }

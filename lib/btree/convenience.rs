@@ -49,9 +49,9 @@ where
 
     // We can't return a mutable reference here because we need to update the
     // bookkeeping data after the mutation finishes
-    pub fn get_mut<E, F>(&mut self, index: impl BTreeIdx<T>, f: F) -> Option<E>
+    pub fn get_mut<E, F>(&mut self, index: impl BTreeIdx<T>, mut f: F) -> Option<E>
     where
-        F: Fn(&mut T) -> E,
+        F: FnMut(&mut T) -> E,
     {
         let idx = index.get(self)?.get();
 
