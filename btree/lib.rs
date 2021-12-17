@@ -31,7 +31,7 @@ mod tests {
         }
     }
 
-    const TREE_SIZE: usize = 10000;
+    const TREE_SIZE: usize = 1000;
 
     fn validate(tree: BTree<TestData>) {
         for i in 0..TREE_SIZE {

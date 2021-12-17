@@ -18,7 +18,8 @@ jobs:
       - uses: Swatinem/rust-cache@v1
         with:
           target-dir: .cargo/target
-      - run: cargo test
+
+          - run: cargo test --manifest-path ./btree/Cargo.toml
 
       - uses: jetli/wasm-pack-action@v0.3.0
 

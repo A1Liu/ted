@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "btree-array"
+name = "btree"
 version = "0.0.1"
