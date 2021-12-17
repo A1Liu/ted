@@ -2,15 +2,16 @@
 Text editor using WebGL and Rust/Wasm. Very much WIP.
 
 ## Feature Stuffs
-- [ ] https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
 - [ ] https://github.com/cmuratori/refterm
 - [ ] https://webgl2fundamentals.org/webgl/lessons/webgl-qna-how-to-use-the-stencil-buffer.html
 - [ ] https://medium.com/@evanwallace/easy-scalable-text-rendering-on-the-gpu-c3f4d782c5ac
 - [ ] https://docs.rs/winit/latest/winit/
 - [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
+- [x] https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
 - [x] https://docs.rs/ttf-parser/latest/ttf_parser/
 - [x] https://github.com/raphlinus/font-rs
 - [x] https://webgl2fundamentals.org/webgl/lessons/webgl-how-it-works.html
+- [ ] Client-server https://github.com/knsd/daemonize
 
 ## Size Opt Stuffs
 - [ ] https://github.com/rustwasm/wasm-pack/issues/737
@@ -18,11 +19,8 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://www.skypack.dev/view/esbuild-plugin-wasm-pack
 
 ## Next Up
-- Getting input and inserting into the editor
 - Deleting text (BTree ig)
-- Cursor stuff, probably some more architectural changes in the process
 - Make text less ugly
-- Background color stuff
 - Line numbers
 - Select text
 - Window sizing and whatnot

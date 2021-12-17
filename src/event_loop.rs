@@ -1,5 +1,6 @@
 use crate::graphics::*;
 use crate::util::*;
+use crate::view::*;
 use winit::event;
 use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
@@ -11,23 +12,20 @@ pub enum TedEvent {
 }
 
 pub struct Handler {
-    window: Window,
-    window_dims: Rect,
-    text: String,
+    // This should be global
     cache: GlyphCache,
-    cursor_pos: Point2<u32>,
-    cursor_on: bool,
+
+    // These eventually should not be
+    window: Window,
+    view: View,
 }
 
 impl Handler {
     pub fn new(window: Window, text: String) -> Self {
         return Self {
-            window,
-            window_dims: new_rect(28, 15),
-            text,
             cache: GlyphCache::new(),
-            cursor_pos: Point2 { x: 0, y: 0 },
-            cursor_on: true,
+            window,
+            view: View::new(new_rect(28, 15), text),
         };
     }
 
@@ -50,29 +48,21 @@ impl Handler {
                     self.window_event(flow, event, window_id)
                 }
                 Event::UserEvent(ted_event) => self.ted_event(ted_event),
-                Event::RedrawRequested(window_id) => self.redraw(window_id),
+                Event::RedrawRequested(window_id) => self.draw(window_id),
                 _ => (),
             }
         };
     }
 
-    fn redraw(&mut self, window_id: WindowId) {
-        let cursor_pos = match self.cursor_on {
-            true => Some(self.cursor_pos),
-            false => None,
-        };
-
-        let mut vertices = TextVertices::new(&mut self.cache, self.window_dims, cursor_pos);
-        vertices.push(&self.text);
-        expect(vertices.render());
+    fn draw(&mut self, window_id: WindowId) {
+        self.view.draw(&mut self.cache);
     }
 
     fn ted_event(&mut self, evt: TedEvent) {
         match evt {
             TedEvent::Tick(tick) => {
                 if tick % 12 == 0 {
-                    self.cursor_on = !self.cursor_on;
-                    self.window.request_redraw();
+                    self.view.toggle_cursor_blink(&self.window);
                 }
             }
         }
@@ -110,28 +100,21 @@ impl Handler {
                     return;
                 }
 
-                self.cursor_on = true;
-                self.window.request_redraw();
-
                 match key {
                     event::VirtualKeyCode::Left => {
-                        self.cursor_pos.x = self.cursor_pos.x.saturating_sub(1);
+                        self.view.cursor_left(&self.window);
                         return;
                     }
                     event::VirtualKeyCode::Up => {
-                        self.cursor_pos.y = self.cursor_pos.y.saturating_sub(1);
+                        self.view.cursor_up(&self.window);
                         return;
                     }
                     event::VirtualKeyCode::Right => {
-                        if self.cursor_pos.x < self.window_dims.x - 1 {
-                            self.cursor_pos.x += 1;
-                        }
+                        self.view.cursor_right(&self.window);
                         return;
                     }
                     event::VirtualKeyCode::Down => {
-                        if self.cursor_pos.y < self.window_dims.y - 1 {
-                            self.cursor_pos.y += 1;
-                        }
+                        self.view.cursor_down(&self.window);
                         return;
                     }
                     _ => {}
@@ -142,9 +125,7 @@ impl Handler {
                     None => return,
                 };
 
-                self.text.push(c);
-
-                self.window.request_redraw();
+                self.view.insert_char(&self.window, c);
             }
 
             _ => {}
