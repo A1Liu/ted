@@ -9,14 +9,14 @@ impl File {
         return Self { data: BTree::new() };
     }
 
-    pub fn append_char(&mut self, c: char) {
+    pub fn push(&mut self, c: char) {
         let mut data = [0u8; 4];
         let s = c.encode_utf8(&mut data);
 
-        self.append(s);
+        self.push_str(s);
     }
 
-    pub fn append(&mut self, text: &str) {
+    pub fn push_str(&mut self, text: &str) {
         let last = match self.data.last_idx() {
             Some(last) => last,
             None => self.data.add(TextBuffer::new()),
@@ -91,6 +91,17 @@ impl File {
             buffer_idx: remainder,
         });
     }
+
+    pub fn text_after_cursor<'a>(&'a self, cursor: usize) -> Option<TextIter<'a>> {
+        let (idx, remainder) = self.data.key_idx(cursor, BufferInfo::content)?;
+        let idx = self.data.count_until(idx)?;
+
+        return Some(TextIter {
+            file: self,
+            idx,
+            buffer_idx: remainder,
+        });
+    }
 }
 
 impl<'a> IntoIterator for &'a File {
@@ -99,6 +110,26 @@ impl<'a> IntoIterator for &'a File {
 
     fn into_iter(self) -> FileIter<'a> {
         return FileIter { file: self, idx: 0 };
+    }
+}
+
+pub struct TextIter<'a> {
+    file: &'a File,
+    idx: usize,
+    buffer_idx: usize,
+}
+
+impl<'a> Iterator for TextIter<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = self.file.data.get(self.idx)?;
+
+        self.idx += 1;
+        let bytes = &result.buffer.as_bytes()[self.buffer_idx..];
+        self.buffer_idx = 0;
+
+        return Some(unsafe { core::str::from_utf8_unchecked(bytes) });
     }
 }
 

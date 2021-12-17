@@ -112,7 +112,7 @@ where
         self.update_node(true, node);
         for _ in 0..self.levels {
             node = self.nodes[node.get()].parent.unwrap();
-            self.update_node(true, node);
+            self.update_node(false, node);
         }
 
         debug_assert_eq!(node, self.root);

@@ -1,9 +1,10 @@
 use crate::graphics::*;
+use crate::text::*;
 use crate::util::*;
 
 pub struct View {
     // eventually do something else here lol
-    text: String,
+    text: File,
 
     start: usize,
     dims: Rect,
@@ -15,8 +16,11 @@ pub struct View {
 
 impl View {
     pub fn new(dims: Rect, text: String) -> Self {
+        let mut file = File::new();
+        file.push_str(&text);
+
         return Self {
-            text,
+            text: file,
 
             start: 0,
             dims,
@@ -83,7 +87,12 @@ impl View {
         };
 
         let mut vertices = TextVertices::new(glyphs, self.dims, cursor_pos);
-        vertices.push(&self.text);
+        if let Some(text) = self.text.text_after_cursor(self.start) {
+            for text in text {
+                vertices.push(text);
+            }
+        }
+
         expect(vertices.render());
     }
 }

@@ -181,6 +181,7 @@ impl<'a> TextVertices<'a> {
             write_len = 0; // Don't do any wrapping work here
         }
 
+        self.pos = self.dims.into();
         return true;
     }
 
