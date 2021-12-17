@@ -20,10 +20,13 @@ mod print_utils;
 mod btree;
 mod text;
 mod util;
+
+#[cfg(target_arch = "wasm32")]
 mod view;
 
 #[cfg(target_arch = "wasm32")]
 mod event_loop;
+
 #[cfg(target_arch = "wasm32")]
 mod graphics;
 

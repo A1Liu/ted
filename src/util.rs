@@ -1,6 +1,7 @@
 use core::num::NonZeroUsize;
 pub use mint::*;
-use winit::event_loop::EventLoopProxy;
+pub use winit::event_loop::EventLoopProxy;
+pub use winit::window::Window;
 
 #[cfg(target_arch = "wasm32")]
 pub use wasm_bindgen::prelude::*;
