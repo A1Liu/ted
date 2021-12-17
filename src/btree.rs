@@ -118,6 +118,12 @@ where
         return Some(result);
     }
 
+    // pub fn sum_until(&self, index: impl BTreeIdx<T>) -> T::Info {
+    //     let mut s = <T::Info as Default>::default();
+
+    //     return s;
+    // }
+
     // pub fn key_mut<F>(&mut self, index: usize, get: F) -> Option<(&T, usize)>
     // where
     //     F: Fn(T::Info) -> usize,
@@ -354,7 +360,7 @@ where
         }
 
         // This is probably the implementation of T::Info being wrong
-        unreachable!();
+        return None;
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::btree::*;
 
 pub struct File {
-    data: BTree<BufferView>,
+    data: BTree<TextBuffer>,
 }
 
 impl File {
@@ -12,7 +12,7 @@ impl File {
     pub fn insert(&mut self, idx: usize, text: &str) {
         let res = self.data.key_leq_idx(idx, BufferInfo::content);
         let (idx, _) = match res {
-            None => (self.data.add(BufferView::new()), 0),
+            None => (self.data.add(TextBuffer::new()), 0),
             Some(res) => res,
         };
 
@@ -27,15 +27,17 @@ impl File {
             return iter;
         });
 
-        let mut buf_view = BufferView::new();
+        let mut buf_view = TextBuffer::new();
         let mut idx = idx;
         for c in &mut remaining_chars.unwrap() {
             if buf_view.push(c) {
                 idx = self.data.insert_after(idx, buf_view);
-                buf_view = BufferView::new();
+                buf_view = TextBuffer::new();
             }
         }
     }
+
+    // pub fn line_number(&self, idx: usize) {}
 }
 
 impl<'a> IntoIterator for &'a File {
@@ -62,12 +64,12 @@ impl<'a> Iterator for FileIter<'a> {
     }
 }
 
-pub struct BufferView {
+struct TextBuffer {
     buffer: String,
     newline_count: u16,
 }
 
-impl BufferView {
+impl TextBuffer {
     const MAX_LEN: usize = 1024;
 
     pub fn new() -> Self {
@@ -79,7 +81,7 @@ impl BufferView {
 
     pub fn push(&mut self, c: char) -> bool {
         if self.buffer.len() == 0 {
-            self.buffer.reserve(BufferView::MAX_LEN);
+            self.buffer.reserve(TextBuffer::MAX_LEN);
         }
 
         self.buffer.push(c);
@@ -87,7 +89,7 @@ impl BufferView {
             self.newline_count += 1;
         }
 
-        return self.buffer.len() >= BufferView::MAX_LEN;
+        return self.buffer.len() >= TextBuffer::MAX_LEN;
     }
 }
 
@@ -116,7 +118,7 @@ impl BTreeInfo for BufferInfo {
     }
 }
 
-impl BTreeItem for BufferView {
+impl BTreeItem for TextBuffer {
     type Info = BufferInfo;
     fn get_info(&self) -> BufferInfo {
         return BufferInfo {
