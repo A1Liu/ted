@@ -28,6 +28,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Window sizing and whatnot
 
 ## Mid-term
+- Python-style indexable UTF-8 strings (only implement single-byte variant for now)
 - Find, Find and replace
 - Multiple canvases on the web
 - Syntax highlighting; probably just make something super duper simple

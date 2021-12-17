@@ -39,6 +39,10 @@ impl View {
 
     pub fn insert(&mut self, window: &Window, s: String) {
         self.cursor_blink_on = true;
+
+        // TODO move text flowing here from the text vertices thing, so that
+        // we can determine cursor location after insertion
+
         self.text.push_str(&s);
         window.request_redraw();
     }
