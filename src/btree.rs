@@ -97,6 +97,8 @@ where
         return Some((e_idx(idx), remainder));
     }
 
+    // We can't return a mutable reference here because we need to update the
+    // bookkeeping data after the mutation finishes
     pub fn get_mut<E, F>(&mut self, index: impl BTreeIdx<T>, f: F) -> Option<E>
     where
         F: Fn(&mut T) -> E,
@@ -118,27 +120,73 @@ where
         return Some(result);
     }
 
-    // pub fn sum_until(&self, index: impl BTreeIdx<T>) -> T::Info {
-    //     let mut s = <T::Info as Default>::default();
+    pub fn count_until(&self, index: impl BTreeIdx<T>) -> Option<usize> {
+        let mut count = 0;
 
-    //     return s;
-    // }
+        let elem_idx = index.get(self)?;
 
-    // pub fn key_mut<F>(&mut self, index: usize, get: F) -> Option<(&T, usize)>
-    // where
-    //     F: Fn(T::Info) -> usize,
-    // {
-    //     let (idx, remainder) = self.find(false, index, move |_, info| get(info))?;
-    //     return Some((&mut self.elements[idx.get()], remainder));
-    // }
+        let mut node = self.element_info[elem_idx.get()].parent;
+        for kid in &self.nodes[node.get()].kids {
+            if kid == elem_idx {
+                break;
+            }
 
-    // pub fn key_leq_mut<F>(&mut self, index: usize, get: F) -> Option<(&T, usize)>
-    // where
-    //     F: Fn(T::Info) -> usize,
-    // {
-    //     let (idx, remainder) = self.find(true, index, move |_, info| get(info))?;
-    //     return Some((&mut self.elements[idx.get()], remainder));
-    // }
+            count += 1;
+        }
+
+        for _ in 0..self.levels {
+            let parent = self.nodes[node.get()].parent.unwrap();
+
+            for kid in &self.nodes[parent.get()].kids {
+                if kid == node {
+                    break;
+                }
+
+                count += self.nodes[kid.get()].count;
+            }
+
+            node = parent;
+        }
+
+        return Some(count);
+    }
+
+    pub fn sum_until(&self, index: impl BTreeIdx<T>) -> Option<T::Info> {
+        let mut sum = <T::Info as Default>::default();
+
+        let elem_idx = index.get(self)?;
+
+        let mut node = self.element_info[elem_idx.get()].parent;
+        for kid in &self.nodes[node.get()].kids {
+            if kid == elem_idx {
+                break;
+            }
+
+            sum = sum.add(self.elements[kid.get()].get_info());
+        }
+
+        for _ in 0..self.levels {
+            let parent = self.nodes[node.get()].parent.unwrap();
+
+            for kid in &self.nodes[parent.get()].kids {
+                if kid == node {
+                    break;
+                }
+
+                sum = sum.add(self.nodes[kid.get()].info);
+            }
+
+            node = parent;
+        }
+
+        return Some(sum);
+    }
+
+    pub fn last_idx(&self) -> Option<ElemIdx> {
+        let (idx, _) = self.find(true, self.len(), |count, _| count)?;
+
+        return Some(ElemIdx(idx));
+    }
 
     #[inline]
     pub fn add(&mut self, element: T) -> ElemIdx {
@@ -364,12 +412,13 @@ where
     }
 }
 
-impl<T> core::ops::Index<usize> for BTree<T>
+impl<T, I> core::ops::Index<I> for BTree<T>
 where
     T: BTreeItem,
+    I: BTreeIdx<T>,
 {
     type Output = T;
-    fn index(&self, idx: usize) -> &T {
+    fn index(&self, idx: I) -> &T {
         self.get(idx).unwrap()
     }
 }
@@ -544,6 +593,12 @@ impl<'a> core::iter::IntoIterator for &'a Kids {
     }
 }
 
+impl Kids {
+    pub fn rev(self) -> impl Iterator<Item = Idx> {
+        return self.value.into_iter().rev().filter_map(|i| i);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -565,59 +620,59 @@ mod tests {
         }
     }
 
-    #[test]
-    fn forward_insert() {
-        let mut tree = BTree::new();
+    const TREE_SIZE: usize = 100000;
 
-        for i in 0..8 {
-            println!("iter: {}", i);
-            tree.insert(i, TestData(i));
-        }
-
-        for i in 0..8 {
+    fn validate(tree: BTree<TestData>) {
+        for i in 0..TREE_SIZE {
             assert_eq!(i, tree.get(i).unwrap().0);
         }
 
         let mut total = 0;
-        for i in 0..8 {
+        for i in 0..TREE_SIZE {
             let next = total + i;
-            for (idx, key) in (total..next).enumerate() {
+            if next == total {
+                continue;
+            }
+
+            let test_cases = [
+                total,
+                (3 * total + next) / 4,
+                (total + next) / 2,
+                (total + 3 * next) / 4,
+                next - 1,
+            ];
+            for key in test_cases.into_iter() {
                 let (value, remainder) = tree.key(key, |n| n.0).unwrap();
                 assert_eq!(i, value.0);
-                assert_eq!(idx, remainder);
+                assert_eq!(key - total, remainder);
+
+                let sum = tree.sum_until(i).unwrap().0;
+                assert_eq!(total, sum);
             }
 
             total = next;
         }
+    }
 
-        println!("finished");
+    #[test]
+    fn forward_insert() {
+        let mut tree = BTree::new();
+
+        for i in 0..TREE_SIZE {
+            tree.insert(i, TestData(i));
+        }
+
+        validate(tree);
     }
 
     #[test]
     fn reverse_insert() {
         let mut tree = BTree::new();
 
-        for i in 0..8 {
-            println!("iter: {}", i);
-            tree.insert(0, TestData(7 - i));
+        for i in 0..TREE_SIZE {
+            tree.insert(0, TestData(TREE_SIZE - 1 - i));
         }
 
-        for i in 0..8 {
-            assert_eq!(i, tree.get(i).unwrap().0);
-        }
-
-        let mut total = 0;
-        for i in 0..8 {
-            let next = total + i;
-            for (idx, key) in (total..next).enumerate() {
-                let (value, remainder) = tree.key(key, |n| n.0).unwrap();
-                assert_eq!(i, value.0);
-                assert_eq!(idx, remainder);
-            }
-
-            total = next;
-        }
-
-        println!("finished");
+        validate(tree);
     }
 }

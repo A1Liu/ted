@@ -3,6 +3,8 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 
 ## Feature Stuffs
 - [ ] https://github.com/cmuratori/refterm
+- [ ] https://webgl2fundamentals.org/webgl/lessons/webgl-drawing-without-data.html
+- [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/bindBufferRange
 - [ ] https://webgl2fundamentals.org/webgl/lessons/webgl-qna-how-to-use-the-stencil-buffer.html
 - [ ] https://medium.com/@evanwallace/easy-scalable-text-rendering-on-the-gpu-c3f4d782c5ac
 - [ ] https://docs.rs/winit/latest/winit/
