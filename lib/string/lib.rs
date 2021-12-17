@@ -10,13 +10,27 @@ pub trait StringSize {
 
 pub struct StringU8;
 
-pub struct String1 {
-    bytes: Vec<u8>,
+impl StringSize for StringU8 {
+    const SIZE: usize = 1;
 }
 
-impl String1 {
+pub struct IString<T>
+where
+    T: StringSize,
+{
+    bytes: Vec<u8>,
+    phantom: core::marker::PhantomData<T>,
+}
+
+impl<T> IString<T>
+where
+    T: StringSize,
+{
     pub fn new() -> Self {
-        return Self { bytes: Vec::new() };
+        return Self {
+            bytes: Vec::new(),
+            phantom: core::marker::PhantomData,
+        };
     }
 
     pub fn as_bytes(&self) -> &[u8] {
