@@ -10,18 +10,18 @@ pub struct BTree<T>
 where
     T: BTreeItem,
 {
-    elements: Vec<T>,
-    element_info: Vec<ElementInfo>,
-    nodes: Vec<Node<T::Info>>,
-    first_free: Option<Idx>,
-    root: Idx,
-    levels: usize,
+    pub(crate) elements: Vec<T>,
+    pub(crate) element_info: Vec<ElementInfo>,
+    pub(crate) nodes: Vec<Node<T::Info>>,
+    pub(crate) first_free: Option<Idx>,
+    pub(crate) root: Idx,
+    pub(crate) levels: usize,
 }
 
 #[derive(Clone, Copy)]
-struct ElementInfo {
-    parent: Idx,
-    next_free: Option<Idx>,
+pub(crate) struct ElementInfo {
+    pub(crate) parent: Idx,
+    pub(crate) next_free: Option<Idx>,
 }
 
 impl<T> BTree<T>
@@ -47,71 +47,6 @@ where
 
     pub fn info(&self) -> T::Info {
         return self.nodes[self.root.get()].info;
-    }
-
-    pub fn get(&self, index: impl BTreeIdx<T>) -> Option<&T> {
-        let idx = index.get(self)?;
-        return Some(&self.elements[idx.get()]);
-    }
-
-    pub fn key<F>(&self, index: usize, get: F) -> Option<(&T, usize)>
-    where
-        F: Fn(T::Info) -> usize,
-    {
-        let (idx, remainder) = self.find(false, index, move |_, info| get(info))?;
-        return Some((&self.elements[idx.get()], remainder));
-    }
-
-    pub fn key_leq<F>(&self, index: usize, get: F) -> Option<(&T, usize)>
-    where
-        F: Fn(T::Info) -> usize,
-    {
-        let (idx, remainder) = self.find(true, index, move |_, info| get(info))?;
-        return Some((&self.elements[idx.get()], remainder));
-    }
-
-    pub fn get_idx(&self, index: usize) -> Option<ElemIdx> {
-        let (idx, _) = self.find(false, index, |count, _| count)?;
-        return Some(e_idx(idx));
-    }
-
-    pub fn key_idx<F>(&self, index: usize, get: F) -> Option<(ElemIdx, usize)>
-    where
-        F: Fn(T::Info) -> usize,
-    {
-        let (idx, remainder) = self.find(false, index, move |_, info| get(info))?;
-        return Some((e_idx(idx), remainder));
-    }
-
-    pub fn key_leq_idx<F>(&self, index: usize, get: F) -> Option<(ElemIdx, usize)>
-    where
-        F: Fn(T::Info) -> usize,
-    {
-        let (idx, remainder) = self.find(true, index, move |_, info| get(info))?;
-        return Some((e_idx(idx), remainder));
-    }
-
-    // We can't return a mutable reference here because we need to update the
-    // bookkeeping data after the mutation finishes
-    pub fn get_mut<E, F>(&mut self, index: impl BTreeIdx<T>, f: F) -> Option<E>
-    where
-        F: Fn(&mut T) -> E,
-    {
-        let idx = index.get(self)?.get();
-
-        let elem = &mut self.elements[idx];
-        let result = f(elem);
-
-        let mut node = self.element_info[idx].parent;
-        self.update_node(true, node);
-        for _ in 0..self.levels {
-            node = self.nodes[node.get()].parent.unwrap();
-            self.update_node(false, node);
-        }
-
-        debug_assert_eq!(node, self.root);
-
-        return Some(result);
     }
 
     pub fn count_until(&self, index: impl BTreeIdx<T>) -> Option<usize> {
@@ -176,15 +111,52 @@ where
         return Some(sum);
     }
 
-    pub fn last_idx(&self) -> Option<ElemIdx> {
-        let (idx, _) = self.find(true, self.len(), |count, _| count)?;
+    pub fn find<F>(&self, inclusive: bool, mut key: usize, get: F) -> Option<(Idx, usize)>
+    where
+        F: Fn(usize, T::Info) -> usize,
+    {
+        let mut node = &self.nodes[self.root.get()];
+        if key >= get(node.count, node.info) {
+            return None;
+        }
 
-        return Some(ElemIdx(idx));
-    }
+        'outer: for _ in 0..self.levels {
+            for child_idx in &node.kids {
+                let child = &self.nodes[child_idx.get()];
+                let val = get(child.count, child.info);
+                if key < val {
+                    node = child;
+                    continue 'outer;
+                }
 
-    #[inline]
-    pub fn add(&mut self, element: T) -> ElemIdx {
-        return self.insert(self.nodes[self.root.get()].count, element);
+                if inclusive && key == val {
+                    node = child;
+                    continue 'outer;
+                }
+
+                key -= val;
+            }
+
+            // This is probably the implementation of T::Info being wrong
+            return None;
+        }
+
+        for idx in &node.kids {
+            let info = self.elements[idx.get()].get_info();
+            let val = get(1, info);
+            if key < val {
+                return Some((idx, key));
+            }
+
+            if inclusive && key == val {
+                return Some((idx, key));
+            }
+
+            key -= val;
+        }
+
+        // This is probably the implementation of T::Info being wrong
+        return None;
     }
 
     pub fn insert(&mut self, index: usize, elem: T) -> ElemIdx {
@@ -226,7 +198,7 @@ where
         return self.insert_into_leaf(leaf, index + 1, elem);
     }
 
-    fn insert_into_leaf(&mut self, mut node: Idx, index: usize, elem: T) -> ElemIdx {
+    pub(crate) fn insert_into_leaf(&mut self, mut node: Idx, index: usize, elem: T) -> ElemIdx {
         let info = elem.get_info();
         let elem = self.allocate_elem(node, elem);
 
@@ -272,7 +244,7 @@ where
         return e_idx(elem);
     }
 
-    fn allocate_elem(&mut self, parent: Idx, elem: T) -> Idx {
+    pub(crate) fn allocate_elem(&mut self, parent: Idx, elem: T) -> Idx {
         self.nodes[parent.get()].assert_is_leaf();
 
         match self.first_free.take() {
@@ -296,7 +268,13 @@ where
         };
     }
 
-    fn add_child(&mut self, node: Idx, at: usize, child: Idx, info: T::Info) -> Option<Kids> {
+    pub(crate) fn add_child(
+        &mut self,
+        node: Idx,
+        at: usize,
+        child: Idx,
+        info: T::Info,
+    ) -> Option<Kids> {
         let kids = self.nodes[node.get()].kids.insert(at, child);
         if kids.is_none() {
             let node_ref = &mut self.nodes[node.get()];
@@ -307,7 +285,7 @@ where
         return kids;
     }
 
-    fn update_node(&mut self, is_leaf: bool, node: Idx) {
+    pub(crate) fn update_node(&mut self, is_leaf: bool, node: Idx) {
         let kids = self.nodes[node.get()].kids;
         let (mut count, mut info) = (0, T::Info::default());
         for kid in &kids {
@@ -355,54 +333,6 @@ where
         self.nodes.push(right_node);
 
         return idx;
-    }
-
-    pub fn find<F>(&self, inclusive: bool, mut key: usize, get: F) -> Option<(Idx, usize)>
-    where
-        F: Fn(usize, T::Info) -> usize,
-    {
-        let mut node = &self.nodes[self.root.get()];
-        if key >= get(node.count, node.info) {
-            return None;
-        }
-
-        'outer: for _ in 0..self.levels {
-            for child_idx in &node.kids {
-                let child = &self.nodes[child_idx.get()];
-                let val = get(child.count, child.info);
-                if key < val {
-                    node = child;
-                    continue 'outer;
-                }
-
-                if inclusive && key == val {
-                    node = child;
-                    continue 'outer;
-                }
-
-                key -= val;
-            }
-
-            // This is probably the implementation of T::Info being wrong
-            return None;
-        }
-
-        for idx in &node.kids {
-            let info = self.elements[idx.get()].get_info();
-            let val = get(1, info);
-            if key < val {
-                return Some((idx, key));
-            }
-
-            if inclusive && key == val {
-                return Some((idx, key));
-            }
-
-            key -= val;
-        }
-
-        // This is probably the implementation of T::Info being wrong
-        return None;
     }
 }
 

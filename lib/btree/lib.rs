@@ -1,5 +1,6 @@
 #![no_std]
 
+mod convenience;
 mod nodes;
 mod traits;
 mod tree;
