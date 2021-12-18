@@ -26,7 +26,15 @@ impl File {
         self.insert_at(last, offset, text);
     }
 
-    pub fn insert(&mut self, idx: usize, text: &str) {
+    pub fn insert(&mut self, idx: usize, c: char) {
+        let (idx, offset) = self.data.key_leq_idx(idx, BufferInfo::content).unwrap();
+        let mut data = [0u8; 4];
+        let s = c.encode_utf8(&mut data);
+
+        self.insert_at(idx, offset, s);
+    }
+
+    pub fn insert_str(&mut self, idx: usize, text: &str) {
         let (idx, offset) = self.data.key_leq_idx(idx, BufferInfo::content).unwrap();
 
         self.insert_at(idx, offset, text);

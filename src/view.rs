@@ -65,45 +65,115 @@ impl View {
         let start_line = file.line_for_cursor(self.start).unwrap();
         let text = file.text_after_cursor(self.start).unwrap();
 
-        let mut text_line = start_line;
-        let mut text_index = self.start;
-        let mut found = false;
-        flow_text(text, self.dims, |pos, write_len, c| {
-            if found || pos == self.cursor_pos {
-                found = true;
+        enum FlowResult {
+            NotFound,
+            // Visual line, not textual
+            FoundLineBegin {
+                pos: Point2<u32>,
+                begin: usize,
+                len: usize,
+            },
+            // Visual line, not textual
+            FoundLine {
+                pos: Point2<u32>,
+                begin: usize,
+                end: usize,
+            },
+            Found {
+                index: usize,
+            },
+        }
+
+        let mut result = FlowResult::NotFound;
+        let flow = flow_text(text, self.dims, |state, write_len, c| {
+            if state.pos == self.cursor_pos {
+                result = FlowResult::Found { index: state.index };
                 return;
             }
 
-            text_index += 1;
-            if c == '\n' {
-                text_line += 1;
+            match &mut result {
+                FlowResult::Found { .. } => return,
+                FlowResult::FoundLine { .. } => return,
+                r @ FlowResult::NotFound => {
+                    if state.pos.y == self.cursor_pos.y {
+                        let (pos, begin, end, len) = (state.pos, state.index, state.index, 0);
+                        *r = FlowResult::FoundLineBegin { pos, begin, len };
+                        if c == '\n' {
+                            *r = FlowResult::FoundLine { pos, begin, end };
+                        }
+                    }
+                }
+                FlowResult::FoundLineBegin { pos, begin, len } => {
+                    if c == '\n' {
+                        let (pos, begin, end) = (state.pos, *begin, state.index);
+                        result = FlowResult::FoundLine { pos, begin, end };
+                        return;
+                    }
+
+                    *pos = state.pos;
+                    *len += 1;
+                }
             }
         });
 
-        if found {
-            file.insert(text_index, s);
-
-            let text = file.text_after_cursor(self.start).unwrap();
-            let mut idx = self.start;
-            let mut next_pos = None;
-            flow_text(text, self.dims, |pos, write_len, c| {
-                if idx == text_index + s.chars().count() {
-                    next_pos = Some(pos);
-                }
-
-                idx += 1;
-            });
-
-            // TODO typing at the end of the screen
-            if let Some(pos) = next_pos {
-                self.cursor_pos = pos;
-            }
-
-            window.request_redraw();
-            return;
+        if flow.pos == self.cursor_pos {
+            result = FlowResult::Found { index: flow.index };
         }
 
-        file.push_str(s);
+        let index = match result {
+            FlowResult::Found { index } => index,
+            FlowResult::FoundLine { pos, begin, end } => {
+                for x in pos.x..self.cursor_pos.x {
+                    file.insert(end, '0');
+                }
+
+                begin + self.cursor_pos.x as usize
+            }
+            FlowResult::FoundLineBegin { pos, begin, len } => {
+                let mut index = begin + len;
+                for x in pos.x..self.cursor_pos.x {
+                    file.push('0');
+                    index += 1;
+                }
+
+                index
+            }
+            FlowResult::NotFound => {
+                let mut index = flow.index;
+                for y in flow.pos.y..self.cursor_pos.y {
+                    file.push('\n');
+                    index += 1;
+                }
+
+                for x in 0..self.cursor_pos.x {
+                    file.push('0');
+                    index += 1;
+                }
+
+                index
+            }
+        };
+
+        let text_index = self.start + index;
+        file.insert_str(text_index, s);
+
+        let count = s.chars().count();
+        let text = file.text_after_cursor(self.start).unwrap();
+        let mut next_pos = None;
+        let flow = flow_text(text, self.dims, |state, write_len, c| {
+            if state.index == index + count {
+                next_pos = Some(state.pos);
+            }
+        });
+
+        if flow.index == index + count && !flow.is_full {
+            next_pos = Some(flow.pos);
+        }
+
+        // TODO typing at the end of the screen
+        if let Some(pos) = next_pos {
+            self.cursor_pos = pos;
+        }
 
         window.request_redraw();
     }
@@ -150,23 +220,35 @@ impl View {
     pub fn draw(&mut self, text: &mut File, glyphs: &mut GlyphCache) {
         let cursor_pos = self.cursor_blink_on.then(|| self.cursor_pos);
 
-        match text.text_after_cursor(self.start) {
-            None => self.glyphs.fill(EMPTY_GLYPH),
-            Some(text) => flow_text(text, self.dims, |pos, write_len, c| {
-                let idx = (pos.y * self.dims.x + pos.x) as usize;
+        let mut pt = match text.text_after_cursor(self.start) {
+            None => Point2 { x: 0, y: 0 },
+            Some(text) => {
+                let state = flow_text(text, self.dims, |state, write_len, c| {
+                    let idx = (state.pos.y * self.dims.x + state.pos.x) as usize;
 
-                if c.is_whitespace() {
-                    self.glyphs[idx..(idx + write_len)].fill(EMPTY_GLYPH);
-                    return;
-                }
+                    if c.is_whitespace() {
+                        self.glyphs[idx..(idx + write_len)].fill(EMPTY_GLYPH);
+                        return;
+                    }
 
-                let mut tmp = [0; 4];
-                let c_str = c.encode_utf8(&mut tmp);
-                let glyph_list = glyphs.translate_glyphs(c_str);
-                self.did_raster = self.did_raster || glyph_list.did_raster;
+                    let mut tmp = [0; 4];
+                    let c_str = c.encode_utf8(&mut tmp);
+                    let glyph_list = glyphs.translate_glyphs(c_str);
+                    self.did_raster = self.did_raster || glyph_list.did_raster;
 
-                self.glyphs[idx..(idx + write_len)].fill(glyph_list.glyphs[0]);
-            }),
+                    self.glyphs[idx..(idx + write_len)].fill(glyph_list.glyphs[0]);
+                });
+
+                state.pos
+            }
+        };
+
+        for y in pt.y..self.dims.y {
+            let len = (self.dims.x - pt.x) as usize;
+            let idx = (y * self.dims.x + pt.x) as usize;
+
+            self.glyphs[idx..(idx + len)].fill(EMPTY_GLYPH);
+            pt.x = 0;
         }
 
         // clear state
@@ -199,43 +281,58 @@ impl View {
     }
 }
 
-fn flow_text<'a, F>(text: impl Iterator<Item = &'a str>, dims: Rect, mut f: F)
+#[derive(Clone, Copy)]
+struct FlowState {
+    is_full: bool,
+    pos: Point2<u32>,
+    index: usize,
+}
+
+fn flow_text<'a, F>(text: impl Iterator<Item = &'a str>, dims: Rect, mut f: F) -> FlowState
 where
-    F: FnMut(Point2<u32>, usize, char),
+    F: FnMut(FlowState, usize, char),
 {
-    let mut place_char = |pos: &mut Point2<u32>, write_len: u32, c: char| -> bool {
-        if pos.y == dims.y {
-            return true;
+    let mut place_char = |state: &mut FlowState, write_len: u32, c: char| {
+        if state.pos.y >= dims.y {
+            state.is_full = true;
         }
 
-        f(*pos, write_len as usize, c);
+        f(*state, write_len as usize, c);
 
-        pos.x += write_len;
-        if pos.x >= dims.x {
-            pos.x = 0;
-            pos.y += 1;
+        state.pos.x += write_len;
+        if state.pos.x >= dims.x {
+            state.pos.x = 0;
+            state.pos.y += 1;
         }
 
-        return false;
+        state.is_full = state.pos.y >= dims.y;
     };
 
-    let mut pos = Point2 { x: 0, y: 0 };
+    let mut state = FlowState {
+        is_full: false,
+        pos: Point2 { x: 0, y: 0 },
+        index: 0,
+    };
 
     for text in text {
         for c in text.chars() {
             let len = match c {
-                '\n' => dims.x - pos.x,
+                '\n' => dims.x - state.pos.x,
                 '\t' => 2,
-                c if c.is_control() => continue,
+                c if c.is_control() => {
+                    state.index += 1;
+                    continue;
+                }
                 _ => 1,
             };
 
-            if place_char(&mut pos, len, c) {
-                return;
+            place_char(&mut state, len, c);
+            state.index += 1;
+            if state.is_full {
+                return state;
             }
         }
     }
 
-    // TODO this is sorta helpful for the graphics but not for the normal text flow.
-    while !place_char(&mut pos, 1, ' ') {}
+    return state;
 }
