@@ -88,8 +88,8 @@ impl GlyphCache {
         let character;
         'fast_path: loop {
             while let Some(c) = chars.next() {
-                if let Some(&glyph) = self.descriptors.get(&c) {
-                    self.add_glyph_to_list(&mut glyphs, glyph);
+                if let Some(&pos) = self.descriptors.get(&c) {
+                    glyphs.push(self.make_glyph(pos));
                     continue;
                 }
 
@@ -119,12 +119,12 @@ impl GlyphCache {
         let (width, height) = (width + PAD_L + PAD_R, height + PAD_T + PAD_B);
 
         if width < self.glyph_dims.x && height < self.glyph_dims.y {
-            let glyph = self.add_char(&face, scale, character);
-            self.add_glyph_to_list(&mut glyphs, glyph);
+            let pos = self.add_char(&face, scale, character);
+            glyphs.push(self.make_glyph(pos));
 
             while let Some(c) = chars.next() {
-                let glyph = self.add_char(&face, scale, c);
-                self.add_glyph_to_list(&mut glyphs, glyph);
+                let pos = self.add_char(&face, scale, c);
+                glyphs.push(self.make_glyph(pos));
             }
 
             return GlyphList::new(true, glyphs);
@@ -147,14 +147,14 @@ impl GlyphCache {
         }
 
         for c in characters.chars() {
-            let glyph = self.add_char(&face, scale, c);
-            self.add_glyph_to_list(&mut glyphs, glyph);
+            let pos = self.add_char(&face, scale, c);
+            glyphs.push(self.make_glyph(pos));
         }
 
         return GlyphList::new(true, glyphs);
     }
 
-    fn add_glyph_to_list(&self, list: &mut Vec<Glyph>, mut glyph: Point2<u32>) {
+    fn make_glyph(&self, mut glyph: Point2<u32>) -> Glyph {
         let top_left = glyph;
 
         glyph.x += self.glyph_dims.x;
@@ -166,7 +166,7 @@ impl GlyphCache {
         glyph.x -= self.glyph_dims.x;
         let bot_left = glyph;
 
-        let output = Glyph {
+        return Glyph {
             top_left_1: top_left,
             top_right_2: top_right,
             bot_left_3: bot_left,
@@ -174,8 +174,6 @@ impl GlyphCache {
             top_right_5: top_right,
             bot_right_6: bot_right,
         };
-
-        list.push(output);
     }
 
     fn add_char(&mut self, face: &ttf::Face, scale: f32, c: char) -> Point2<u32> {
