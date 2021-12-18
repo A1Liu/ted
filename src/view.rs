@@ -118,11 +118,6 @@ impl View {
             *block_type = BlockType::Normal;
         }
 
-        // For z:
-        // 0 is normal
-        // 1 is cursor
-        // 2 is selected
-        // Set the block mode for the points that represent the cursor
         if self.cursor_blink_on {
             let idx = self.cursor_pos.y * self.dims.x + self.cursor_pos.x;
             self.block_types[idx as usize] = BlockType::Cursor;
