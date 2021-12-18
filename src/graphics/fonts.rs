@@ -1,3 +1,4 @@
+use super::webgl::*;
 use crate::util::*;
 use mint::Point2;
 use std::collections::hash_map::HashMap;
@@ -22,7 +23,17 @@ const DEFAULT_CHARS: &'static str = core::concat!(
     r#"`~!@#$%^&*()_+-=[]{};':",.<>/?\|"#
 );
 
-pub type Glyph = Point2<u32>;
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct Glyph {
+    // each glyph is 2 trianges of 3 points each
+    top_left_1: Point2<u32>,
+    top_right_2: Point2<u32>,
+    bot_left_3: Point2<u32>,
+    bot_left_4: Point2<u32>,
+    top_right_5: Point2<u32>,
+    bot_right_6: Point2<u32>,
+}
 
 pub struct GlyphData {
     pub data: Vec<u8>,
@@ -30,7 +41,7 @@ pub struct GlyphData {
 }
 
 pub struct GlyphCache {
-    descriptors: HashMap<char, Glyph>,
+    descriptors: HashMap<char, Point2<u32>>,
     atlas: Vec<u8>,
     glyph_dims: Rect,
     atlas_dims: Rect,
@@ -72,7 +83,7 @@ impl GlyphCache {
         let mut glyphs = Vec::new();
 
         let char_count = characters.len();
-        glyphs.reserve(char_count * 6); // each glyph is 2 trianges of 3 points each
+        glyphs.reserve(char_count);
 
         let character;
         'fast_path: loop {
@@ -143,7 +154,7 @@ impl GlyphCache {
         return GlyphList::new(true, glyphs);
     }
 
-    fn add_glyph_to_list(&self, list: &mut Vec<Glyph>, mut glyph: Glyph) {
+    fn add_glyph_to_list(&self, list: &mut Vec<Glyph>, mut glyph: Point2<u32>) {
         let top_left = glyph;
 
         glyph.x += self.glyph_dims.x;
@@ -155,16 +166,19 @@ impl GlyphCache {
         glyph.x -= self.glyph_dims.x;
         let bot_left = glyph;
 
-        list.push(top_left);
-        list.push(top_right);
-        list.push(bot_left);
+        let output = Glyph {
+            top_left_1: top_left,
+            top_right_2: top_right,
+            bot_left_3: bot_left,
+            bot_left_4: bot_left,
+            top_right_5: top_right,
+            bot_right_6: bot_right,
+        };
 
-        list.push(bot_left);
-        list.push(top_right);
-        list.push(bot_right);
+        list.push(output);
     }
 
-    fn add_char(&mut self, face: &ttf::Face, scale: f32, c: char) -> Glyph {
+    fn add_char(&mut self, face: &ttf::Face, scale: f32, c: char) -> Point2<u32> {
         if let Some(&glyph) = self.descriptors.get(&c) {
             if (self.atlas_dims.y * self.atlas_dims.x) != (self.atlas.len() as u32) {
                 panic!("atlas is in invalid state");
@@ -192,7 +206,7 @@ impl GlyphCache {
         self.atlas_current_row_width += self.glyph_dims.x;
         let y = self.atlas_dims.y - self.glyph_dims.y;
 
-        let glyph = Glyph { x, y };
+        let glyph = Point2 { x, y };
         self.write_glyph_data(glyph, glyph_data);
         self.descriptors.insert(c, glyph);
 
@@ -203,7 +217,7 @@ impl GlyphCache {
         return glyph;
     }
 
-    fn write_glyph_data(&mut self, glyph: Glyph, data: GlyphData) {
+    fn write_glyph_data(&mut self, glyph: Point2<u32>, data: GlyphData) {
         let glyph_x = glyph.x as usize;
         let glyph_y = glyph.y as usize;
 
@@ -287,6 +301,21 @@ fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData 
         dims: new_rect(width, height),
         data,
     };
+}
+
+impl WebGlType for Glyph {
+    const GL_TYPE: u32 = Context::UNSIGNED_INT;
+    const SIZE: i32 = 2;
+
+    unsafe fn view(array: &[Self]) -> js_sys::Object {
+        let ptr = array.as_ptr() as *const u32;
+        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 2 * 6);
+        return js_sys::Uint32Array::view(buffer).into();
+    }
+
+    fn is_int() -> bool {
+        return true;
+    }
 }
 
 pub struct Builder {

@@ -33,7 +33,7 @@ impl View {
         let did_raster = glyph_list.did_raster;
 
         let size = (dims.x * dims.y) as usize;
-        let mut glyphs = Vec::with_capacity(size * 6);
+        let mut glyphs = Vec::with_capacity(size);
         let mut points = Vec::with_capacity(size * 6);
 
         for y in 0..dims.y {
@@ -208,8 +208,8 @@ impl View {
                 }
 
                 // we write!
-                let idx = ((y * self.dims.x + x) * 6) as usize;
-                self.glyphs[idx..(idx + 6)].copy_from_slice(&glyph_list.glyphs);
+                let idx = (y * self.dims.x + x) as usize;
+                self.glyphs[idx] = glyph_list.glyphs[0];
                 write_len -= 1;
             }
 
