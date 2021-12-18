@@ -124,18 +124,20 @@ impl View {
 
         match text.text_after_cursor(self.start) {
             None => self.glyphs.fill(EMPTY_GLYPH),
-            Some(text) => flow_text(text, self.dims, |pos, c| {
+            Some(text) => flow_text(text, self.dims, |pos, write_len, c| {
                 let idx = (pos.y * self.dims.x + pos.x) as usize;
+
                 if c.is_whitespace() {
-                    self.glyphs[idx] = EMPTY_GLYPH;
+                    self.glyphs[idx..(idx + write_len)].fill(EMPTY_GLYPH);
                     return;
                 }
 
                 let mut tmp = [0; 4];
                 let c_str = c.encode_utf8(&mut tmp);
                 let glyph_list = glyphs.translate_glyphs(c_str);
-                self.glyphs[idx] = glyph_list.glyphs[0];
                 self.did_raster = self.did_raster || glyph_list.did_raster;
+
+                self.glyphs[idx..(idx + write_len)].fill(glyph_list.glyphs[0]);
             }),
         }
 
@@ -171,28 +173,22 @@ impl View {
 
 fn flow_text<'a, F>(text: impl Iterator<Item = &'a str>, dims: Rect, mut f: F)
 where
-    F: FnMut(Point2<u32>, char),
+    F: FnMut(Point2<u32>, usize, char),
 {
-    let mut place_char = |pos: &mut Point2<u32>, mut write_len: u32, c: char| -> bool {
-        let (mut x, y) = (pos.x, pos.y);
-        for y in y..dims.y {
-            for x in x..dims.x {
-                if write_len == 0 {
-                    *pos = Point2 { x, y };
-                    return false;
-                }
-
-                f(Point2 { x, y }, c);
-                write_len -= 1;
-            }
-
-            // Don't do any wrapping work here
-            *pos = Point2 { x: 0, y: y + 1 };
-            return false;
+    let mut place_char = |pos: &mut Point2<u32>, write_len: u32, c: char| -> bool {
+        if pos.y == dims.y {
+            return true;
         }
 
-        *pos = dims.into();
-        return true;
+        f(*pos, write_len as usize, c);
+
+        pos.x += write_len;
+        if pos.x >= dims.x {
+            pos.x = 0;
+            pos.y += 1;
+        }
+
+        return false;
     };
 
     let mut pos = Point2 { x: 0, y: 0 };
