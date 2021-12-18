@@ -53,29 +53,57 @@ impl View {
         };
     }
 
-    pub fn insert_char(&mut self, window: &Window, text: &mut File, c: char) {
+    pub fn insert_char(&mut self, window: &Window, file: &mut File, c: char) {
         let mut s = [0u8; 4];
         let s = c.encode_utf8(&mut s);
-        self.insert(window, text, s);
+        self.insert(window, file, s);
     }
 
-    pub fn insert(&mut self, window: &Window, text: &mut File, s: &str) {
+    pub fn insert(&mut self, window: &Window, file: &mut File, s: &str) {
         self.cursor_blink_on = true;
 
-        let start_line = match text.line_for_cursor(self.start) {
-            Some(line) => line,
-            None => {
-                let line = text.last_line_begin();
-                self.start = text.line_for_cursor(line).unwrap();
+        let start_line = file.line_for_cursor(self.start).unwrap();
+        let text = file.text_after_cursor(self.start).unwrap();
 
-                line
+        let mut text_line = start_line;
+        let mut text_index = self.start;
+        let mut found = false;
+        flow_text(text, self.dims, |pos, write_len, c| {
+            if found || pos == self.cursor_pos {
+                found = true;
+                return;
             }
-        };
 
-        // match text.text_after_cursor(self.start) {}
-        // flow_text(, self.dims, |pos, c| {});
+            text_index += 1;
+            if c == '\n' {
+                text_line += 1;
+            }
+        });
 
-        text.push_str(s);
+        if found {
+            file.insert(text_index, s);
+
+            let text = file.text_after_cursor(self.start).unwrap();
+            let mut idx = self.start;
+            let mut next_pos = None;
+            flow_text(text, self.dims, |pos, write_len, c| {
+                if idx == text_index + s.chars().count() {
+                    next_pos = Some(pos);
+                }
+
+                idx += 1;
+            });
+
+            // TODO typing at the end of the screen
+            if let Some(pos) = next_pos {
+                self.cursor_pos = pos;
+            }
+
+            window.request_redraw();
+            return;
+        }
+
+        file.push_str(s);
 
         window.request_redraw();
     }
@@ -208,5 +236,6 @@ where
         }
     }
 
+    // TODO this is sorta helpful for the graphics but not for the normal text flow.
     while !place_char(&mut pos, 1, ' ') {}
 }

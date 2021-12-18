@@ -22,7 +22,6 @@ impl File {
     pub fn push_str(&mut self, text: &str) {
         let last = self.data.last_idx().unwrap();
         let offset = self.data.get(last).unwrap().get_info().content_size;
-        dbg!(offset);
 
         self.insert_at(last, offset, text);
     }
@@ -43,10 +42,12 @@ impl File {
     }
 
     fn insert_at(&mut self, idx: ElemIdx, mut offset: usize, text: &str) {
-        let remaining_chars = self.data.get_mut(idx, |buf| {
+        let result = self.data.get_mut(idx, |buf| {
+            let above = buf.split_at(offset);
             let mut iter = text.chars();
+
             if buf.is_full() {
-                return iter;
+                return (iter, above);
             }
 
             for c in &mut iter {
@@ -58,20 +59,28 @@ impl File {
                 }
             }
 
-            return iter;
+            return (iter, above);
         });
 
-        let mut buf_view = TextBuffer::new();
+        let (mut remaining_chars, buf) = result.unwrap();
+        let mut buf = match buf.is_empty() {
+            true => buf,
+            false => {
+                self.data.insert_after(idx, buf);
+                TextBuffer::new()
+            }
+        };
+
         let mut idx = idx;
-        for c in &mut remaining_chars.unwrap() {
-            if buf_view.push(c) {
-                idx = self.data.insert_after(idx, buf_view);
-                buf_view = TextBuffer::new();
+        for c in &mut remaining_chars {
+            if buf.push(c) {
+                idx = self.data.insert_after(idx, buf);
+                buf = TextBuffer::new();
             }
         }
 
-        if buf_view.char_count > 0 {
-            self.data.insert_after(idx, buf_view);
+        if !buf.is_empty() {
+            self.data.insert_after(idx, buf);
         }
     }
 
@@ -210,7 +219,7 @@ struct TextBuffer {
 
 impl TextBuffer {
     #[cfg(debug_assertions)]
-    const MAX_LEN: usize = 8;
+    const MAX_LEN: usize = 64;
 
     #[cfg(not(debug_assertions))]
     const MAX_LEN: usize = 1024;
@@ -223,13 +232,40 @@ impl TextBuffer {
         };
     }
 
+    pub fn is_empty(&self) -> bool {
+        return self.char_count == 0;
+    }
+
+    pub fn split_at(&mut self, offset: usize) -> Self {
+        let buffer = self.buffer.clone();
+
+        let mut other = Self::new();
+        self.buffer.clear();
+        self.char_count = 0;
+        self.newline_count = 0;
+
+        let mut idx = 0;
+        let mut iter = buffer.chars();
+        while idx < offset {
+            let c = iter.next().unwrap();
+            self.push(c);
+            idx += 1;
+        }
+
+        while let Some(c) = iter.next() {
+            other.push(c);
+        }
+
+        return other;
+    }
+
     pub fn is_full(&self) -> bool {
-        return self.buffer.len() >= TextBuffer::MAX_LEN;
+        return self.buffer.len() >= TextBuffer::MAX_LEN - 4;
     }
 
     pub fn insert(&mut self, idx: usize, c: char) -> bool {
         if self.buffer.len() == 0 {
-            self.buffer.reserve(TextBuffer::MAX_LEN + 4);
+            self.buffer.reserve_exact(TextBuffer::MAX_LEN);
         }
 
         self.buffer.insert(idx, c);
@@ -243,7 +279,7 @@ impl TextBuffer {
 
     pub fn push(&mut self, c: char) -> bool {
         if self.buffer.len() == 0 {
-            self.buffer.reserve(TextBuffer::MAX_LEN + 4);
+            self.buffer.reserve_exact(TextBuffer::MAX_LEN);
         }
 
         self.buffer.push(c);
