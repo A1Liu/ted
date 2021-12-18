@@ -70,6 +70,9 @@ impl View {
         let start_line = file.line_for_cursor(self.start).unwrap();
         let text = file.text_after_cursor(self.start).unwrap();
 
+        // @Memory we can probably reduce the number of fields used here. Not
+        // all of these are necessary
+        //                          - Albert Liu, Dec 18, 2021 Sat 14:31 EST
         #[derive(Debug)]
         enum FlowResult {
             NotFound,
