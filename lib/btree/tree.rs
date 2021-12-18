@@ -116,7 +116,11 @@ where
         F: Fn(usize, T::Info) -> usize,
     {
         let mut node = &self.nodes[self.root.get()];
-        if key >= get(node.count, node.info) {
+        if key > get(node.count, node.info) {
+            return None;
+        }
+
+        if !inclusive && key == get(node.count, node.info) {
             return None;
         }
 

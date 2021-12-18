@@ -7,7 +7,6 @@ pub struct View {
     start: usize,
     dims: Rect,
 
-    cursor_position: Option<Idx>,
     cursor_blink_on: bool,
     cursor_pos: Point2<u32>,
 
@@ -45,7 +44,6 @@ impl View {
             start: 0,
             dims,
 
-            cursor_position: Some(Idx::new(0)),
             cursor_blink_on: true,
             cursor_pos: Point2 { x: 0, y: 0 },
 
@@ -57,15 +55,26 @@ impl View {
     }
 
     pub fn insert_char(&mut self, window: &Window, text: &mut File, c: char) {
-        let mut s = String::new();
-        s.push(c);
+        let mut s = [0u8; 4];
+        let s = c.encode_utf8(&mut s);
         self.insert(window, text, s);
     }
 
-    pub fn insert(&mut self, window: &Window, text: &mut File, s: String) {
+    pub fn insert(&mut self, window: &Window, text: &mut File, s: &str) {
         self.cursor_blink_on = true;
 
-        text.push_str(&s);
+        let start_line = match text.line_for_cursor(self.start) {
+            Some(line) => line,
+            None => {
+                let line = text.last_line_begin();
+                self.start = text.line_for_cursor(line).unwrap();
+
+                line
+            }
+        };
+
+        text.push_str(s);
+
         window.request_redraw();
     }
 
@@ -75,7 +84,10 @@ impl View {
     }
 
     pub fn cursor_move(&mut self, window: &Window, key: event::VirtualKeyCode) -> bool {
-        self.cursor_blink_on = true;
+        return self.v_cursor_move(window, key);
+    }
+
+    fn v_cursor_move(&mut self, window: &Window, key: event::VirtualKeyCode) -> bool {
         match key {
             event::VirtualKeyCode::Up => {
                 if self.cursor_pos.y > 0 {
@@ -100,6 +112,7 @@ impl View {
             _ => return false,
         }
 
+        self.cursor_blink_on = true;
         window.request_redraw();
         return true;
     }

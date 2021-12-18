@@ -6,7 +6,10 @@ pub struct File {
 
 impl File {
     pub fn new() -> Self {
-        return Self { data: BTree::new() };
+        let mut data = BTree::new();
+        data.add(TextBuffer::new());
+
+        return Self { data };
     }
 
     pub fn push(&mut self, c: char) {
@@ -17,23 +20,26 @@ impl File {
     }
 
     pub fn push_str(&mut self, text: &str) {
-        let last = match self.data.last_idx() {
-            Some(last) => last,
-            None => self.data.add(TextBuffer::new()),
-        };
-
+        let last = self.data.last_idx().unwrap();
         let offset = self.data.get(last).unwrap().get_info().content_size;
+        dbg!(offset);
+
         self.insert_at(last, offset, text);
     }
 
     pub fn insert(&mut self, idx: usize, text: &str) {
-        let res = self.data.key_leq_idx(idx, BufferInfo::content);
-        let (idx, offset) = match res {
-            None => (self.data.add(TextBuffer::new()), 0),
-            Some(res) => res,
-        };
+        let (idx, offset) = self.data.key_leq_idx(idx, BufferInfo::content).unwrap();
 
         self.insert_at(idx, offset, text);
+    }
+
+    pub fn last_line_begin(&self) -> usize {
+        let lines = self.newlines();
+        if lines == 0 {
+            return 0;
+        }
+
+        return self.cursor_for_line(lines - 1).unwrap();
     }
 
     fn insert_at(&mut self, idx: ElemIdx, mut offset: usize, text: &str) {
@@ -63,14 +69,22 @@ impl File {
                 buf_view = TextBuffer::new();
             }
         }
+
+        if buf_view.char_count > 0 {
+            self.data.insert_after(idx, buf_view);
+        }
     }
 
-    pub fn lines(&self) -> usize {
-        return core::cmp::min(self.data.info().newline_count, 1);
+    pub fn newlines(&self) -> usize {
+        return self.data.info().newline_count;
+    }
+
+    pub fn len(&self) -> usize {
+        return self.data.info().content_size;
     }
 
     pub fn line_for_cursor(&self, idx: usize) -> Option<usize> {
-        let (idx, remainder) = self.data.key_idx(idx, BufferInfo::content)?;
+        let (idx, remainder) = self.data.key_leq_idx(idx, BufferInfo::content)?;
         let lines_before = self.data.sum_until(idx)?.newline_count;
         let bytes = self.data[idx].buffer.as_bytes().iter();
         let lines = lines_before + bytes.take(remainder).filter(|&&b| b != b'\n').count();
@@ -83,6 +97,13 @@ impl File {
         let cursor = self.data.sum_until(idx)?.content_size;
 
         return Some(cursor + remainder);
+    }
+
+    pub fn end_cursor_for_line(&self, line: usize) -> usize {
+        return match self.cursor_for_line(line + 1) {
+            Some(cursor) => cursor,
+            None => self.len(),
+        };
     }
 
     pub fn text_for_line<'a>(&'a self, line: usize) -> Option<LineIter<'a>> {
