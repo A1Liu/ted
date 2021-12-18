@@ -108,24 +108,8 @@ impl Handler {
                     return;
                 }
 
-                match key {
-                    event::VirtualKeyCode::Left => {
-                        self.view.cursor_left(&self.window);
-                        return;
-                    }
-                    event::VirtualKeyCode::Up => {
-                        self.view.cursor_up(&self.window);
-                        return;
-                    }
-                    event::VirtualKeyCode::Right => {
-                        self.view.cursor_right(&self.window);
-                        return;
-                    }
-                    event::VirtualKeyCode::Down => {
-                        self.view.cursor_down(&self.window);
-                        return;
-                    }
-                    _ => {}
+                if self.view.cursor_move(&self.window, key) {
+                    return;
                 }
 
                 let c = match keycode_char(modifiers, key) {

@@ -16,6 +16,15 @@ const PAD_R: u32 = 4; // in pixels
 const PAD_T: u32 = 4; // in pixels
 const PAD_B: u32 = 8; // in pixels
 
+pub const EMPTY_GLYPH: Glyph = Glyph {
+    top_left_1: Point2 { x: 0, y: 0 },
+    top_right_2: Point2 { x: 0, y: 0 },
+    bot_left_3: Point2 { x: 0, y: 0 },
+    bot_left_4: Point2 { x: 0, y: 0 },
+    top_right_5: Point2 { x: 0, y: 0 },
+    bot_right_6: Point2 { x: 0, y: 0 },
+};
+
 const DEFAULT_CHARS: &'static str = core::concat!(
     " ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     "abcdefghijklmnopqrstuvwxyz",
@@ -33,6 +42,12 @@ pub struct Glyph {
     bot_left_4: Point2<u32>,
     top_right_5: Point2<u32>,
     bot_right_6: Point2<u32>,
+}
+
+impl PartialEq for Glyph {
+    fn eq(&self, other: &Self) -> bool {
+        return self.top_left_1 == other.top_left_1;
+    }
 }
 
 pub struct GlyphData {

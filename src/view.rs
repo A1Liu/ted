@@ -1,6 +1,7 @@
 use crate::graphics::*;
 use crate::text::*;
 use crate::util::*;
+use winit::event;
 
 pub struct View {
     start: usize,
@@ -73,40 +74,34 @@ impl View {
         window.request_redraw();
     }
 
-    pub fn cursor_up(&mut self, window: &Window) {
+    pub fn cursor_move(&mut self, window: &Window, key: event::VirtualKeyCode) -> bool {
         self.cursor_blink_on = true;
-        if self.cursor_pos.y > 0 {
-            self.cursor_pos.y -= 1;
+        match key {
+            event::VirtualKeyCode::Up => {
+                if self.cursor_pos.y > 0 {
+                    self.cursor_pos.y -= 1;
+                }
+            }
+            event::VirtualKeyCode::Down => {
+                if self.cursor_pos.y < self.dims.y - 1 {
+                    self.cursor_pos.y += 1;
+                }
+            }
+            event::VirtualKeyCode::Left => {
+                if self.cursor_pos.x > 0 {
+                    self.cursor_pos.x -= 1;
+                }
+            }
+            event::VirtualKeyCode::Right => {
+                if self.cursor_pos.x < self.dims.x - 1 {
+                    self.cursor_pos.x += 1;
+                }
+            }
+            _ => return false,
         }
 
         window.request_redraw();
-    }
-
-    pub fn cursor_left(&mut self, window: &Window) {
-        self.cursor_blink_on = true;
-        if self.cursor_pos.x > 0 {
-            self.cursor_pos.x -= 1;
-        }
-
-        window.request_redraw();
-    }
-
-    pub fn cursor_right(&mut self, window: &Window) {
-        self.cursor_blink_on = true;
-        if self.cursor_pos.x < self.dims.x - 1 {
-            self.cursor_pos.x += 1;
-        }
-
-        window.request_redraw();
-    }
-
-    pub fn cursor_down(&mut self, window: &Window) {
-        self.cursor_blink_on = true;
-        if self.cursor_pos.y < self.dims.y - 1 {
-            self.cursor_pos.y += 1;
-        }
-
-        window.request_redraw();
+        return true;
     }
 
     fn rewrite_cursor(&mut self) {
