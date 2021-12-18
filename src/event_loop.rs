@@ -1,4 +1,5 @@
 use crate::graphics::*;
+use crate::text::*;
 use crate::util::*;
 use crate::view::*;
 use winit::event;
@@ -18,14 +19,21 @@ pub struct Handler {
     // These eventually should not be
     window: Window,
     view: View,
+    file: File,
 }
 
 impl Handler {
     pub fn new(window: Window, text: String) -> Self {
+        let mut cache = GlyphCache::new();
+        let view = View::new(new_rect(28, 15), &mut cache);
+        let mut file = File::new();
+        file.push_str(&text);
+
         return Self {
-            cache: GlyphCache::new(),
+            cache,
             window,
-            view: View::new(new_rect(28, 15), text),
+            view,
+            file,
         };
     }
 
@@ -55,7 +63,7 @@ impl Handler {
     }
 
     fn draw(&mut self, window_id: WindowId) {
-        self.view.draw(&mut self.cache);
+        self.view.draw(&mut self.file, &mut self.cache);
     }
 
     fn ted_event(&mut self, evt: TedEvent) {
@@ -125,7 +133,7 @@ impl Handler {
                     None => return,
                 };
 
-                self.view.insert_char(&self.window, c);
+                self.view.insert_char(&self.window, &mut self.file, c);
             }
 
             _ => {}

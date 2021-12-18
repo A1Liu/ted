@@ -7,7 +7,7 @@ pub use webgl::*;
 use crate::util::*;
 use wasm_bindgen::prelude::*;
 
-struct TextShader {
+pub struct TextShader {
     program: Program,
 
     // Vertices
@@ -52,7 +52,7 @@ impl TextShader {
         });
     }
 
-    fn render(
+    pub fn render(
         &self,
         atlas: Option<&[u8]>,
         points: &[Vector3<u32>],
@@ -92,9 +92,9 @@ impl TextShader {
 }
 
 thread_local! {
-    static TEXT_SHADER: TextShader = expect(TextShader::new());
+    pub static TEXT_SHADER: TextShader = expect(TextShader::new());
 }
-
+/*
 pub struct TextVertices<'a> {
     cache: &'a mut GlyphCache,
     points: Vec<Vector3<u32>>,
@@ -153,38 +153,6 @@ impl<'a> TextVertices<'a> {
         };
     }
 
-    fn place_char(&mut self, repeat: u32, c: char) -> bool {
-        let mut tmp = [0; 4];
-        let c_str = c.encode_utf8(&mut tmp);
-
-        // TODO This assumes characters are 1 glyph
-        let glyph_list = self.cache.translate_glyphs(c_str);
-        self.did_raster = self.did_raster || glyph_list.did_raster;
-
-        let mut write_len = repeat;
-
-        let mut pos = self.pos;
-        for y in pos.y..self.dims.y {
-            for x in pos.x..self.dims.x {
-                if write_len == 0 {
-                    self.pos = Point2 { x, y };
-                    return false;
-                }
-
-                // we write!
-                let idx = ((y * self.dims.x + x) * 6) as usize;
-                self.glyphs[idx..(idx + 6)].copy_from_slice(&glyph_list.glyphs);
-                write_len -= 1;
-            }
-
-            pos.x = 0;
-            write_len = 0; // Don't do any wrapping work here
-        }
-
-        self.pos = self.dims.into();
-        return true;
-    }
-
     pub fn push(&mut self, text: &str) -> bool {
         for c in text.chars() {
             if c == '\n' {
@@ -227,15 +195,11 @@ impl<'a> TextVertices<'a> {
         let atlas = self.did_raster.then(|| self.cache.atlas());
         let atlas_dims = self.cache.atlas_dims();
 
-        TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
-            shader.render(atlas, &self.points, &self.glyphs, atlas_dims, self.dims)?;
-
-            return Ok(());
-        })?;
 
         return Ok(());
     }
 }
+*/
 
 // For z:
 // 0 is normal
