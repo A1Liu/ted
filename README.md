@@ -23,26 +23,29 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
 
 ## Next Up
-- Deleting text (BTree ig)
+- Deleting text, BTree Garbage collection
 - Make text less ugly
 - Line numbers
 - Select text
 - Window sizing and whatnot
 
 ## Mid-term
-- Python-style indexable UTF-8 strings (only implement single-byte variant for now)
 - Find, Find and replace
 - Multiple canvases on the web
-- Syntax highlighting; probably just make something super duper simple
+- Text colors/spans
 - Graphics/shader stuff
 - Persist data and whatnot
 
 ## Far in the Future
 - Customization?
-- Cursor ref-counting or whatever works to get the behavior that Google docs has
+- Syntax highlighting; probably just make something super duper simple
 - Client-server architecture so that we can have nice things
 - Cross platform stuffs
+
+## Even Further in the Future
+- Python-style indexable UTF-8 strings (only implement single-byte variant for now)
 - Abstract away graphics stuff with cute macros and stuff
+- Cursor ref-counting or whatever works to get the behavior that Google docs has
 
 
 ## Architecture
