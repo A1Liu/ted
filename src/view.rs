@@ -25,7 +25,6 @@ impl View {
     pub fn new(dims: Rect, cache: &mut GlyphCache) -> Self {
         // TODO This assumes characters are 1 glyph
         let glyph_list = cache.translate_glyphs(" ");
-        let did_raster = glyph_list.did_raster;
 
         let size = (dims.x * dims.y) as usize;
         let mut glyphs = Vec::with_capacity(size);
@@ -50,7 +49,7 @@ impl View {
             points,
             block_types,
             glyphs,
-            did_raster,
+            did_raster: true,
         };
     }
 
@@ -129,88 +128,22 @@ impl View {
         }
     }
 
-    fn flow_text(&mut self, cache: &mut GlyphCache, text: &File) {
-        let pos = Point2 { x: 0, y: 0 };
-        let mut flow = TextFlow { cache, pos };
-
-        if let Some(text) = text.text_after_cursor(self.start) {
-            for text in text {
-                for c in text.chars() {
-                    if c == '\n' {
-                        let len = self.dims.x - flow.pos.x;
-                        if self.place_char(&mut flow, len, ' ') {
-                            return;
-                        }
-
-                        continue;
-                    }
-
-                    if c == '\t' {
-                        if self.place_char(&mut flow, 2, ' ') {
-                            return;
-                        }
-
-                        continue;
-                    }
-
-                    if c.is_whitespace() {
-                        if self.place_char(&mut flow, 1, ' ') {
-                            return;
-                        }
-
-                        continue;
-                    }
-
-                    if c.is_control() {
-                        continue;
-                    }
-
-                    if self.place_char(&mut flow, 1, c) {
-                        return;
-                    }
-                }
-            }
-        }
-
-        while !self.place_char(&mut flow, 1, ' ') {}
-    }
-
-    fn place_char(&mut self, flow: &mut TextFlow, repeat: u32, c: char) -> bool {
-        let mut tmp = [0; 4];
-        let c_str = c.encode_utf8(&mut tmp);
-
-        // TODO This assumes characters are 1 glyph
-        let glyph_list = flow.cache.translate_glyphs(c_str);
-        self.did_raster = self.did_raster || glyph_list.did_raster;
-
-        let mut write_len = repeat;
-
-        let mut pos = flow.pos;
-        for y in pos.y..self.dims.y {
-            for x in pos.x..self.dims.x {
-                if write_len == 0 {
-                    flow.pos = Point2 { x, y };
-                    return false;
-                }
-
-                // we write!
-                let idx = (y * self.dims.x + x) as usize;
-                self.glyphs[idx] = glyph_list.glyphs[0];
-                write_len -= 1;
-            }
-
-            pos.x = 0;
-            write_len = 0; // Don't do any wrapping work here
-        }
-
-        flow.pos = self.dims.into();
-        return true;
-    }
-
     pub fn draw(&mut self, text: &mut File, glyphs: &mut GlyphCache) {
         let cursor_pos = self.cursor_blink_on.then(|| self.cursor_pos);
 
-        self.flow_text(glyphs, text);
+        flow_text(text.text_after_cursor(self.start), self.dims, |pos, c| {
+            let idx = (pos.y * self.dims.x + pos.x) as usize;
+            if c == ' ' {
+                self.glyphs[idx] = EMPTY_GLYPH;
+                return;
+            }
+
+            let mut tmp = [0; 4];
+            let c_str = c.encode_utf8(&mut tmp);
+            let glyph_list = glyphs.translate_glyphs(c_str);
+            self.glyphs[idx] = glyph_list.glyphs[0];
+            self.did_raster = self.did_raster || glyph_list.did_raster;
+        });
         self.rewrite_cursor();
 
         let atlas = self.did_raster.then(|| glyphs.atlas());
@@ -231,4 +164,75 @@ impl View {
 
         expect(result);
     }
+}
+
+fn flow_text<'a, F>(text: Option<impl Iterator<Item = &'a str>>, dims: Rect, mut f: F)
+where
+    F: FnMut(Point2<u32>, char),
+{
+    let mut place_char = |pos: &mut Point2<u32>, repeat: u32, c: char| -> bool {
+        let mut write_len = repeat;
+
+        let (mut x, y) = (pos.x, pos.y);
+        for y in y..dims.y {
+            for x in x..dims.x {
+                if write_len == 0 {
+                    *pos = Point2 { x, y };
+                    return false;
+                }
+
+                f(Point2 { x, y }, c);
+                write_len -= 1;
+            }
+
+            x = 0;
+            write_len = 0; // Don't do any wrapping work here
+        }
+
+        *pos = dims.into();
+        return true;
+    };
+
+    let mut pos = Point2 { x: 0, y: 0 };
+
+    if let Some(text) = text {
+        for text in text {
+            for c in text.chars() {
+                if c == '\n' {
+                    let len = dims.x - pos.x;
+                    if place_char(&mut pos, len, ' ') {
+                        return;
+                    }
+
+                    continue;
+                }
+
+                if c == '\t' {
+                    if place_char(&mut pos, 2, ' ') {
+                        return;
+                    }
+
+                    continue;
+                }
+
+                if c.is_whitespace() {
+                    if place_char(&mut pos, 1, ' ') {
+                        return;
+                    }
+
+                    continue;
+                }
+
+                if c.is_control() {
+                    continue;
+                }
+
+                if place_char(&mut pos, 1, c) {
+                    return;
+                }
+            }
+        }
+    }
+
+    while !place_char(&mut pos, 1, ' ') {}
 }
