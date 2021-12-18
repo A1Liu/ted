@@ -72,6 +72,9 @@ impl View {
             }
         };
 
+        // match text.text_after_cursor(self.start) {}
+        // flow_text(, self.dims, |pos, c| {});
+
         text.push_str(s);
 
         window.request_redraw();
@@ -116,7 +119,26 @@ impl View {
         return true;
     }
 
-    fn rewrite_cursor(&mut self) {
+    pub fn draw(&mut self, text: &mut File, glyphs: &mut GlyphCache) {
+        let cursor_pos = self.cursor_blink_on.then(|| self.cursor_pos);
+
+        match text.text_after_cursor(self.start) {
+            None => self.glyphs.fill(EMPTY_GLYPH),
+            Some(text) => flow_text(text, self.dims, |pos, c| {
+                let idx = (pos.y * self.dims.x + pos.x) as usize;
+                if c.is_whitespace() {
+                    self.glyphs[idx] = EMPTY_GLYPH;
+                    return;
+                }
+
+                let mut tmp = [0; 4];
+                let c_str = c.encode_utf8(&mut tmp);
+                let glyph_list = glyphs.translate_glyphs(c_str);
+                self.glyphs[idx] = glyph_list.glyphs[0];
+                self.did_raster = self.did_raster || glyph_list.did_raster;
+            }),
+        }
+
         // clear state
         for block_type in &mut self.block_types {
             *block_type = BlockType::Normal;
@@ -126,25 +148,6 @@ impl View {
             let idx = self.cursor_pos.y * self.dims.x + self.cursor_pos.x;
             self.block_types[idx as usize] = BlockType::Cursor;
         }
-    }
-
-    pub fn draw(&mut self, text: &mut File, glyphs: &mut GlyphCache) {
-        let cursor_pos = self.cursor_blink_on.then(|| self.cursor_pos);
-
-        flow_text(text.text_after_cursor(self.start), self.dims, |pos, c| {
-            let idx = (pos.y * self.dims.x + pos.x) as usize;
-            if c == ' ' {
-                self.glyphs[idx] = EMPTY_GLYPH;
-                return;
-            }
-
-            let mut tmp = [0; 4];
-            let c_str = c.encode_utf8(&mut tmp);
-            let glyph_list = glyphs.translate_glyphs(c_str);
-            self.glyphs[idx] = glyph_list.glyphs[0];
-            self.did_raster = self.did_raster || glyph_list.did_raster;
-        });
-        self.rewrite_cursor();
 
         let atlas = self.did_raster.then(|| glyphs.atlas());
         let atlas_dims = glyphs.atlas_dims();
@@ -166,13 +169,11 @@ impl View {
     }
 }
 
-fn flow_text<'a, F>(text: Option<impl Iterator<Item = &'a str>>, dims: Rect, mut f: F)
+fn flow_text<'a, F>(text: impl Iterator<Item = &'a str>, dims: Rect, mut f: F)
 where
     F: FnMut(Point2<u32>, char),
 {
-    let mut place_char = |pos: &mut Point2<u32>, repeat: u32, c: char| -> bool {
-        let mut write_len = repeat;
-
+    let mut place_char = |pos: &mut Point2<u32>, mut write_len: u32, c: char| -> bool {
         let (mut x, y) = (pos.x, pos.y);
         for y in y..dims.y {
             for x in x..dims.x {
@@ -185,8 +186,9 @@ where
                 write_len -= 1;
             }
 
-            x = 0;
-            write_len = 0; // Don't do any wrapping work here
+            // Don't do any wrapping work here
+            *pos = Point2 { x: 0, y: y + 1 };
+            return false;
         }
 
         *pos = dims.into();
@@ -195,41 +197,17 @@ where
 
     let mut pos = Point2 { x: 0, y: 0 };
 
-    if let Some(text) = text {
-        for text in text {
-            for c in text.chars() {
-                if c == '\n' {
-                    let len = dims.x - pos.x;
-                    if place_char(&mut pos, len, ' ') {
-                        return;
-                    }
+    for text in text {
+        for c in text.chars() {
+            let len = match c {
+                '\n' => dims.x - pos.x,
+                '\t' => 2,
+                c if c.is_control() => continue,
+                _ => 1,
+            };
 
-                    continue;
-                }
-
-                if c == '\t' {
-                    if place_char(&mut pos, 2, ' ') {
-                        return;
-                    }
-
-                    continue;
-                }
-
-                if c.is_whitespace() {
-                    if place_char(&mut pos, 1, ' ') {
-                        return;
-                    }
-
-                    continue;
-                }
-
-                if c.is_control() {
-                    continue;
-                }
-
-                if place_char(&mut pos, 1, c) {
-                    return;
-                }
+            if place_char(&mut pos, len, c) {
+                return;
             }
         }
     }
