@@ -13,7 +13,7 @@ out vec4 out_color; // you can pick any name
 void main() {
     vec4 in_bg = vec4(0.3, 0.3, 0.3, 1.0);
     vec4 in_cursor = vec4(1.0, 1.0, 1.0, 1.0);
-    vec4 in_fg = vec4(0.9, 0.4, 1.0, 1.0);
+    vec4 in_fg = vec4(0.4, 0.4, 1.0, 1.0);
 
     float text_px = texture(u_glyph_atlas, v_glyph_pos).x;
 
@@ -32,5 +32,4 @@ void main() {
     } else {
         out_color = vec4(0.9, 0.1, 1.0, 1.0);
     }
-
 }
