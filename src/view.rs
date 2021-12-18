@@ -70,22 +70,23 @@ impl View {
         let start_line = file.line_for_cursor(self.start).unwrap();
         let text = file.text_after_cursor(self.start).unwrap();
 
+        #[derive(Debug)]
         enum FlowResult {
             NotFound,
+            Found {
+                index: usize,
+            },
+
             // Visual line, not textual
             FoundLineBegin {
-                pos: Point2<u32>,
                 begin: usize,
-                len: usize,
             },
+
             // Visual line, not textual
             FoundLine {
                 pos: Point2<u32>,
                 begin: usize,
                 end: usize,
-            },
-            Found {
-                index: usize,
             },
         }
 
@@ -101,22 +102,19 @@ impl View {
                 FlowResult::FoundLine { .. } => return,
                 r @ FlowResult::NotFound => {
                     if state.pos.y == self.cursor_pos.y {
-                        let (pos, begin, end, len) = (state.pos, state.index, state.index, 0);
-                        *r = FlowResult::FoundLineBegin { pos, begin, len };
+                        *r = FlowResult::FoundLineBegin { begin: state.index };
                         if c == '\n' {
+                            let (pos, begin, end) = (state.pos, state.index, state.index);
                             *r = FlowResult::FoundLine { pos, begin, end };
                         }
                     }
                 }
-                FlowResult::FoundLineBegin { pos, begin, len } => {
+                FlowResult::FoundLineBegin { begin } => {
                     if c == '\n' {
                         let (pos, begin, end) = (state.pos, *begin, state.index);
                         result = FlowResult::FoundLine { pos, begin, end };
                         return;
                     }
-
-                    *pos = state.pos;
-                    *len += 1;
                 }
             }
         });
@@ -128,22 +126,25 @@ impl View {
         let index = match result {
             FlowResult::Found { index } => index,
             FlowResult::FoundLine { pos, begin, end } => {
+                let mut index = begin + pos.x as usize;
                 if s.chars().nth(0).unwrap() != '\n' {
                     for x in pos.x..self.cursor_pos.x {
                         file.insert(end, '~');
+                        index += 1;
                     }
                 }
 
-                begin + self.cursor_pos.x as usize
+                index
             }
-            FlowResult::FoundLineBegin { pos, begin, len } => {
-                let mut index = begin + len;
+            FlowResult::FoundLineBegin { begin } => {
+                let mut index = begin + flow.pos.x as usize;
 
                 if s.chars().nth(0).unwrap() != '\n' {
-                    for x in pos.x..self.cursor_pos.x {
+                    for x in flow.pos.x..self.cursor_pos.x {
                         file.push('~');
                         index += 1;
                     }
+                    index = begin + self.cursor_pos.x as usize;
                 }
 
                 index
