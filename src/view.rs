@@ -2,12 +2,6 @@ use crate::graphics::*;
 use crate::text::*;
 use crate::util::*;
 
-#[inline]
-fn pt(x: u32, y: u32, block_type: u32) -> Vector3<u32> {
-    let z = block_type;
-    return Vector3 { x, y, z };
-}
-
 pub struct View {
     start: usize,
     dims: Rect,
@@ -16,7 +10,8 @@ pub struct View {
     cursor_blink_on: bool,
     cursor_pos: Point2<u32>,
 
-    points: Vec<Vector3<u32>>,
+    points: Vec<CharBox>,
+    block_types: Vec<BlockType>,
     glyphs: Vec<Glyph>,
     did_raster: bool,
 }
@@ -34,19 +29,13 @@ impl View {
 
         let size = (dims.x * dims.y) as usize;
         let mut glyphs = Vec::with_capacity(size);
-        let mut points = Vec::with_capacity(size * 6);
+        let mut points = Vec::with_capacity(size);
+        let mut block_types = Vec::with_capacity(size);
 
         for y in 0..dims.y {
             for x in 0..dims.x {
-                points.extend_from_slice(&[
-                    pt(x, y, 0),
-                    pt(x + 1, y, 0),
-                    pt(x, y + 1, 0),
-                    pt(x, y + 1, 0),
-                    pt(x + 1, y, 0),
-                    pt(x + 1, y + 1, 0),
-                ]);
-
+                points.push(pt(x, y));
+                block_types.push(BlockType::Normal);
                 glyphs.extend_from_slice(&glyph_list.glyphs);
             }
         }
@@ -60,6 +49,7 @@ impl View {
             cursor_pos: Point2 { x: 0, y: 0 },
 
             points,
+            block_types,
             glyphs,
             did_raster,
         };
@@ -124,8 +114,8 @@ impl View {
 
     fn rewrite_cursor(&mut self) {
         // clear state
-        for point in &mut self.points {
-            point.z = 0;
+        for block_type in &mut self.block_types {
+            *block_type = BlockType::Normal;
         }
 
         // For z:
@@ -135,11 +125,7 @@ impl View {
         // Set the block mode for the points that represent the cursor
         if self.cursor_blink_on {
             let idx = self.cursor_pos.y * self.dims.x + self.cursor_pos.x;
-            let idx = (idx * 6) as usize;
-
-            for idx in idx..(idx + 6) {
-                self.points[idx].z = 1;
-            }
+            self.block_types[idx as usize] = BlockType::Cursor;
         }
     }
 
@@ -231,7 +217,14 @@ impl View {
         let atlas_dims = glyphs.atlas_dims();
 
         let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
-            shader.render(atlas, &self.points, &self.glyphs, atlas_dims, self.dims)?;
+            shader.render(
+                atlas,
+                &self.points,
+                &self.block_types,
+                &self.glyphs,
+                atlas_dims,
+                self.dims,
+            )?;
 
             return Ok(());
         });
