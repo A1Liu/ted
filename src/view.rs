@@ -62,6 +62,11 @@ impl View {
     pub fn insert(&mut self, window: &Window, file: &mut File, s: &str) {
         self.cursor_blink_on = true;
 
+        if s.len() == 0 {
+            window.request_redraw();
+            return;
+        }
+
         let start_line = file.line_for_cursor(self.start).unwrap();
         let text = file.text_after_cursor(self.start).unwrap();
 
@@ -123,17 +128,22 @@ impl View {
         let index = match result {
             FlowResult::Found { index } => index,
             FlowResult::FoundLine { pos, begin, end } => {
-                for x in pos.x..self.cursor_pos.x {
-                    file.insert(end, '0');
+                if s.chars().nth(0).unwrap() != '\n' {
+                    for x in pos.x..self.cursor_pos.x {
+                        file.insert(end, '~');
+                    }
                 }
 
                 begin + self.cursor_pos.x as usize
             }
             FlowResult::FoundLineBegin { pos, begin, len } => {
                 let mut index = begin + len;
-                for x in pos.x..self.cursor_pos.x {
-                    file.push('0');
-                    index += 1;
+
+                if s.chars().nth(0).unwrap() != '\n' {
+                    for x in pos.x..self.cursor_pos.x {
+                        file.push('~');
+                        index += 1;
+                    }
                 }
 
                 index
@@ -145,9 +155,11 @@ impl View {
                     index += 1;
                 }
 
-                for x in 0..self.cursor_pos.x {
-                    file.push('0');
-                    index += 1;
+                if s.chars().nth(0).unwrap() != '\n' {
+                    for x in 0..self.cursor_pos.x {
+                        file.push('~');
+                        index += 1;
+                    }
                 }
 
                 index
