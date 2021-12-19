@@ -30,6 +30,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Window sizing and whatnot
 
 ## Mid-term
+- Test system using commands and data-in/data-out
 - Find, Find and replace
 - Multiple canvases on the web
 - Text colors/spans
