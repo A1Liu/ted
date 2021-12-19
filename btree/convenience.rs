@@ -80,4 +80,8 @@ where
     pub fn add(&mut self, element: T) -> ElemIdx {
         return self.insert(self.nodes[self.root.get()].count, element);
     }
+
+    pub fn count_until(&self, index: impl BTreeIdx<T>) -> Option<usize> {
+        return self.sum_until(index, |c, _| c);
+    }
 }

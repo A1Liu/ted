@@ -58,7 +58,7 @@ mod tests {
                 assert_eq!(i, value.0);
                 assert_eq!(key - total, remainder);
 
-                let sum = tree.sum_until(i).unwrap().0;
+                let sum = tree.sum_until(i, |_, i| i.0).unwrap();
                 assert_eq!(total, sum);
             }
 

@@ -49,10 +49,12 @@ where
         return self.nodes[self.root.get()].info;
     }
 
-    pub fn count_until(&self, index: impl BTreeIdx<T>) -> Option<usize> {
-        let mut count = 0;
-
+    pub fn sum_until<F>(&self, index: impl BTreeIdx<T>, get: F) -> Option<usize>
+    where
+        F: Fn(usize, T::Info) -> usize,
+    {
         let elem_idx = index.get(self)?;
+        let mut sum = get(0, <T::Info as Default>::default());
 
         let mut node = self.element_info[elem_idx.get()].parent;
         for kid in &self.nodes[node.get()].kids {
@@ -60,7 +62,8 @@ where
                 break;
             }
 
-            count += 1;
+            let kid_info = self.elements[kid.get()].get_info();
+            sum += get(0, kid_info);
         }
 
         for _ in 0..self.levels {
@@ -70,39 +73,8 @@ where
                 if kid == node {
                     break;
                 }
-
-                count += self.nodes[kid.get()].count;
-            }
-
-            node = parent;
-        }
-
-        return Some(count);
-    }
-
-    pub fn sum_until(&self, index: impl BTreeIdx<T>) -> Option<T::Info> {
-        let mut sum = <T::Info as Default>::default();
-
-        let elem_idx = index.get(self)?;
-
-        let mut node = self.element_info[elem_idx.get()].parent;
-        for kid in &self.nodes[node.get()].kids {
-            if kid == elem_idx {
-                break;
-            }
-
-            sum = sum.add(self.elements[kid.get()].get_info());
-        }
-
-        for _ in 0..self.levels {
-            let parent = self.nodes[node.get()].parent.unwrap();
-
-            for kid in &self.nodes[parent.get()].kids {
-                if kid == node {
-                    break;
-                }
-
-                sum = sum.add(self.nodes[kid.get()].info);
+                let kid = self.nodes[kid.get()];
+                sum += get(kid.count, kid.info);
             }
 
             node = parent;

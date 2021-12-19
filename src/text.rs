@@ -102,7 +102,7 @@ impl File {
 
     pub fn line_for_cursor(&self, idx: usize) -> Option<usize> {
         let (idx, remainder) = self.data.key_leq_idx(idx, BufferInfo::content)?;
-        let lines_before = self.data.sum_until(idx)?.newline_count;
+        let lines_before = self.data.sum_until(idx, |_, info| info.newline_count)?;
         let bytes = self.data[idx].buffer.as_bytes().iter();
         let lines = lines_before + bytes.take(remainder).filter(|&&b| b != b'\n').count();
 
@@ -111,7 +111,7 @@ impl File {
 
     pub fn cursor_for_line(&self, line: usize) -> Option<usize> {
         let (idx, remainder) = self.data.key_leq_idx(line, BufferInfo::newlines)?;
-        let cursor = self.data.sum_until(idx)?.content_size;
+        let cursor = self.data.sum_until(idx, |_, info| info.content_size)?;
 
         return Some(cursor + remainder);
     }
