@@ -7,16 +7,17 @@ const B: usize = 6;
 // the 2-3 tree PSet. Very cute.
 //                      - Albert Liu, Dec 06, 2021 Mon 19:11 EST
 #[derive(Clone, Copy)]
-pub struct Node<Info>
+pub(crate) struct Node<Info>
 where
     Info: BTreeInfo,
 {
     #[cfg(debug_assertions)]
-    pub is_leaf: bool,
-    pub info: Info,
-    pub count: usize,
-    pub parent: Option<Idx>, // For the root, I dont think this matters. Maybe it'll point to itself.
-    pub kids: Kids,
+    pub(crate) is_leaf: bool,
+
+    pub(crate) info: Info,
+    pub(crate) count: usize,
+    pub(crate) parent: Option<Idx>,
+    pub(crate) kids: Kids,
 }
 
 impl<Info> Node<Info>
@@ -81,6 +82,23 @@ impl Kids {
         return Self { value: [None; B] };
     }
 
+    pub fn remove_value(&mut self, value: Idx) -> usize {
+        let mut write_index = 0;
+        for index in 0..B {
+            let prev = match self.value[index].take() {
+                Some(prev) => prev,
+                None => return write_index,
+            };
+
+            if prev != value {
+                self.value[write_index] = Some(prev);
+                write_index += 1;
+            }
+        }
+
+        return write_index;
+    }
+
     pub fn insert(&mut self, mut index: usize, mut value: Idx) -> Option<Self> {
         if index > B || (index > 0 && self.value[index - 1].is_none()) {
             core::panic!("index out of bounds");
@@ -106,6 +124,14 @@ impl Kids {
 
         return Some(other);
     }
+
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Idx> + 'a {
+        return self.into_iter();
+    }
+
+    pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &mut Idx> + 'a {
+        return self.into_iter();
+    }
 }
 
 impl core::ops::Index<usize> for Kids {
@@ -129,6 +155,16 @@ impl<'a> core::iter::IntoIterator for &'a Kids {
 
     fn into_iter(self) -> Self::IntoIter {
         return self.value.iter().filter_map(|i| *i);
+    }
+}
+
+type DerefMutIdx = fn(&mut Option<Idx>) -> Option<&mut Idx>;
+impl<'a> core::iter::IntoIterator for &'a mut Kids {
+    type Item = &'a mut Idx;
+    type IntoIter = core::iter::FilterMap<core::slice::IterMut<'a, Option<Idx>>, DerefMutIdx>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        return self.value.iter_mut().filter_map(|i| i.as_mut());
     }
 }
 

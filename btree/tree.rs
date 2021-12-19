@@ -11,17 +11,10 @@ where
     T: BTreeItem,
 {
     pub(crate) elements: Vec<T>,
-    pub(crate) element_info: Vec<ElementInfo>,
+    pub(crate) element_parents: Vec<Idx>,
     pub(crate) nodes: Vec<Node<T::Info>>,
-    pub(crate) first_free: Option<Idx>,
     pub(crate) root: Idx,
     pub(crate) levels: usize,
-}
-
-#[derive(Clone, Copy)]
-pub(crate) struct ElementInfo {
-    pub(crate) parent: Idx,
-    pub(crate) next_free: Option<Idx>,
 }
 
 impl<T> BTree<T>
@@ -33,9 +26,8 @@ where
 
         return Self {
             elements: Vec::new(),
-            element_info: Vec::new(),
+            element_parents: Vec::new(),
             nodes: vec![root_node],
-            first_free: None,
             root: Idx::new(0),
             levels: 0,
         };
@@ -56,7 +48,7 @@ where
         let elem_idx = index.get(self)?;
         let mut sum = get(0, <T::Info as Default>::default());
 
-        let mut node = self.element_info[elem_idx.get()].parent;
+        let mut node = self.element_parents[elem_idx.get()];
         for kid in &self.nodes[node.get()].kids {
             if kid == elem_idx {
                 break;
@@ -135,6 +127,40 @@ where
         return None;
     }
 
+    pub fn remove(&mut self, index: impl BTreeIdx<T>) -> Option<T> {
+        let idx = index.get(self)?;
+
+        let elem = self.elements.swap_remove(idx.get());
+        let leaf = self.element_parents.swap_remove(idx.get());
+
+        // Update reference to swapped element
+        {
+            let old_idx = Idx::new(self.elements.len());
+            let swapped_parent = self.element_parents[idx.get()];
+            let mut kids = self.nodes[swapped_parent.get()].kids.iter_mut();
+            let slot = kids.find(|i| **i == old_idx).unwrap();
+            *slot = idx;
+        }
+
+        // If you could just fucking shut up for a second, I'll fix it later.
+        // If I wanted to program in C++ with -Wall -Wpedantic -Wbullshit I would
+        // ask for that.
+        #[allow(unused_mut, unused_variables)]
+        let mut new_size = self.nodes[leaf.get()].kids.remove_value(idx);
+        let mut node = leaf;
+        for _ in 0..self.levels {
+            let parent = self.nodes[node.get()].parent.unwrap();
+            self.nodes[parent.get()].assert_not_leaf();
+            self.update_node(true, node);
+            node = parent;
+        }
+
+        return Some(elem);
+    }
+
+    // There's probably some kind of way to make this cute and work for any BTreeIdx,
+    // but I couldn't figure it out in the 10 or so minutes I wasted trying.
+    //                                  - Albert Liu, Dec 18, 2021 Sat 23:49 EST
     pub fn insert(&mut self, index: usize, elem: T) -> ElemIdx {
         if index > self.nodes[self.root.get()].count {
             core::panic!("insert index was too high");
@@ -159,7 +185,7 @@ where
     }
 
     pub fn insert_before(&mut self, index: ElemIdx, elem: T) -> ElemIdx {
-        let leaf = self.element_info[index.0.get()].parent;
+        let leaf = self.element_parents[index.0.get()];
         let mut kids_iter = self.nodes[leaf.get()].kids.into_iter();
         let index = kids_iter.position(|kid| kid == index.0).unwrap();
 
@@ -167,7 +193,7 @@ where
     }
 
     pub fn insert_after(&mut self, index: ElemIdx, elem: T) -> ElemIdx {
-        let leaf = self.element_info[index.0.get()].parent;
+        let leaf = self.element_parents[index.0.get()];
         let mut kids_iter = self.nodes[leaf.get()].kids.into_iter();
         let index = kids_iter.position(|kid| kid == index.0).unwrap();
 
@@ -217,31 +243,17 @@ where
             self.levels += 1;
         });
 
-        return e_idx(elem);
+        return ElemIdx(elem);
     }
 
     pub(crate) fn allocate_elem(&mut self, parent: Idx, elem: T) -> Idx {
         self.nodes[parent.get()].assert_is_leaf();
 
-        match self.first_free.take() {
-            Some(idx) => {
-                self.elements[idx.get()] = elem;
-                let elem_info = &mut self.element_info[idx.get()];
-                self.first_free = elem_info.next_free.take();
+        let idx = self.elements.len();
+        self.elements.push(elem);
+        self.element_parents.push(parent);
 
-                return idx;
-            }
-            None => {
-                let idx = self.elements.len();
-                self.elements.push(elem);
-                self.element_info.push(ElementInfo {
-                    parent,
-                    next_free: None,
-                });
-
-                return Idx::new(idx);
-            }
-        };
+        return Idx::new(idx);
     }
 
     pub(crate) fn add_child(
@@ -266,7 +278,7 @@ where
         let (mut count, mut info) = (0, T::Info::default());
         for kid in &kids {
             let (kid_info, kid_count) = if is_leaf {
-                assert!(self.element_info[kid.get()].parent == node);
+                assert!(self.element_parents[kid.get()] == node);
                 (self.elements[kid.get()].get_info(), 1)
             } else {
                 let kid = &self.nodes[kid.get()];
@@ -289,7 +301,7 @@ where
         let (mut count, mut info) = (0, T::Info::default());
         for kid in &kids {
             let (kid_info, kid_count) = if is_leaf {
-                self.element_info[kid.get()].parent = idx;
+                self.element_parents[kid.get()] = idx;
                 (self.elements[kid.get()].get_info(), 1)
             } else {
                 let kid = &mut self.nodes[kid.get()];
@@ -309,16 +321,5 @@ where
         self.nodes.push(right_node);
 
         return idx;
-    }
-}
-
-impl<T, I> core::ops::Index<I> for BTree<T>
-where
-    T: BTreeItem,
-    I: BTreeIdx<T>,
-{
-    type Output = T;
-    fn index(&self, idx: I) -> &T {
-        self.get(idx).unwrap()
     }
 }

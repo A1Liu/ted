@@ -27,10 +27,6 @@ where
 #[derive(Clone, Copy)]
 pub struct ElemIdx(pub(crate) Idx);
 
-pub(crate) fn e_idx(i: Idx) -> ElemIdx {
-    return ElemIdx(i);
-}
-
 impl<T> BTreeIdx<T> for usize
 where
     T: BTreeItem,
@@ -47,5 +43,16 @@ where
 {
     fn get(self, _tree: &BTree<T>) -> Option<Idx> {
         return Some(self.0);
+    }
+}
+
+impl<T, I> core::ops::Index<I> for BTree<T>
+where
+    T: BTreeItem,
+    I: BTreeIdx<T>,
+{
+    type Output = T;
+    fn index(&self, idx: I) -> &T {
+        self.get(idx).unwrap()
     }
 }
