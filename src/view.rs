@@ -74,19 +74,19 @@ impl View {
         enum FlowResult {
             NotFound,
             Found {
-                index: usize,
+                index: usize, // textual index
             },
 
             // Visual line, not textual
             FoundLineBegin {
-                begin: usize,
+                begin: usize, // textual index
             },
 
             // Visual line, not textual
             FoundLine {
                 pos: Point2<u32>,
-                begin: usize,
-                end: usize,
+                begin: usize, // textual index
+                end: usize,   // textual index
             },
         }
 
