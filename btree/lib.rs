@@ -1,4 +1,8 @@
 #![no_std]
+// If you could just fucking shut up for a second, I'll fix it later.
+// If I wanted to program in C++ with -Wall -Wpedantic -Wbullshit I would
+// ask for that.
+#![allow(unused_mut, unused_variables)]
 
 mod convenience;
 mod nodes;
@@ -15,8 +19,14 @@ pub use tree::*;
 mod tests {
     use super::*;
 
-    #[derive(Clone, Copy, Default, Debug)]
+    #[derive(Clone, Copy, Default)]
     struct TestData(usize);
+
+    impl core::fmt::Debug for TestData {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            return write!(f, "{}", self.0);
+        }
+    }
 
     impl BTreeInfo for TestData {
         fn add(self, other: Self) -> Self {
@@ -32,9 +42,9 @@ mod tests {
         }
     }
 
-    const TREE_SIZE: usize = 1000;
+    const TREE_SIZE: usize = 10;
 
-    fn validate(tree: BTree<TestData>) {
+    fn validate(mut tree: BTree<TestData>) {
         for i in 0..TREE_SIZE {
             assert_eq!(i, tree.get(i).unwrap().0);
         }
@@ -63,6 +73,11 @@ mod tests {
             }
 
             total = next;
+        }
+
+        for i in 0..TREE_SIZE {
+            let val = tree.remove(0).unwrap();
+            assert_eq!(i, val.0);
         }
     }
 

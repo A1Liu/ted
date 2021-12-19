@@ -1,5 +1,16 @@
 use core::num::NonZeroUsize;
 
+pub(crate) struct NoPrettyPrint<T: core::fmt::Debug>(pub(crate) T);
+
+impl<T> core::fmt::Debug for NoPrettyPrint<T>
+where
+    T: core::fmt::Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct Idx(NonZeroUsize);
@@ -12,7 +23,7 @@ impl Into<usize> for Idx {
 
 impl core::fmt::Debug for Idx {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        return write!(f, "{}", self.0);
+        return write!(f, "{}", self.0.get() - 1);
     }
 }
 

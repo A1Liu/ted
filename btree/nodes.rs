@@ -11,20 +11,34 @@ pub(crate) struct Node<Info>
 where
     Info: BTreeInfo,
 {
-    #[cfg(debug_assertions)]
+    // is_leaf is necessary here to allow for moving the nodes when swap-removing
     pub(crate) is_leaf: bool,
-
     pub(crate) info: Info,
     pub(crate) count: usize,
     pub(crate) parent: Option<Idx>,
     pub(crate) kids: Kids,
 }
 
+impl<Info> core::fmt::Debug for Node<Info>
+where
+    Info: BTreeInfo + core::fmt::Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        return f
+            .debug_struct("Node")
+            .field("is_leaf", &self.is_leaf)
+            .field("info", &self.info)
+            .field("count", &self.count)
+            .field("parent", &NoPrettyPrint(self.parent))
+            .field("kids", &NoPrettyPrint(self.kids))
+            .finish();
+    }
+}
+
 impl<Info> Node<Info>
 where
     Info: BTreeInfo,
 {
-    #[inline(always)]
     pub fn assert_not_leaf(&self) {
         #[cfg(debug_assertions)]
         if self.is_leaf {
@@ -32,7 +46,6 @@ where
         }
     }
 
-    #[inline(always)]
     pub fn assert_is_leaf(&self) {
         #[cfg(debug_assertions)]
         if !self.is_leaf {
@@ -41,17 +54,8 @@ where
     }
 
     pub fn empty(is_leaf: bool) -> Self {
-        #[cfg(debug_assertions)]
         return Node {
             is_leaf,
-            count: 0,
-            info: Default::default(),
-            parent: None,
-            kids: Kids::new(),
-        };
-
-        #[cfg(not(debug_assertions))]
-        return Node {
             count: 0,
             info: Default::default(),
             parent: None,
@@ -62,6 +66,7 @@ where
 
 #[derive(Clone, Copy)]
 pub struct Kids {
+    // First none is end of array
     value: [Option<Idx>; B],
 }
 
@@ -132,6 +137,10 @@ impl Kids {
     pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &mut Idx> + 'a {
         return self.into_iter();
     }
+
+    pub fn rev(self) -> impl Iterator<Item = Idx> {
+        return self.value.into_iter().rev().filter_map(|i| i);
+    }
 }
 
 impl core::ops::Index<usize> for Kids {
@@ -168,8 +177,8 @@ impl<'a> core::iter::IntoIterator for &'a mut Kids {
     }
 }
 
-impl Kids {
-    pub fn rev(self) -> impl Iterator<Item = Idx> {
-        return self.value.into_iter().rev().filter_map(|i| i);
+impl core::fmt::Debug for Kids {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        return f.debug_list().entries(self).finish();
     }
 }

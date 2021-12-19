@@ -62,10 +62,10 @@ where
         let result = f(elem);
 
         let mut node = self.element_parents[idx];
-        self.update_node(true, node);
+        self.update_node(node);
         for _ in 0..self.levels {
             node = self.nodes[node.get()].parent.unwrap();
-            self.update_node(false, node);
+            self.update_node(node);
         }
 
         debug_assert_eq!(node, self.root);

@@ -127,35 +127,97 @@ where
         return None;
     }
 
-    pub fn remove(&mut self, index: impl BTreeIdx<T>) -> Option<T> {
+    pub fn remove(&mut self, index: impl BTreeIdx<T>) -> Option<T>
+    where
+        T: core::fmt::Debug,
+        T::Info: core::fmt::Debug,
+    {
         let idx = index.get(self)?;
 
         let elem = self.elements.swap_remove(idx.get());
         let leaf = self.element_parents.swap_remove(idx.get());
+        assert_eq!(self.elements.len(), self.element_parents.len());
+
+        let mut new_size = self.nodes[leaf.get()].kids.remove_value(idx);
 
         // Update reference to swapped element
-        {
-            let old_idx = Idx::new(self.elements.len());
+        let old_idx = Idx::new(self.elements.len());
+        if old_idx != idx {
             let swapped_parent = self.element_parents[idx.get()];
             let mut kids = self.nodes[swapped_parent.get()].kids.iter_mut();
             let slot = kids.find(|i| **i == old_idx).unwrap();
             *slot = idx;
         }
 
-        // If you could just fucking shut up for a second, I'll fix it later.
-        // If I wanted to program in C++ with -Wall -Wpedantic -Wbullshit I would
-        // ask for that.
-        #[allow(unused_mut, unused_variables)]
-        let mut new_size = self.nodes[leaf.get()].kids.remove_value(idx);
         let mut node = leaf;
         for _ in 0..self.levels {
-            let parent = self.nodes[node.get()].parent.unwrap();
-            self.nodes[parent.get()].assert_not_leaf();
-            self.update_node(true, node);
+            self.update_node(node);
+            let parent = match new_size {
+                0 => self.remove_node(node).parent.unwrap(),
+                _ => self.nodes[node.get()].parent.unwrap(),
+            };
+
             node = parent;
         }
+        self.update_node(node);
+
+        debug_assert_eq!(self.nodes[node.get()].parent, None);
+
+        let mut new_size = self.nodes[node.get()].kids.iter().count();
+        while new_size == 1 && self.levels > 0 {
+            let node_data = self.remove_node(node);
+            assert!(node_data.parent.is_none());
+
+            let new_root = node_data.kids[0];
+            self.nodes[new_root.get()].parent = None;
+            new_size = self.nodes[new_root.get()].kids.iter().count();
+            node = new_root;
+            self.levels -= 1;
+        }
+
+        self.root = node;
+
+        // TODO do more cleanup of tree.
 
         return Some(elem);
+    }
+
+    pub(crate) fn remove_node(&mut self, node: Idx) -> Node<T::Info> {
+        let parent = self.nodes[node.get()].parent;
+
+        if let Some(parent) = parent {
+            self.nodes[parent.get()].kids.remove_value(node);
+        }
+
+        // Fix up references to node that will be moved
+        let move_idx = Idx::new(self.nodes.len() - 1);
+
+        // the swapped node might be the root
+        if let Some(swapped_parent) = self.nodes[move_idx.get()].parent {
+            let mut kids = self.nodes[swapped_parent.get()].kids.iter_mut();
+            let slot = kids.find(|i| **i == move_idx).unwrap();
+            *slot = node;
+        }
+
+        let move_node = &self.nodes[move_idx.get()];
+        let (kids, is_leaf) = (move_node.kids, move_node.is_leaf);
+
+        if is_leaf {
+            for kid in &kids {
+                self.element_parents[kid.get()] = node;
+            }
+        } else {
+            for kid in &kids {
+                self.nodes[kid.get()].parent = Some(node);
+            }
+        }
+
+        let mut node_data = self.nodes.swap_remove(node.get());
+        if node_data.parent == Some(move_idx) {
+            node_data.parent = Some(node);
+        }
+
+        return node_data;
     }
 
     // There's probably some kind of way to make this cute and work for any BTreeIdx,
@@ -205,7 +267,7 @@ where
         let elem = self.allocate_elem(node, elem);
 
         let mut right = self.add_child(node, index, elem, info).map(|kids| {
-            self.update_node(true, node);
+            self.update_node(node);
             return self.new_node(true, kids);
         });
 
@@ -231,7 +293,7 @@ where
             let node_index = kids_iter.position(|kid| kid == node).unwrap() + 1;
             let kids = self.add_child(parent, node_index, to_insert, info);
             right = kids.map(|kids| {
-                self.update_node(false, parent);
+                self.update_node(parent);
                 self.new_node(false, kids)
             });
 
@@ -273,16 +335,17 @@ where
         return kids;
     }
 
-    pub(crate) fn update_node(&mut self, is_leaf: bool, node: Idx) {
-        let kids = self.nodes[node.get()].kids;
+    pub(crate) fn update_node(&mut self, node: Idx) {
+        let node_ref = &self.nodes[node.get()];
+        let (kids, is_leaf) = (node_ref.kids, node_ref.is_leaf);
         let (mut count, mut info) = (0, T::Info::default());
         for kid in &kids {
             let (kid_info, kid_count) = if is_leaf {
-                assert!(self.element_parents[kid.get()] == node);
+                debug_assert!(self.element_parents[kid.get()] == node);
                 (self.elements[kid.get()].get_info(), 1)
             } else {
                 let kid = &self.nodes[kid.get()];
-                assert!(kid.parent == Some(node));
+                debug_assert!(kid.parent == Some(node));
                 (kid.info, kid.count)
             };
 
@@ -295,7 +358,7 @@ where
         node_.count = count;
     }
 
-    fn new_node(&mut self, is_leaf: bool, kids: impl Into<Kids>) -> Idx {
+    pub(crate) fn new_node(&mut self, is_leaf: bool, kids: impl Into<Kids>) -> Idx {
         let kids: Kids = kids.into();
         let idx = Idx::new(self.nodes.len());
         let (mut count, mut info) = (0, T::Info::default());
