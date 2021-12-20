@@ -127,16 +127,12 @@ where
         return None;
     }
 
-    pub fn remove(&mut self, index: impl BTreeIdx<T>) -> Option<T>
-    where
-        T: core::fmt::Debug,
-        T::Info: core::fmt::Debug,
-    {
+    pub fn remove(&mut self, index: impl BTreeIdx<T>) -> Option<T> {
         let idx = index.get(self)?;
 
         let elem = self.elements.swap_remove(idx.get());
         let leaf = self.element_parents.swap_remove(idx.get());
-        assert_eq!(self.elements.len(), self.element_parents.len());
+        debug_assert_eq!(self.elements.len(), self.element_parents.len());
 
         let mut new_size = self.nodes[leaf.get()].kids.remove_value(idx);
 
@@ -157,6 +153,7 @@ where
                 _ => self.nodes[node.get()].parent.unwrap(),
             };
 
+            new_size = self.nodes[parent.get()].kids.iter().count();
             node = parent;
         }
         self.update_node(node);
@@ -192,23 +189,25 @@ where
         // Fix up references to node that will be moved
         let move_idx = Idx::new(self.nodes.len() - 1);
 
-        // the swapped node might be the root
-        if let Some(swapped_parent) = self.nodes[move_idx.get()].parent {
-            let mut kids = self.nodes[swapped_parent.get()].kids.iter_mut();
-            let slot = kids.find(|i| **i == move_idx).unwrap();
-            *slot = node;
-        }
-
-        let move_node = &self.nodes[move_idx.get()];
-        let (kids, is_leaf) = (move_node.kids, move_node.is_leaf);
-
-        if is_leaf {
-            for kid in &kids {
-                self.element_parents[kid.get()] = node;
+        if move_idx != node {
+            // the swapped node might be the root
+            if let Some(swapped_parent) = self.nodes[move_idx.get()].parent {
+                let mut kids = self.nodes[swapped_parent.get()].kids.iter_mut();
+                let slot = kids.find(|i| **i == move_idx).unwrap();
+                *slot = node;
             }
-        } else {
-            for kid in &kids {
-                self.nodes[kid.get()].parent = Some(node);
+
+            let move_node = &self.nodes[move_idx.get()];
+            let (kids, is_leaf) = (move_node.kids, move_node.is_leaf);
+
+            if is_leaf {
+                for kid in &kids {
+                    self.element_parents[kid.get()] = node;
+                }
+            } else {
+                for kid in &kids {
+                    self.nodes[kid.get()].parent = Some(node);
+                }
             }
         }
 

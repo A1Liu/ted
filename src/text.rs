@@ -40,6 +40,10 @@ impl File {
         self.insert_at(idx, offset, text);
     }
 
+    pub fn delete(&mut self, idx: usize) {
+        let (idx, offset) = self.data.key_leq_idx(idx, BufferInfo::content).unwrap();
+    }
+
     pub fn last_line_begin(&self) -> usize {
         let lines = self.newlines();
         if lines == 0 {

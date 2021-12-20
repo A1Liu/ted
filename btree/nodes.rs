@@ -21,13 +21,12 @@ where
 
 impl<Info> core::fmt::Debug for Node<Info>
 where
-    Info: BTreeInfo + core::fmt::Debug,
+    Info: BTreeInfo, // + core::fmt::Debug,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         return f
             .debug_struct("Node")
             .field("is_leaf", &self.is_leaf)
-            .field("info", &self.info)
             .field("count", &self.count)
             .field("parent", &NoPrettyPrint(self.parent))
             .field("kids", &NoPrettyPrint(self.kids))

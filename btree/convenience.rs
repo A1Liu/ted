@@ -1,5 +1,6 @@
 use crate::traits::*;
 use crate::tree::*;
+use crate::util::*;
 
 impl<T> BTree<T>
 where
@@ -71,6 +72,29 @@ where
         debug_assert_eq!(node, self.root);
 
         return Some(result);
+    }
+
+    pub fn edit_or_remove<F>(&mut self, index: impl BTreeIdx<T>, mut f: F) -> Option<T>
+    where
+        F: FnMut(&mut T) -> bool,
+    {
+        let idx = index.get(self)?.get();
+
+        let elem = &mut self.elements[idx];
+        if f(elem) {
+            return self.remove(ElemIdx(Idx::new(idx)));
+        }
+
+        let mut node = self.element_parents[idx];
+        self.update_node(node);
+        for _ in 0..self.levels {
+            node = self.nodes[node.get()].parent.unwrap();
+            self.update_node(node);
+        }
+
+        debug_assert_eq!(node, self.root);
+
+        return None;
     }
 
     pub fn last_idx(&self) -> Option<ElemIdx> {

@@ -1,8 +1,4 @@
 #![no_std]
-// If you could just fucking shut up for a second, I'll fix it later.
-// If I wanted to program in C++ with -Wall -Wpedantic -Wbullshit I would
-// ask for that.
-#![allow(unused_mut, unused_variables)]
 
 mod convenience;
 mod nodes;
@@ -42,7 +38,7 @@ mod tests {
         }
     }
 
-    const TREE_SIZE: usize = 10;
+    const TREE_SIZE: usize = 1000;
 
     fn validate(mut tree: BTree<TestData>) {
         for i in 0..TREE_SIZE {
