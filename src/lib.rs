@@ -6,8 +6,8 @@
 #![allow(non_upper_case_globals)]
 // Short-term allows
 /* */
-// #![allow(unused_imports)]
-// #![allow(unused_mut)]
+#![allow(unused_imports)]
+#![allow(unused_mut)]
 /* */
 
 // #[macro_use]
