@@ -6,8 +6,8 @@
 #![allow(non_upper_case_globals)]
 // Short-term allows
 /* */
-#![allow(unused_imports)]
-#![allow(unused_mut)]
+// #![allow(unused_imports)]
+// #![allow(unused_mut)]
 /* */
 
 // #[macro_use]
@@ -35,13 +35,10 @@ pub use wasm_exports::*;
 #[cfg(target_arch = "wasm32")]
 mod wasm_exports {
     use crate::event_loop::*;
-    use crate::graphics::*;
     use crate::util::*;
-    use wasm_bindgen::prelude::*;
-    use wasm_bindgen::JsCast;
-    use winit::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
+    use winit::event_loop::{EventLoop, EventLoopProxy};
     use winit::platform::web::WindowBuilderExtWebSys;
-    use winit::window::{Window, WindowBuilder, WindowId};
+    use winit::window::WindowBuilder;
 
     #[global_allocator]
     static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -68,7 +65,7 @@ Try typing!
                 setup_tick(event_loop_proxy);
             }
 
-            let mut handler = {
+            let handler = {
                 let canvas = expect(get_canvas());
                 let window = WindowBuilder::new()
                     .with_canvas(Some(canvas))

@@ -1,7 +1,5 @@
 use crate::util::*;
 use js_sys::Object;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
 pub use web_sys::WebGl2RenderingContext as Context;
 pub use web_sys::WebGlBuffer;
 pub use web_sys::WebGlTexture as Texture;

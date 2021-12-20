@@ -5,7 +5,6 @@ pub use fonts::*;
 pub use webgl::*;
 
 use crate::util::*;
-use wasm_bindgen::prelude::*;
 
 pub struct TextShader {
     program: Program,

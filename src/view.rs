@@ -16,26 +16,19 @@ pub struct View {
     did_raster: bool,
 }
 
-struct TextFlow<'a> {
-    pos: Point2<u32>,
-    cache: &'a mut GlyphCache,
-}
-
 impl View {
     pub fn new(dims: Rect, cache: &mut GlyphCache) -> Self {
-        // TODO This assumes characters are 1 glyph
-        let glyph_list = cache.translate_glyphs(" ");
-
         let size = (dims.x * dims.y) as usize;
         let mut glyphs = Vec::with_capacity(size);
         let mut points = Vec::with_capacity(size);
         let mut block_types = Vec::with_capacity(size);
 
+        // TODO This assumes characters are 1 glyph
         for y in 0..dims.y {
             for x in 0..dims.x {
                 points.push(pt(x, y));
                 block_types.push(BlockType::Normal);
-                glyphs.extend_from_slice(&glyph_list.glyphs);
+                glyphs.push(EMPTY_GLYPH);
             }
         }
 

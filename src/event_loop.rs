@@ -4,8 +4,8 @@ use crate::util::*;
 use crate::view::*;
 use winit::event;
 use winit::event::{ElementState, Event, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
-use winit::window::{Window, WindowBuilder, WindowId};
+use winit::event_loop::ControlFlow;
+use winit::window::{Window, WindowId};
 
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub enum TedEvent {
