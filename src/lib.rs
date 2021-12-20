@@ -10,9 +10,6 @@
 #![allow(unused_mut)]
 /* */
 
-// #[macro_use]
-// extern crate lazy_static;
-
 #[cfg(target_arch = "wasm32")]
 #[macro_use]
 mod print_utils;
