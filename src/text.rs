@@ -40,8 +40,25 @@ impl File {
         self.insert_at(idx, offset, text);
     }
 
-    pub fn delete(&mut self, idx: usize) {
-        let (idx, offset) = self.data.key_leq_idx(idx, BufferInfo::content).unwrap();
+    pub fn delete(&mut self, begin: usize, end: usize) {
+        if begin >= end {
+            return;
+        }
+
+        let mut len = end - begin;
+        while len > 0 {
+            let (idx, offset) = self.data.key_idx(begin, BufferInfo::content).unwrap();
+            self.data.edit_or_remove(idx, |buf| {
+                if buf.char_count > len {
+                    // TODO do the deletion
+
+                    return false;
+                }
+
+                begin -= buf.char_count;
+                return true;
+            });
+        }
     }
 
     pub fn last_line_begin(&self) -> usize {
@@ -280,6 +297,9 @@ impl TextBuffer {
             self.buffer.reserve_exact(TextBuffer::MAX_LEN);
         }
 
+        // TODO this is at a byte position. I guess all the methods are for byte-positions?
+        // Which, great I guess. Super glad about that. Thanks Rust.
+        //                                  - Albert Liu, Dec 20, 2021 Mon 03:39 EST
         self.buffer.insert(idx, c);
         self.char_count += 1;
         if c == '\n' {
