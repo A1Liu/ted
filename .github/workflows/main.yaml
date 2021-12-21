@@ -19,7 +19,7 @@ jobs:
         with:
           target-dir: .cargo/target
 
-      - run: cargo test --manifest-path ./lib/btree/Cargo.toml
+      - run: cargo test --manifest-path ./btree/Cargo.toml
 
       - uses: jetli/wasm-pack-action@v0.3.0
 
