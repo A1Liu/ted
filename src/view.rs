@@ -16,6 +16,29 @@ pub struct View {
     did_raster: bool,
 }
 
+// @Memory we can probably reduce the number of fields used here. Not
+// all of these are necessary
+//                          - Albert Liu, Dec 18, 2021 Sat 14:31 EST
+#[derive(Debug)]
+enum FlowResult {
+    NotFound,
+    Found {
+        index: usize, // textual index
+    },
+
+    // Visual line, not textual
+    FoundLineBegin {
+        begin: usize, // textual index
+    },
+
+    // Visual line, not textual
+    FoundLine {
+        pos: Point2<u32>,
+        begin: usize, // textual index
+        end: usize,   // textual index
+    },
+}
+
 impl View {
     pub fn new(dims: Rect, cache: &mut GlyphCache) -> Self {
         let size = (dims.x * dims.y) as usize;
@@ -52,35 +75,21 @@ impl View {
         self.insert(window, file, s);
     }
 
-    pub fn insert(&mut self, window: &Window, file: &mut File, s: &str) {
-        self.cursor_blink_on = true;
+    fn file_cursor(&self, file: &File) -> (FlowState, FlowResult) {
+        if file.len() == 0 {
+            let pos = Point2 { x: 0, y: 0 };
+            let result = match self.cursor_pos == pos {
+                true => FlowResult::Found { index: 0 },
+                false => FlowResult::NotFound,
+            };
 
-        if s.len() == 0 {
-            window.request_redraw();
-            return;
-        }
+            let flow = FlowState {
+                index: 0,
+                is_full: false,
+                pos,
+            };
 
-        // @Memory we can probably reduce the number of fields used here. Not
-        // all of these are necessary
-        //                          - Albert Liu, Dec 18, 2021 Sat 14:31 EST
-        #[derive(Debug)]
-        enum FlowResult {
-            NotFound,
-            Found {
-                index: usize, // textual index
-            },
-
-            // Visual line, not textual
-            FoundLineBegin {
-                begin: usize, // textual index
-            },
-
-            // Visual line, not textual
-            FoundLine {
-                pos: Point2<u32>,
-                begin: usize, // textual index
-                end: usize,   // textual index
-            },
+            return (flow, result);
         }
 
         let mut result = FlowResult::NotFound;
@@ -116,6 +125,39 @@ impl View {
         if flow.pos == self.cursor_pos {
             result = FlowResult::Found { index: flow.index };
         }
+
+        return (flow, result);
+    }
+
+    fn pos_for_cursor(&self, file: &File, index: usize) -> Option<Point2<u32>> {
+        if file.len() == 0 {
+            return Some(Point2 { x: 0, y: 0 });
+        }
+
+        let text = file.text_after_cursor(self.start).unwrap();
+        let mut next_pos = None;
+        let flow = flow_text(text, self.dims, |state, write_len, c| {
+            if state.index == index {
+                next_pos = Some(state.pos);
+            }
+        });
+
+        if flow.index == index && !flow.is_full {
+            return Some(flow.pos);
+        }
+
+        return next_pos;
+    }
+
+    pub fn insert(&mut self, window: &Window, file: &mut File, s: &str) {
+        self.cursor_blink_on = true;
+
+        if s.len() == 0 {
+            window.request_redraw();
+            return;
+        }
+
+        let (flow, result) = self.file_cursor(file);
 
         let index = match result {
             FlowResult::Found { index } => index,
@@ -164,25 +206,45 @@ impl View {
         let text_index = self.start + index;
         file.insert_str(text_index, s);
 
-        let count = s.chars().count();
-        let text = file.text_after_cursor(self.start).unwrap();
-        let mut next_pos = None;
-        let flow = flow_text(text, self.dims, |state, write_len, c| {
-            if state.index == index + count {
-                next_pos = Some(state.pos);
-            }
-        });
-
-        if flow.index == index + count && !flow.is_full {
-            next_pos = Some(flow.pos);
-        }
-
         // TODO typing at the end of the screen
-        if let Some(pos) = next_pos {
+
+        let count = s.chars().count();
+        if let Some(pos) = self.pos_for_cursor(file, index + count) {
             self.cursor_pos = pos;
         }
 
         window.request_redraw();
+    }
+
+    pub fn delete(&mut self, window: &Window, file: &mut File) {
+        if file.len() == 0 {
+            self.cursor_move(window, event::VirtualKeyCode::Left);
+            return;
+        }
+
+        let (flow, result) = self.file_cursor(file);
+
+        let index = match result {
+            FlowResult::Found { index } => index,
+            _ => {
+                self.cursor_move(window, event::VirtualKeyCode::Left);
+                return;
+            }
+        };
+        let index = self.start + index;
+
+        self.cursor_blink_on = true;
+        window.request_redraw();
+
+        if index == 0 {
+            return;
+        }
+
+        file.delete(index - 1, index);
+
+        if let Some(pos) = self.pos_for_cursor(file, index - 1) {
+            self.cursor_pos = pos;
+        }
     }
 
     pub fn toggle_cursor_blink(&mut self, window: &Window) {
@@ -191,10 +253,6 @@ impl View {
     }
 
     pub fn cursor_move(&mut self, window: &Window, key: event::VirtualKeyCode) -> bool {
-        return self.v_cursor_move(window, key);
-    }
-
-    fn v_cursor_move(&mut self, window: &Window, key: event::VirtualKeyCode) -> bool {
         match key {
             event::VirtualKeyCode::Up => {
                 if self.cursor_pos.y > 0 {

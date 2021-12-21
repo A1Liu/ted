@@ -51,8 +51,29 @@ impl File {
             self.data.edit_or_remove(idx, |buf| {
                 let char_count = buf.char_count as usize;
                 if char_count > len {
-                    // TODO do the deletion
+                    let mut count = 0;
+                    let mut byte_idx = None;
+                    for (i, c) in buf.buffer.char_indices() {
+                        if offset == count {
+                            byte_idx = Some(i);
+                            break;
+                        }
 
+                        count += 1;
+                    }
+
+                    let idx = match byte_idx {
+                        Some(i) => i,
+                        None => core::panic!("should this ever happen?"),
+                    };
+
+                    for _ in 0..len {
+                        buf.buffer.remove(idx);
+                    }
+
+                    buf.char_count -= len as u16;
+
+                    len = 0;
                     return false;
                 }
 
@@ -298,10 +319,35 @@ impl TextBuffer {
             self.buffer.reserve_exact(TextBuffer::MAX_LEN);
         }
 
-        // TODO this is at a byte position. I guess all the methods are for byte-positions?
+        let mut count = 0;
+        let mut byte_idx = None;
+        for (i, c) in self.buffer.char_indices() {
+            if idx == count {
+                byte_idx = Some(i);
+                break;
+            }
+
+            count += 1;
+        }
+
+        // TODO this is sad. I guess all the methods are for byte-positions?
         // Which, great I guess. Super glad about that. Thanks Rust.
         //                                  - Albert Liu, Dec 20, 2021 Mon 03:39 EST
-        self.buffer.insert(idx, c);
+        match byte_idx {
+            Some(i) => self.buffer.insert(i, c),
+            None => {
+                if idx > count {
+                    core::panic!(
+                        "TextBuffer index was {} for count = {} (this is an editor error)",
+                        idx,
+                        count
+                    );
+                }
+
+                self.buffer.push(c)
+            }
+        }
+
         self.char_count += 1;
         if c == '\n' {
             self.newline_count += 1;

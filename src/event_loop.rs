@@ -112,6 +112,11 @@ impl Handler {
                     return;
                 }
 
+                if key == event::VirtualKeyCode::Back {
+                    self.view.delete(&self.window, &mut self.file);
+                    return;
+                }
+
                 let c = match keycode_char(modifiers, key) {
                     Some(c) => c,
                     None => return,
