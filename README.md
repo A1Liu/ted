@@ -9,6 +9,12 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [x] https://github.com/raphlinus/font-rs
 - [x] https://webgl2fundamentals.org/webgl/lessons/webgl-how-it-works.html
 - [ ] Client-server https://github.com/knsd/daemonize
+- [ ] Sending data and whatnot https://github.com/capnproto/capnproto-rust
+  - Ideally we can just send bytes over the wire in whatever format, validate it
+    all at once on receipt, then convert it in-place into Rust compatible repr(C)
+    structs. Would be easy to use, and would not require nonsense code bloat.
+    In the interim though, we can do a runtime conversion to get similar productivity
+    benefits.
 
 ## Size Opt Stuffs
 - [ ] https://github.com/rustwasm/wasm-pack/issues/737
