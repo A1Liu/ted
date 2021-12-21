@@ -23,13 +23,13 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
 
 ## Next Up
-- Deleting text, BTree Garbage collection
 - Make text less ugly
 - Line numbers
 - Select text
 - Window sizing and whatnot
 
 ## Mid-term
+- BTree Garbage collection
 - Test system using commands and data-in/data-out
 - Find, Find and replace
 - Multiple canvases on the web

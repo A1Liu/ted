@@ -40,7 +40,7 @@ mod wasm_exports {
     #[global_allocator]
     static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-    const TEXT: &'static str = r#"Welcome to my stupid project to make a text editor.
+    const TEXT: &'static str = r#"Welcome to my silly lil WIP text editor.
 Try typing!
 "#;
 
@@ -55,7 +55,7 @@ Try typing!
             let event_loop: EventLoop<TedEvent> = EventLoop::with_user_event();
 
             // Because of how the event loop works, values in this outer scope do not
-            // get dropped. They either get captured or forgotten.
+            // get dropped. They either get moved or forgotten.
 
             {
                 let event_loop_proxy = event_loop.create_proxy();
