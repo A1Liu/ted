@@ -49,13 +49,14 @@ impl File {
         while len > 0 {
             let (idx, offset) = self.data.key_idx(begin, BufferInfo::content).unwrap();
             self.data.edit_or_remove(idx, |buf| {
-                if buf.char_count > len {
+                let char_count = buf.char_count as usize;
+                if char_count > len {
                     // TODO do the deletion
 
                     return false;
                 }
 
-                begin -= buf.char_count;
+                len -= char_count;
                 return true;
             });
         }
