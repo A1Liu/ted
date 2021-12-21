@@ -1,4 +1,4 @@
-# Ted
+# Ted, the editor
 Text editor using WebGL and Rust/Wasm. Very much WIP.
 
 ## Feature Stuffs
