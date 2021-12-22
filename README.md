@@ -15,6 +15,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
     structs. Would be easy to use, and would not require nonsense code bloat.
     In the interim though, we can do a runtime conversion to get similar productivity
     benefits.
+  - Not using Serde because of resulting binary size and increased compile times.
 
 ## Size Opt Stuffs
 - [ ] https://github.com/rustwasm/wasm-pack/issues/737
