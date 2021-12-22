@@ -81,6 +81,10 @@ impl File {
                 return true;
             });
         }
+
+        if self.data.len() == 0 {
+            self.data.add(TextBuffer::new());
+        }
     }
 
     pub fn last_line_begin(&self) -> usize {

@@ -14,6 +14,10 @@ const vec2 c_pos_transform = vec2(1.0, -1.0);
 const vec2 c_pos_offset = vec2(-1.0, 1.0);
 
 void main() {
+    // uint vertex_index = uint(gl_VertexID);
+    // uint point_index = vertex_index / 6u;
+    // uint block_index = vertex_index / 6u;
+
     vec2 pos = vec2(in_pos) / u_dims * 2.0;
     pos = pos * c_pos_transform + c_pos_offset;
 

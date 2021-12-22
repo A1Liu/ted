@@ -13,9 +13,9 @@ pub struct TextShader {
     vao: VAO,
 
     // Uniform Locations
-    u_glyph_atlas: ULoc,
     u_dims: ULoc,
     u_atlas_dims: ULoc,
+    u_glyph_atlas: ULoc,
 
     // Resources
     tex: Texture,
@@ -36,9 +36,9 @@ impl TextShader {
         let in_block_type = gl.attr_buffer(&program, "in_block_type")?;
         let in_glyph_pos = gl.attr_buffer(&program, "in_glyph_pos")?;
 
-        let u_glyph_atlas = gl.uloc(&program, "u_glyph_atlas")?;
         let u_dims = gl.uloc(&program, "u_dims")?;
         let u_atlas_dims = gl.uloc(&program, "u_atlas_dims")?;
+        let u_glyph_atlas = gl.uloc(&program, "u_glyph_atlas")?;
 
         let tex = gl.tex(&u_glyph_atlas, 0)?;
 
