@@ -109,8 +109,8 @@ pub struct CharBox {
     top_left_1: Point2<u32>,
     top_right_2: Point2<u32>,
     bot_left_3: Point2<u32>,
-    bot_left_4: Point2<u32>,
     top_right_5: Point2<u32>,
+    bot_left_4: Point2<u32>,
     bot_right_6: Point2<u32>,
 }
 

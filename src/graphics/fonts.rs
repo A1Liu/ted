@@ -20,8 +20,8 @@ pub const EMPTY_GLYPH: Glyph = Glyph {
     top_left_1: Point2 { x: 0, y: 0 },
     top_right_2: Point2 { x: 0, y: 0 },
     bot_left_3: Point2 { x: 0, y: 0 },
-    bot_left_4: Point2 { x: 0, y: 0 },
-    top_right_5: Point2 { x: 0, y: 0 },
+    top_right_4: Point2 { x: 0, y: 0 },
+    bot_left_5: Point2 { x: 0, y: 0 },
     bot_right_6: Point2 { x: 0, y: 0 },
 };
 
@@ -39,8 +39,8 @@ pub struct Glyph {
     top_left_1: Point2<u32>,
     top_right_2: Point2<u32>,
     bot_left_3: Point2<u32>,
-    bot_left_4: Point2<u32>,
-    top_right_5: Point2<u32>,
+    top_right_4: Point2<u32>,
+    bot_left_5: Point2<u32>,
     bot_right_6: Point2<u32>,
 }
 
@@ -185,8 +185,8 @@ impl GlyphCache {
             top_left_1: top_left,
             top_right_2: top_right,
             bot_left_3: bot_left,
-            bot_left_4: bot_left,
-            top_right_5: top_right,
+            top_right_4: top_right,
+            bot_left_5: bot_left,
             bot_right_6: bot_right,
         };
     }
