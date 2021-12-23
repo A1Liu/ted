@@ -39,8 +39,7 @@ void main() {
     vec2 in_pos = vec2(point_x, point_y) + block_offset;
 
     // Translation from text coordinates to clip space
-    vec2 pos = in_pos / u_dims * 2.0;
-    pos = pos * vec2(1.0, -1.0) + vec2(-1.0, 1.0);
+    vec2 pos = in_pos / u_dims * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
 
     gl_Position = vec4(pos, 0.0, 1.0);
     v_glyph_pos = vec2(in_glyph_pos) / vec2(u_atlas_dims);
