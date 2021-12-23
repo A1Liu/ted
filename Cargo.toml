@@ -11,9 +11,6 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 mint = "0.5.8"
 btree = { path = "./btree" }
-
-# Eventually, we should swap to only using font-rs, and implement all the
-# font stuff correctly
 ttf-parser = { version = "0.13.4", default-features = false, features = [] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

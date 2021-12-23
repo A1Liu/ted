@@ -4,7 +4,6 @@ use mint::Point2;
 use std::collections::hash_map::HashMap;
 use ttf_parser as ttf;
 
-// const COURIER: &[u8] = &[0];
 const MAX_ATLAS_WIDTH: u32 = 4096;
 const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
 
@@ -74,6 +73,8 @@ impl GlyphList {
     }
 }
 
+// Actual meanings of the horizontal and vertical metrics
+// https://gitlab.redox-os.org/redox-os/rusttype/-/blob/master/src/lib.rs#L175
 impl GlyphCache {
     pub fn new() -> GlyphCache {
         return GlyphCache {
