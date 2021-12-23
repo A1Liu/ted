@@ -18,11 +18,11 @@ const PAD_B: u32 = 8; // in pixels
 
 pub const EMPTY_GLYPH: Glyph = Glyph {
     top_left_1: Point2 { x: 0, y: 0 },
+    top_right_1: Point2 { x: 0, y: 0 },
+    bot_left_1: Point2 { x: 0, y: 0 },
     top_right_2: Point2 { x: 0, y: 0 },
-    bot_left_3: Point2 { x: 0, y: 0 },
-    top_right_4: Point2 { x: 0, y: 0 },
-    bot_left_5: Point2 { x: 0, y: 0 },
-    bot_right_6: Point2 { x: 0, y: 0 },
+    bot_left_2: Point2 { x: 0, y: 0 },
+    bot_right_2: Point2 { x: 0, y: 0 },
 };
 
 const DEFAULT_CHARS: &'static str = core::concat!(
@@ -37,11 +37,11 @@ const DEFAULT_CHARS: &'static str = core::concat!(
 pub struct Glyph {
     // each glyph is 2 trianges of 3 points each
     top_left_1: Point2<u32>,
+    top_right_1: Point2<u32>,
+    bot_left_1: Point2<u32>,
     top_right_2: Point2<u32>,
-    bot_left_3: Point2<u32>,
-    top_right_4: Point2<u32>,
-    bot_left_5: Point2<u32>,
-    bot_right_6: Point2<u32>,
+    bot_left_2: Point2<u32>,
+    bot_right_2: Point2<u32>,
 }
 
 impl PartialEq for Glyph {
@@ -183,11 +183,11 @@ impl GlyphCache {
 
         return Glyph {
             top_left_1: top_left,
+            top_right_1: top_right,
+            bot_left_1: bot_left,
             top_right_2: top_right,
-            bot_left_3: bot_left,
-            top_right_4: top_right,
-            bot_left_5: bot_left,
-            bot_right_6: bot_right,
+            bot_left_2: bot_left,
+            bot_right_2: bot_right,
         };
     }
 

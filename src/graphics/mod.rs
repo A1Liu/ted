@@ -98,46 +98,6 @@ thread_local! {
     pub static TEXT_SHADER: TextShader = expect(TextShader::new());
 }
 
-#[derive(Clone, Copy)]
-pub struct CharBox {
-    // each box is 2 trianges of 3 points each
-    top_left_1: Point2<u32>,
-    top_right_2: Point2<u32>,
-    bot_left_3: Point2<u32>,
-    top_right_5: Point2<u32>,
-    bot_left_4: Point2<u32>,
-    bot_right_6: Point2<u32>,
-}
-
-#[inline]
-pub fn pt(x: u32, y: u32) -> CharBox {
-    let pt = |x: u32, y: u32| Point2 { x, y };
-
-    return CharBox {
-        top_left_1: pt(x, y),
-        top_right_2: pt(x + 1, y),
-        bot_left_3: pt(x, y + 1),
-        bot_left_4: pt(x, y + 1),
-        top_right_5: pt(x + 1, y),
-        bot_right_6: pt(x + 1, y + 1),
-    };
-}
-
-impl WebGlType for CharBox {
-    const GL_TYPE: u32 = Context::UNSIGNED_INT;
-    const SIZE: i32 = 2;
-
-    unsafe fn view(array: &[Self]) -> js_sys::Object {
-        let ptr = array.as_ptr() as *const u32;
-        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 2 * 6);
-        return js_sys::Uint32Array::view(buffer).into();
-    }
-
-    fn is_int() -> bool {
-        return true;
-    }
-}
-
 // For z:
 // 0 is normal
 // 1 is cursor
