@@ -1,6 +1,5 @@
 #version 300 es
 
-in uvec2 in_pos;
 in uint in_block_type;
 in uvec2 in_glyph_pos;
 
@@ -23,20 +22,22 @@ const vec2 c_pos_offset = vec2(-1.0, 1.0);
 2,4     5
 */
 
+// TODO remove integer division/modulo I guess?
 void main() {
     // Translation from vertex ID to text coordinates
     int block_index = gl_VertexID % 6;
+    int point_index = gl_VertexID / 6;
+
     int is_first = int(block_index < 3);
-    float is_right = float(block_index % 2);
-    float is_bot = float((block_index + is_first * 2) >= 4);
-    vec2 block_offset = vec2(is_right, is_bot);
+    int is_right = int(block_index % 2);
+    int is_bot = int((block_index + is_first * 2) >= 4);
+    uvec2 block_offset = uvec2(is_right, is_bot);
 
     int line_width = int(u_dims.x);
-    int point_index = gl_VertexID / 6;
     int point_x = point_index % line_width;
     int point_y = point_index / line_width;
 
-    // uvec2 in_pos = uvec2(point_x, point_y);
+    uvec2 in_pos = uvec2(point_x, point_y) + block_offset;
 
     // Translation from text coordinates to clip space
     vec2 pos = vec2(in_pos) / u_dims * 2.0;

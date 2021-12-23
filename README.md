@@ -23,7 +23,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://www.skypack.dev/view/esbuild-plugin-wasm-pack
 
 ## Graphics Opt Stuffs
-- [ ] https://webgl2fundamentals.org/webgl/lessons/webgl-drawing-without-data.html
+- [x] https://webgl2fundamentals.org/webgl/lessons/webgl-drawing-without-data.html
 - [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/bindBufferRange
 - [ ] https://medium.com/@evanwallace/easy-scalable-text-rendering-on-the-gpu-c3f4d782c5ac
 - [ ] https://webgl2fundamentals.org/webgl/lessons/webgl-qna-how-to-use-the-stencil-buffer.html

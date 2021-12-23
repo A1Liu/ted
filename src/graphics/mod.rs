@@ -19,7 +19,6 @@ pub struct TextShader {
 
     // Resources
     tex: Texture,
-    in_pos: Buffer<CharBox>,
     in_block_type: Buffer<BlockType>,
     in_glyph_pos: Buffer<Glyph>,
 }
@@ -32,7 +31,6 @@ impl TextShader {
 
         let vao = gl.vao()?;
 
-        let in_pos = gl.attr_buffer(&program, "in_pos")?;
         let in_block_type = gl.attr_buffer(&program, "in_block_type")?;
         let in_glyph_pos = gl.attr_buffer(&program, "in_glyph_pos")?;
 
@@ -46,7 +44,6 @@ impl TextShader {
             program,
             vao,
 
-            in_pos,
             in_block_type,
             in_glyph_pos,
 
@@ -61,7 +58,6 @@ impl TextShader {
     pub fn render(
         &self,
         atlas: Option<&[u8]>,
-        points: &[CharBox],
         block_types: &[BlockType],
         glyphs: &[Glyph],
         atlas_dims: Rect,
@@ -69,7 +65,6 @@ impl TextShader {
     ) -> Result<(), JsValue> {
         gl.use_program(&self.program);
 
-        gl.write_buffer(&self.in_pos, points);
         gl.write_buffer(&self.in_block_type, block_types);
         gl.write_buffer(&self.in_glyph_pos, glyphs);
         if let Some(atlas) = atlas {
@@ -93,7 +88,7 @@ impl TextShader {
 
         gl.bind_uniform(&self.u_atlas_dims, u_atlas_dims);
 
-        gl.draw((points.len() * 6) as i32);
+        gl.draw((dims.x * dims.y * 6) as i32);
 
         return Ok(());
     }
