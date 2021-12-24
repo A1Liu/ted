@@ -121,7 +121,7 @@ impl Handler {
                     None => return,
                 };
 
-                self.view.insert(&self.window, &mut self.file, c);
+                self.view.insert(&self.file, c, commands);
             }
 
             _ => {}

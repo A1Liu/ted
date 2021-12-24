@@ -5,6 +5,7 @@ pub enum TedCommand<'a> {
     Exit,
 
     InsertText { index: usize, text: &'a str },
+    AppendText { text: &'a str },
     DeleteText { begin: usize, end: usize },
 
     ForView { command: ViewCommand<'a> },
@@ -14,7 +15,7 @@ pub enum ViewCommand<'a> {
     CursorMove(Direction),
     Insert { text: &'a str },
     Delete,
-    FlowCursor { file_index: usize },
+    FlowCursor { index: usize },
 }
 
 pub enum Direction {
