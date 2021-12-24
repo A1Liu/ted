@@ -73,6 +73,8 @@ impl Handler {
     }
 
     fn window_event(&mut self, flow: &mut ControlFlow, event: WindowEvent, id: WindowId) {
+        let mut command_list: Vec<TedCommand> = Vec::new();
+
         match event {
             WindowEvent::CloseRequested => {
                 if self.window.id() == id {
@@ -104,7 +106,8 @@ impl Handler {
                     return;
                 }
 
-                if self.view.cursor_move(&self.window, key) {
+                if let Some(direction) = Direction::from_arrow_key(key) {
+                    self.view.cursor_move(direction, &mut command_list);
                     return;
                 }
 

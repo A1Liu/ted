@@ -1,3 +1,4 @@
+use crate::data::*;
 use crate::graphics::*;
 use crate::text::*;
 use crate::util::*;
@@ -60,6 +61,16 @@ impl View {
             glyphs,
             did_raster: true,
         };
+    }
+
+    pub fn run(&mut self, command: ViewCommand, output: &mut Vec<TedCommand>) {
+        use ViewCommand::*;
+        match command {
+            CursorMove(direction) => {}
+            Insert { file, text } => {}
+            Delete { file } => {}
+            FlowCursor { file, file_index } => {}
+        }
     }
 
     pub fn insert_char(&mut self, window: &Window, file: &mut File, c: char) {
@@ -211,7 +222,7 @@ impl View {
 
     pub fn delete(&mut self, window: &Window, file: &mut File) {
         if file.len() == 0 {
-            self.cursor_move(window, event::VirtualKeyCode::Left);
+            self.cursor_move(Direction::Left, &mut Vec::new());
             return;
         }
 
@@ -220,7 +231,7 @@ impl View {
         let index = match result {
             FlowResult::Found { index } => index,
             _ => {
-                self.cursor_move(window, event::VirtualKeyCode::Left);
+                self.cursor_move(Direction::Left, &mut Vec::new());
                 return;
             }
         };
@@ -245,34 +256,32 @@ impl View {
         window.request_redraw();
     }
 
-    pub fn cursor_move(&mut self, window: &Window, key: event::VirtualKeyCode) -> bool {
-        match key {
-            event::VirtualKeyCode::Up => {
+    pub fn cursor_move(&mut self, direction: Direction, output: &mut Vec<TedCommand>) {
+        match direction {
+            Direction::Up => {
                 if self.cursor_pos.y > 0 {
                     self.cursor_pos.y -= 1;
                 }
             }
-            event::VirtualKeyCode::Down => {
+            Direction::Down => {
                 if self.cursor_pos.y < self.dims.y - 1 {
                     self.cursor_pos.y += 1;
                 }
             }
-            event::VirtualKeyCode::Left => {
+            Direction::Left => {
                 if self.cursor_pos.x > 0 {
                     self.cursor_pos.x -= 1;
                 }
             }
-            event::VirtualKeyCode::Right => {
+            Direction::Right => {
                 if self.cursor_pos.x < self.dims.x - 1 {
                     self.cursor_pos.x += 1;
                 }
             }
-            _ => return false,
         }
 
         self.cursor_blink_on = true;
-        window.request_redraw();
-        return true;
+        output.push(TedCommand::RequestRedraw);
     }
 
     pub fn draw(&mut self, text: &File, glyphs: &mut GlyphCache) {
