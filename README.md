@@ -31,7 +31,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 
 ## Next Up
 - Line numbers
-- Test command system
+- Refactor and test the command system
 - Text colors/spans
 - Mouse support
 - Make text less ugly
