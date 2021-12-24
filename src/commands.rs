@@ -48,6 +48,9 @@ impl Direction {
     }
 }
 
+// These will ultimately be used to some simple form of RPC. Additionally, structuring
+// the code like this should in theory improve testability for command-driven
+// components.
 pub struct CommandHandler {
     // This should be global
     cache: GlyphCache,

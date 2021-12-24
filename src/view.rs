@@ -69,14 +69,12 @@ impl View {
         command: ViewCommand<'a>,
         output: &mut Vec<TedCommand<'a>>,
     ) {
-        use ViewCommand::*;
-
         match command {
-            CursorMove(direction) => self.cursor_move(direction, output),
-            ToggleCursorBlink => self.toggle_cursor_blink(output),
-            Insert { text } => self.insert(file, text, output),
-            Delete {} => self.delete(file, output),
-            FlowCursor { index } => self.flow_cursor(file, index),
+            ViewCommand::CursorMove(direction) => self.cursor_move(direction, output),
+            ViewCommand::ToggleCursorBlink => self.toggle_cursor_blink(output),
+            ViewCommand::Insert { text } => self.insert(file, text, output),
+            ViewCommand::Delete {} => self.delete(file, output),
+            ViewCommand::FlowCursor { index } => self.flow_cursor(file, index),
         }
     }
 
