@@ -146,11 +146,9 @@ impl View {
         });
 
         let count = s.chars().count();
-        output.push(TedCommand::ForView {
-            command: ViewCommand::FlowCursor {
-                index: index + count,
-            },
-        });
+        output.push(for_view(ViewCommand::FlowCursor {
+            index: index + count,
+        }));
 
         output.push(TedCommand::RequestRedraw);
     }
@@ -184,9 +182,7 @@ impl View {
             end: index,
         });
 
-        output.push(TedCommand::ForView {
-            command: ViewCommand::FlowCursor { index: index - 1 },
-        });
+        output.push(for_view(ViewCommand::FlowCursor { index: index - 1 }));
 
         output.push(TedCommand::RequestRedraw);
     }

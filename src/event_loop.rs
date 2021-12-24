@@ -47,7 +47,7 @@ impl Handler {
                     self.window_event(event, window_id, &mut commands)
                 }
                 Event::UserEvent(ted_event) => self.ted_event(ted_event, &mut commands),
-                Event::RedrawRequested(window_id) => self.draw(window_id, &mut commands),
+                Event::RedrawRequested(window_id) => commands.push(TedCommand::Draw),
                 _ => (),
             }
 
@@ -55,18 +55,11 @@ impl Handler {
         };
     }
 
-    fn draw(&mut self, window_id: WindowId, commands: &mut Vec<TedCommand>) {
-        commands.push(TedCommand::Draw);
-    }
-
     fn ted_event(&mut self, evt: TedEvent, commands: &mut Vec<TedCommand>) {
         match evt {
             TedEvent::Tick(tick) => {
                 if tick % 12 == 0 {
-                    commands.push(TedCommand::ForView {
-                        command: ViewCommand::ToggleCursorBlink,
-                    });
-                    // self.view.toggle_cursor_blink(commands);
+                    commands.push(for_view(ViewCommand::ToggleCursorBlink));
                 }
             }
         }
@@ -105,16 +98,12 @@ impl Handler {
                 }
 
                 if let Some(direction) = Direction::from_arrow_key(key) {
-                    commands.push(TedCommand::ForView {
-                        command: ViewCommand::CursorMove(direction),
-                    });
+                    commands.push(for_view(ViewCommand::CursorMove(direction)));
                     return;
                 }
 
                 if key == event::VirtualKeyCode::Back {
-                    commands.push(TedCommand::ForView {
-                        command: ViewCommand::Delete,
-                    });
+                    commands.push(for_view(ViewCommand::Delete));
                     return;
                 }
 
@@ -123,9 +112,7 @@ impl Handler {
                     None => return,
                 };
 
-                commands.push(TedCommand::ForView {
-                    command: ViewCommand::Insert { text: c },
-                });
+                commands.push(for_view(ViewCommand::Insert { text: c }));
             }
 
             _ => {}
