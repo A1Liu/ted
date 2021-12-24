@@ -14,7 +14,7 @@
 #[macro_use]
 mod print_utils;
 
-mod data;
+mod commands;
 mod text;
 mod util;
 
@@ -32,7 +32,7 @@ pub use wasm_exports::*;
 
 #[cfg(target_arch = "wasm32")]
 mod wasm_exports {
-    use crate::data::*;
+    use crate::commands::*;
     use crate::event_loop::*;
     use crate::util::*;
     use winit::event_loop::{EventLoop, EventLoopProxy};

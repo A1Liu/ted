@@ -1,4 +1,4 @@
-use crate::data::*;
+use crate::commands::*;
 use crate::graphics::*;
 use crate::text::*;
 use crate::util::*;
@@ -63,14 +63,19 @@ impl View {
         };
     }
 
-    pub fn run(&mut self, command: ViewCommand, output: &mut Vec<TedCommand>) {
+    pub fn run<'a>(
+        &mut self,
+        file: &File,
+        command: ViewCommand<'a>,
+        output: &mut Vec<TedCommand<'a>>,
+    ) {
         use ViewCommand::*;
 
         match command {
-            CursorMove(direction) => {}
-            Insert { text } => {}
-            Delete {} => {}
-            FlowCursor { index } => {}
+            CursorMove(direction) => self.cursor_move(direction, output),
+            Insert { text } => self.insert(file, text, output),
+            Delete {} => self.delete(file, output),
+            FlowCursor { index } => self.flow_cursor(file, index),
         }
     }
 

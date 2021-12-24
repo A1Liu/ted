@@ -36,8 +36,3 @@ impl Direction {
         };
     }
 }
-
-#[cfg_attr(debug_assertions, derive(Debug))]
-pub enum TedEvent {
-    Tick(usize),
-}
