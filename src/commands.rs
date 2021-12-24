@@ -90,8 +90,5 @@ impl CommandHandler {
                 }
             }
         }
-
-        let mut cursor = 0;
-        while cursor < commands.len() {}
     }
 }

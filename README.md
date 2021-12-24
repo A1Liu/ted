@@ -30,8 +30,8 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
 
 ## Next Up
-- Test system using commands and data-in/data-out
 - Line numbers
+- Test command system
 - Text colors/spans
 - Mouse support
 - Make text less ugly

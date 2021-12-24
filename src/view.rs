@@ -80,7 +80,70 @@ impl View {
         }
     }
 
-    pub fn insert<'a>(&mut self, file: &File, s: &'a str, output: &mut Vec<TedCommand<'a>>) {
+    pub fn draw(&mut self, text: &File, glyphs: &mut GlyphCache) {
+        let cursor_pos = self.cursor_blink_on.then(|| self.cursor_pos);
+
+        let mut pt = match text.text_after_cursor(self.start) {
+            None => Point2 { x: 0, y: 0 },
+            Some(text) => {
+                let state = flow_text(text, self.dims, |state, write_len, c| {
+                    let idx = (state.pos.y * self.dims.x + state.pos.x) as usize;
+
+                    if c.is_whitespace() {
+                        self.glyphs[idx..(idx + write_len)].fill(EMPTY_GLYPH);
+                        return;
+                    }
+
+                    let mut tmp = [0; 4];
+                    let c_str = c.encode_utf8(&mut tmp);
+                    let glyph_list = glyphs.translate_glyphs(c_str);
+                    self.did_raster = self.did_raster || glyph_list.did_raster;
+
+                    self.glyphs[idx..(idx + write_len)].fill(glyph_list.glyphs[0]);
+                });
+
+                state.pos
+            }
+        };
+
+        for y in pt.y..self.dims.y {
+            let len = (self.dims.x - pt.x) as usize;
+            let idx = (y * self.dims.x + pt.x) as usize;
+
+            self.glyphs[idx..(idx + len)].fill(EMPTY_GLYPH);
+            pt.x = 0;
+        }
+
+        // clear state
+        for block_type in &mut self.block_types {
+            *block_type = BlockType::Normal;
+        }
+
+        if self.cursor_blink_on {
+            let idx = self.cursor_pos.y * self.dims.x + self.cursor_pos.x;
+            self.block_types[idx as usize] = BlockType::Cursor;
+        }
+
+        let atlas = self.did_raster.then(|| glyphs.atlas());
+        self.did_raster = false;
+        let atlas_dims = glyphs.atlas_dims();
+
+        let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
+            shader.render(
+                atlas,
+                &self.block_types,
+                &self.glyphs,
+                atlas_dims,
+                self.dims,
+            )?;
+
+            return Ok(());
+        });
+
+        expect(result);
+    }
+
+    fn insert<'a>(&mut self, file: &File, s: &'a str, output: &mut Vec<TedCommand<'a>>) {
         self.cursor_blink_on = true;
 
         if s.len() == 0 {
@@ -153,7 +216,7 @@ impl View {
         output.push(TedCommand::RequestRedraw);
     }
 
-    pub fn delete(&mut self, file: &File, output: &mut Vec<TedCommand>) {
+    fn delete(&mut self, file: &File, output: &mut Vec<TedCommand>) {
         if file.len() == 0 {
             self.cursor_move(Direction::Left, output);
             return;
@@ -187,19 +250,36 @@ impl View {
         output.push(TedCommand::RequestRedraw);
     }
 
-    pub fn flow_cursor(&mut self, file: &File, index: usize) {
+    fn flow_cursor(&mut self, file: &File, index: usize) {
+        if file.len() == 0 {
+            self.cursor_pos = Point2 { x: 0, y: 0 };
+            return;
+        }
+
         // TODO flowing past the end of the screen
-        if let Some(pos) = self.pos_for_cursor(file, index) {
+        let text = file.text_after_cursor(self.start).unwrap();
+        let mut next_pos = None;
+        let flow = flow_text(text, self.dims, |state, write_len, c| {
+            if state.index == index {
+                next_pos = Some(state.pos);
+            }
+        });
+
+        if flow.index == index && !flow.is_full {
+            next_pos = Some(flow.pos);
+        }
+
+        if let Some(pos) = next_pos {
             self.cursor_pos = pos;
         }
     }
 
-    pub fn toggle_cursor_blink(&mut self, output: &mut Vec<TedCommand>) {
+    fn toggle_cursor_blink(&mut self, output: &mut Vec<TedCommand>) {
         self.cursor_blink_on = !self.cursor_blink_on;
         output.push(TedCommand::RequestRedraw);
     }
 
-    pub fn cursor_move(&mut self, direction: Direction, output: &mut Vec<TedCommand>) {
+    fn cursor_move(&mut self, direction: Direction, output: &mut Vec<TedCommand>) {
         match direction {
             Direction::Up => {
                 if self.cursor_pos.y > 0 {
@@ -225,68 +305,6 @@ impl View {
 
         self.cursor_blink_on = true;
         output.push(TedCommand::RequestRedraw);
-    }
-
-    pub fn draw(&mut self, text: &File, glyphs: &mut GlyphCache) {
-        let cursor_pos = self.cursor_blink_on.then(|| self.cursor_pos);
-
-        let mut pt = match text.text_after_cursor(self.start) {
-            None => Point2 { x: 0, y: 0 },
-            Some(text) => {
-                let state = flow_text(text, self.dims, |state, write_len, c| {
-                    let idx = (state.pos.y * self.dims.x + state.pos.x) as usize;
-
-                    if c.is_whitespace() {
-                        self.glyphs[idx..(idx + write_len)].fill(EMPTY_GLYPH);
-                        return;
-                    }
-
-                    let mut tmp = [0; 4];
-                    let c_str = c.encode_utf8(&mut tmp);
-                    let glyph_list = glyphs.translate_glyphs(c_str);
-                    self.did_raster = self.did_raster || glyph_list.did_raster;
-
-                    self.glyphs[idx..(idx + write_len)].fill(glyph_list.glyphs[0]);
-                });
-
-                state.pos
-            }
-        };
-
-        for y in pt.y..self.dims.y {
-            let len = (self.dims.x - pt.x) as usize;
-            let idx = (y * self.dims.x + pt.x) as usize;
-
-            self.glyphs[idx..(idx + len)].fill(EMPTY_GLYPH);
-            pt.x = 0;
-        }
-
-        // clear state
-        for block_type in &mut self.block_types {
-            *block_type = BlockType::Normal;
-        }
-
-        if self.cursor_blink_on {
-            let idx = self.cursor_pos.y * self.dims.x + self.cursor_pos.x;
-            self.block_types[idx as usize] = BlockType::Cursor;
-        }
-
-        let atlas = self.did_raster.then(|| glyphs.atlas());
-        let atlas_dims = glyphs.atlas_dims();
-
-        let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
-            shader.render(
-                atlas,
-                &self.block_types,
-                &self.glyphs,
-                atlas_dims,
-                self.dims,
-            )?;
-
-            return Ok(());
-        });
-
-        expect(result);
     }
 
     fn file_cursor(&self, file: &File) -> (FlowState, FlowResult) {
@@ -341,26 +359,6 @@ impl View {
         }
 
         return (flow, result);
-    }
-
-    fn pos_for_cursor(&self, file: &File, index: usize) -> Option<Point2<u32>> {
-        if file.len() == 0 {
-            return Some(Point2 { x: 0, y: 0 });
-        }
-
-        let text = file.text_after_cursor(self.start).unwrap();
-        let mut next_pos = None;
-        let flow = flow_text(text, self.dims, |state, write_len, c| {
-            if state.index == index {
-                next_pos = Some(state.pos);
-            }
-        });
-
-        if flow.index == index && !flow.is_full {
-            return Some(flow.pos);
-        }
-
-        return next_pos;
     }
 }
 
