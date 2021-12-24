@@ -17,6 +17,7 @@ pub enum TedCommand<'a> {
     ForView { command: ViewCommand<'a> },
 }
 
+#[inline(always)]
 pub fn for_view<'a>(command: ViewCommand<'a>) -> TedCommand<'a> {
     return TedCommand::ForView { command };
 }

@@ -142,8 +142,6 @@ impl View {
     }
 
     fn insert<'a>(&mut self, file: &File, s: &'a str, output: &mut Vec<TedCommand<'a>>) {
-        self.cursor_blink_on = true;
-
         if s.len() == 0 {
             output.push(TedCommand::RequestRedraw);
             return;
@@ -215,11 +213,6 @@ impl View {
     }
 
     fn delete(&mut self, file: &File, output: &mut Vec<TedCommand>) {
-        if file.len() == 0 {
-            self.cursor_move(Direction::Left, output);
-            return;
-        }
-
         let (flow, result) = self.file_cursor(file);
 
         let index = match result {
@@ -229,11 +222,9 @@ impl View {
                 return;
             }
         };
+
         let text_index = self.start + index;
-
-        self.cursor_blink_on = true;
-
-        if index == 0 {
+        if text_index == 0 {
             output.push(TedCommand::RequestRedraw);
             return;
         }
@@ -249,6 +240,7 @@ impl View {
     }
 
     fn flow_cursor(&mut self, file: &File, index: usize) {
+        self.cursor_blink_on = true;
         if file.len() == 0 {
             self.cursor_pos = Point2 { x: 0, y: 0 };
             return;
