@@ -44,12 +44,16 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Graphics/shader stuff
 - Window sizing and whatnot
 - Persist data and whatnot
+- Custom display stuffs, for e.g. display of binary files and zip files
 
 ## Far in the Future
 - Customization?
 - Syntax highlighting; probably just make something super duper simple
 - Client-server architecture so that we can have nice things
 - Cross platform stuffs
+- Custom display for zip files
+- Custom display for raw binary, maybe using color for byte value in addition
+  to hex representation?
 
 ## Even Further in the Future
 - Full unicode support?
