@@ -67,90 +67,10 @@ impl View {
         use ViewCommand::*;
         match command {
             CursorMove(direction) => {}
-            Insert { file, text } => {}
-            Delete { file } => {}
-            FlowCursor { file, file_index } => {}
+            Insert { text } => {}
+            Delete {} => {}
+            FlowCursor { file_index } => {}
         }
-    }
-
-    pub fn insert_char(&mut self, window: &Window, file: &mut File, c: char) {
-        let mut s = [0u8; 4];
-        let s = c.encode_utf8(&mut s);
-        self.insert(window, file, s);
-    }
-
-    fn file_cursor(&self, file: &File) -> (FlowState, FlowResult) {
-        if file.len() == 0 {
-            let pos = Point2 { x: 0, y: 0 };
-            let result = match self.cursor_pos == pos {
-                true => FlowResult::Found { index: 0 },
-                false => FlowResult::NotFound,
-            };
-
-            let flow = FlowState {
-                index: 0,
-                is_full: false,
-                pos,
-            };
-
-            return (flow, result);
-        }
-
-        let mut result = FlowResult::NotFound;
-        let text = file.text_after_cursor(self.start).unwrap();
-        let flow = flow_text(text, self.dims, |state, write_len, c| {
-            if state.pos == self.cursor_pos {
-                result = FlowResult::Found { index: state.index };
-                return;
-            }
-
-            match &mut result {
-                FlowResult::Found { .. } => return,
-                FlowResult::FoundLine { .. } => return,
-                r @ FlowResult::NotFound => {
-                    if state.pos.y == self.cursor_pos.y {
-                        *r = FlowResult::FoundLineBegin { begin: state.index };
-                        if c == '\n' {
-                            let (pos, begin, end) = (state.pos, state.index, state.index);
-                            *r = FlowResult::FoundLine { pos, begin, end };
-                        }
-                    }
-                }
-                FlowResult::FoundLineBegin { begin } => {
-                    if c == '\n' {
-                        let (pos, begin, end) = (state.pos, *begin, state.index);
-                        result = FlowResult::FoundLine { pos, begin, end };
-                        return;
-                    }
-                }
-            }
-        });
-
-        if flow.pos == self.cursor_pos {
-            result = FlowResult::Found { index: flow.index };
-        }
-
-        return (flow, result);
-    }
-
-    fn pos_for_cursor(&self, file: &File, index: usize) -> Option<Point2<u32>> {
-        if file.len() == 0 {
-            return Some(Point2 { x: 0, y: 0 });
-        }
-
-        let text = file.text_after_cursor(self.start).unwrap();
-        let mut next_pos = None;
-        let flow = flow_text(text, self.dims, |state, write_len, c| {
-            if state.index == index {
-                next_pos = Some(state.pos);
-            }
-        });
-
-        if flow.index == index && !flow.is_full {
-            return Some(flow.pos);
-        }
-
-        return next_pos;
     }
 
     pub fn insert(&mut self, window: &Window, file: &mut File, s: &str) {
@@ -220,9 +140,9 @@ impl View {
         window.request_redraw();
     }
 
-    pub fn delete(&mut self, window: &Window, file: &mut File) {
+    pub fn delete(&mut self, file: &File, output: &mut Vec<TedCommand>) {
         if file.len() == 0 {
-            self.cursor_move(Direction::Left, &mut Vec::new());
+            self.cursor_move(Direction::Left, output);
             return;
         }
 
@@ -231,29 +151,40 @@ impl View {
         let index = match result {
             FlowResult::Found { index } => index,
             _ => {
-                self.cursor_move(Direction::Left, &mut Vec::new());
+                self.cursor_move(Direction::Left, output);
                 return;
             }
         };
         let index = self.start + index;
 
         self.cursor_blink_on = true;
-        window.request_redraw();
+        output.push(TedCommand::RequestRedraw);
 
         if index == 0 {
             return;
         }
 
-        file.delete(index - 1, index);
+        output.push(TedCommand::DeleteText {
+            begin: index - 1,
+            end: index,
+        });
 
-        if let Some(pos) = self.pos_for_cursor(file, index - 1) {
+        output.push(TedCommand::ForView {
+            command: ViewCommand::FlowCursor {
+                file_index: index - 1,
+            },
+        });
+    }
+
+    pub fn flow_cursor(&mut self, file: &File, file_index: usize) {
+        if let Some(pos) = self.pos_for_cursor(file, file_index) {
             self.cursor_pos = pos;
         }
     }
 
-    pub fn toggle_cursor_blink(&mut self, window: &Window) {
+    pub fn toggle_cursor_blink(&mut self, output: &mut Vec<TedCommand>) {
         self.cursor_blink_on = !self.cursor_blink_on;
-        window.request_redraw();
+        output.push(TedCommand::RequestRedraw);
     }
 
     pub fn cursor_move(&mut self, direction: Direction, output: &mut Vec<TedCommand>) {
@@ -344,6 +275,80 @@ impl View {
         });
 
         expect(result);
+    }
+
+    fn file_cursor(&self, file: &File) -> (FlowState, FlowResult) {
+        if file.len() == 0 {
+            let pos = Point2 { x: 0, y: 0 };
+            let result = match self.cursor_pos == pos {
+                true => FlowResult::Found { index: 0 },
+                false => FlowResult::NotFound,
+            };
+
+            let flow = FlowState {
+                index: 0,
+                is_full: false,
+                pos,
+            };
+
+            return (flow, result);
+        }
+
+        let mut result = FlowResult::NotFound;
+        let text = file.text_after_cursor(self.start).unwrap();
+        let flow = flow_text(text, self.dims, |state, write_len, c| {
+            if state.pos == self.cursor_pos {
+                result = FlowResult::Found { index: state.index };
+                return;
+            }
+
+            match &mut result {
+                FlowResult::Found { .. } => return,
+                FlowResult::FoundLine { .. } => return,
+                r @ FlowResult::NotFound => {
+                    if state.pos.y == self.cursor_pos.y {
+                        *r = FlowResult::FoundLineBegin { begin: state.index };
+                        if c == '\n' {
+                            let (pos, begin, end) = (state.pos, state.index, state.index);
+                            *r = FlowResult::FoundLine { pos, begin, end };
+                        }
+                    }
+                }
+                FlowResult::FoundLineBegin { begin } => {
+                    if c == '\n' {
+                        let (pos, begin, end) = (state.pos, *begin, state.index);
+                        result = FlowResult::FoundLine { pos, begin, end };
+                        return;
+                    }
+                }
+            }
+        });
+
+        if flow.pos == self.cursor_pos {
+            result = FlowResult::Found { index: flow.index };
+        }
+
+        return (flow, result);
+    }
+
+    fn pos_for_cursor(&self, file: &File, index: usize) -> Option<Point2<u32>> {
+        if file.len() == 0 {
+            return Some(Point2 { x: 0, y: 0 });
+        }
+
+        let text = file.text_after_cursor(self.start).unwrap();
+        let mut next_pos = None;
+        let flow = flow_text(text, self.dims, |state, write_len, c| {
+            if state.index == index {
+                next_pos = Some(state.pos);
+            }
+        });
+
+        if flow.index == index && !flow.is_full {
+            return Some(flow.pos);
+        }
+
+        return next_pos;
     }
 }
 

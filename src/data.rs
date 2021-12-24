@@ -2,6 +2,7 @@ use crate::text::*;
 
 pub enum TedCommand<'a> {
     RequestRedraw,
+    Exit,
 
     InsertText { index: usize, text: &'a str },
     DeleteText { begin: usize, end: usize },
@@ -11,9 +12,9 @@ pub enum TedCommand<'a> {
 
 pub enum ViewCommand<'a> {
     CursorMove(Direction),
-    Insert { file: &'a File, text: &'a str },
-    Delete { file: &'a File },
-    FlowCursor { file: &'a File, file_index: usize },
+    Insert { text: &'a str },
+    Delete,
+    FlowCursor { file_index: usize },
 }
 
 pub enum Direction {

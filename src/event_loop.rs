@@ -47,11 +47,13 @@ impl Handler {
             // input, and uses significantly less power/CPU time than ControlFlow::Poll.
             *flow = ControlFlow::Wait;
 
+            let mut commands: Vec<TedCommand> = Vec::new();
+
             match event {
                 Event::WindowEvent { event, window_id } => {
-                    self.window_event(flow, event, window_id)
+                    self.window_event(event, window_id, &mut commands)
                 }
-                Event::UserEvent(ted_event) => self.ted_event(ted_event),
+                Event::UserEvent(ted_event) => self.ted_event(ted_event, &mut commands),
                 Event::RedrawRequested(window_id) => self.draw(window_id),
                 _ => (),
             }
@@ -62,23 +64,21 @@ impl Handler {
         self.view.draw(&mut self.file, &mut self.cache);
     }
 
-    fn ted_event(&mut self, evt: TedEvent) {
+    fn ted_event(&mut self, evt: TedEvent, commands: &mut Vec<TedCommand>) {
         match evt {
             TedEvent::Tick(tick) => {
                 if tick % 12 == 0 {
-                    self.view.toggle_cursor_blink(&self.window);
+                    self.view.toggle_cursor_blink(commands);
                 }
             }
         }
     }
 
-    fn window_event(&mut self, flow: &mut ControlFlow, event: WindowEvent, id: WindowId) {
-        let mut command_list: Vec<TedCommand> = Vec::new();
-
+    fn window_event(&mut self, event: WindowEvent, id: WindowId, commands: &mut Vec<TedCommand>) {
         match event {
             WindowEvent::CloseRequested => {
                 if self.window.id() == id {
-                    *flow = ControlFlow::Exit;
+                    commands.push(TedCommand::Exit);
                 }
             }
 
@@ -107,21 +107,21 @@ impl Handler {
                 }
 
                 if let Some(direction) = Direction::from_arrow_key(key) {
-                    self.view.cursor_move(direction, &mut command_list);
+                    self.view.cursor_move(direction, commands);
                     return;
                 }
 
                 if key == event::VirtualKeyCode::Back {
-                    self.view.delete(&self.window, &mut self.file);
+                    self.view.delete(&self.file, commands);
                     return;
                 }
 
-                let c = match keycode_char(modifiers, key) {
+                let c = match keycode_str(modifiers, key) {
                     Some(c) => c,
                     None => return,
                 };
 
-                self.view.insert_char(&self.window, &mut self.file, c);
+                self.view.insert(&self.window, &mut self.file, c);
             }
 
             _ => {}
@@ -130,7 +130,10 @@ impl Handler {
 }
 
 // https://docs.rs/winit/0.26.0/winit/event/enum.VirtualKeyCode.html
-fn keycode_char(modifiers: event::ModifiersState, key: event::VirtualKeyCode) -> Option<char> {
+fn keycode_str(
+    modifiers: event::ModifiersState,
+    key: event::VirtualKeyCode,
+) -> Option<&'static str> {
     use event::VirtualKeyCode::*;
 
     let shift = modifiers.shift();
@@ -146,46 +149,46 @@ fn keycode_char(modifiers: event::ModifiersState, key: event::VirtualKeyCode) ->
     }
 
     let c = match key {
-        A => shift!('a', 'A'),
-        B => shift!('b', 'B'),
-        C => shift!('c', 'C'),
-        D => shift!('d', 'D'),
-        E => shift!('e', 'E'),
-        F => shift!('f', 'F'),
-        G => shift!('g', 'G'),
-        H => shift!('h', 'H'),
-        I => shift!('i', 'I'),
-        J => shift!('j', 'J'),
-        K => shift!('k', 'K'),
-        L => shift!('l', 'L'),
-        M => shift!('m', 'M'),
-        N => shift!('n', 'N'),
-        O => shift!('o', 'O'),
-        P => shift!('p', 'P'),
-        Q => shift!('q', 'Q'),
-        R => shift!('r', 'R'),
-        S => shift!('s', 'S'),
-        T => shift!('t', 'T'),
-        U => shift!('u', 'U'),
-        V => shift!('v', 'V'),
-        W => shift!('w', 'W'),
-        X => shift!('x', 'X'),
-        Y => shift!('y', 'Y'),
-        Z => shift!('z', 'Z'),
+        A => shift!("a", "A"),
+        B => shift!("b", "B"),
+        C => shift!("c", "C"),
+        D => shift!("d", "D"),
+        E => shift!("e", "E"),
+        F => shift!("f", "F"),
+        G => shift!("g", "G"),
+        H => shift!("h", "H"),
+        I => shift!("i", "I"),
+        J => shift!("j", "J"),
+        K => shift!("k", "K"),
+        L => shift!("l", "L"),
+        M => shift!("m", "M"),
+        N => shift!("n", "N"),
+        O => shift!("o", "O"),
+        P => shift!("p", "P"),
+        Q => shift!("q", "Q"),
+        R => shift!("r", "R"),
+        S => shift!("s", "S"),
+        T => shift!("t", "T"),
+        U => shift!("u", "U"),
+        V => shift!("v", "V"),
+        W => shift!("w", "W"),
+        X => shift!("x", "X"),
+        Y => shift!("y", "Y"),
+        Z => shift!("z", "Z"),
 
-        Key1 => shift!('1', '!'),
-        Key2 => shift!('2', '@'),
-        Key3 => shift!('3', '#'),
-        Key4 => shift!('4', '$'),
-        Key5 => shift!('5', '%'),
-        Key6 => shift!('6', '^'),
-        Key7 => shift!('7', '&'),
-        Key8 => shift!('8', '*'),
-        Key9 => shift!('9', '('),
-        Key0 => shift!('0', ')'),
+        Key1 => shift!("1", "!"),
+        Key2 => shift!("2", "@"),
+        Key3 => shift!("3", "#"),
+        Key4 => shift!("4", "$"),
+        Key5 => shift!("5", "%"),
+        Key6 => shift!("6", "^"),
+        Key7 => shift!("7", "&"),
+        Key8 => shift!("8", "*"),
+        Key9 => shift!("9", "("),
+        Key0 => shift!("0", ")"),
 
-        Return => '\n',
-        Space => ' ',
+        Return => "\n",
+        Space => " ",
 
         _ => return None,
     };
