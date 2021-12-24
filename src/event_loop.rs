@@ -1,3 +1,4 @@
+use crate::data::*;
 use crate::graphics::*;
 use crate::text::*;
 use crate::util::*;
@@ -6,11 +7,6 @@ use winit::event;
 use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::ControlFlow;
 use winit::window::{Window, WindowId};
-
-#[cfg_attr(debug_assertions, derive(Debug))]
-pub enum TedEvent {
-    Tick(usize),
-}
 
 pub struct Handler {
     // This should be global

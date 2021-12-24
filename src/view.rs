@@ -275,7 +275,7 @@ impl View {
         return true;
     }
 
-    pub fn draw(&mut self, text: &mut File, glyphs: &mut GlyphCache) {
+    pub fn draw(&mut self, text: &File, glyphs: &mut GlyphCache) {
         let cursor_pos = self.cursor_blink_on.then(|| self.cursor_pos);
 
         let mut pt = match text.text_after_cursor(self.start) {
