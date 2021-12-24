@@ -282,6 +282,57 @@ impl GlyphCache {
     }
 }
 
+// Copy-pasted from the RustFont, because that's both easier and better than adding
+// it as a dependency
+
+/*
+///The "vertical metrics" for this font at a given scale. These metrics are
+/// shared by all of the glyphs in the font. See `VMetrics` for more detail.
+pub fn v_metrics(&self, scale: Scale) -> VMetrics {
+    self.v_metrics_unscaled() * self.scale_for_pixel_height(scale.y)
+}
+
+/// Get the unscaled VMetrics for this font, shared by all glyphs.
+/// See `VMetrics` for more detail.
+pub fn v_metrics_unscaled(&self) -> VMetrics {
+    let font = self.inner();
+    VMetrics {
+        ascent: font.ascender() as f32,
+        descent: font.descender() as f32,
+        line_gap: font.line_gap() as f32,
+    }
+}
+
+/// Computes a scale factor to produce a font whose "height" is 'pixels'
+/// tall. Height is measured as the distance from the highest ascender
+/// to the lowest descender; in other words, it's equivalent to calling
+/// GetFontVMetrics and computing:
+///       scale = pixels / (ascent - descent)
+/// so if you prefer to measure height by the ascent only, use a similar
+/// calculation.
+pub fn scale_for_pixel_height(&self, height: f32) -> f32 {
+    let inner = self.inner();
+    let fheight = f32::from(inner.ascender()) - f32::from(inner.descender());
+    height / fheight
+}
+
+
+/// Retrieves the "horizontal metrics" of this glyph. See `HMetrics` for
+/// more detail.
+pub fn h_metrics(&self) -> HMetrics {
+    let inner = self.font().inner();
+    let id = self.id().into();
+
+    let advance = inner.glyph_hor_advance(id).unwrap();
+    let left_side_bearing = inner.glyph_hor_side_bearing(id).unwrap();
+
+    HMetrics {
+        advance_width: advance as f32 * self.scale.x,
+        left_side_bearing: left_side_bearing as f32 * self.scale.x,
+    }
+}
+*/
+
 fn char_dimensions(face: &ttf::Face, scale: f32, c: char) -> (u32, u32) {
     let glyph_id = face.glyph_index(c).unwrap();
     let rect = match face.glyph_bounding_box(glyph_id) {
