@@ -47,6 +47,8 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Custom display stuffs, for e.g. display of binary files and zip files
 
 ## Far in the Future
+- View just outputs glyph information, graphics backend translates glyph info into
+  rendering to user
 - Customization?
 - Syntax highlighting; probably just make something super duper simple
 - Client-server architecture so that we can have nice things

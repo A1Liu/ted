@@ -14,6 +14,8 @@ pub struct TextShader {
 
     // Uniform Locations
     u_dims: ULoc,
+    u_clip_begin: ULoc,
+    u_clip_end: ULoc,
     u_atlas_dims: ULoc,
     u_glyph_atlas: ULoc,
 
@@ -35,6 +37,8 @@ impl TextShader {
         let in_glyph_pos = gl.attr_buffer(&program, "in_glyph_pos")?;
 
         let u_dims = gl.uloc(&program, "u_dims")?;
+        let u_clip_begin = gl.uloc(&program, "u_clip_begin")?;
+        let u_clip_end = gl.uloc(&program, "u_clip_end")?;
         let u_atlas_dims = gl.uloc(&program, "u_atlas_dims")?;
         let u_glyph_atlas = gl.uloc(&program, "u_glyph_atlas")?;
 
@@ -48,6 +52,8 @@ impl TextShader {
             in_glyph_pos,
 
             u_glyph_atlas,
+            u_clip_begin,
+            u_clip_end,
             u_dims,
             u_atlas_dims,
 
@@ -57,6 +63,7 @@ impl TextShader {
 
     pub fn render(
         &self,
+        is_lines: bool,
         atlas: Option<&[u8]>,
         block_types: &[BlockType],
         glyphs: &[Glyph],
@@ -87,6 +94,19 @@ impl TextShader {
         };
 
         gl.bind_uniform(&self.u_atlas_dims, u_atlas_dims);
+
+        // TODO(HACK) Line numbers require space on the left-hand side. Instead
+        // of actually calculating how much space we need, we will just use
+        // whatever random number looks ok for now. Eventually we should replace
+        // 'is_lines' with actual offsets, likely in clip-space units
+        //                              - Albert Liu, Dec 24, 2021 Fri 15:31 EST
+        let (begin, end) = match is_lines {
+            true => (-1.0f32, -0.8f32),
+            false => (-0.8f32, 1.0f32),
+        };
+
+        gl.bind_uniform(&self.u_clip_begin, begin);
+        gl.bind_uniform(&self.u_clip_end, end);
 
         gl.draw((dims.x * dims.y * 6) as i32);
 

@@ -104,6 +104,7 @@ impl View {
             }
         };
 
+        // Fill remaining glyphs with the empty glyph
         for y in pt.y..self.dims.y {
             let len = (self.dims.x - pt.x) as usize;
             let idx = (y * self.dims.x + pt.x) as usize;
@@ -112,7 +113,7 @@ impl View {
             pt.x = 0;
         }
 
-        // clear state
+        // clear block state
         for block_type in &mut self.block_types {
             *block_type = BlockType::Normal;
         }
@@ -128,6 +129,7 @@ impl View {
 
         let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
             shader.render(
+                false,
                 atlas,
                 &self.block_types,
                 &self.glyphs,
@@ -137,6 +139,8 @@ impl View {
 
             return Ok(());
         });
+
+        // render line numbers
 
         expect(result);
     }
