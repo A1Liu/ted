@@ -73,6 +73,7 @@ impl View {
 
         match command {
             CursorMove(direction) => self.cursor_move(direction, output),
+            ToggleCursorBlink => self.toggle_cursor_blink(output),
             Insert { text } => self.insert(file, text, output),
             Delete {} => self.delete(file, output),
             FlowCursor { index } => self.flow_cursor(file, index),

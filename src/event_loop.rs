@@ -14,27 +14,15 @@ pub enum TedEvent {
 }
 
 pub struct Handler {
-    // This should be global
-    cache: GlyphCache,
-
-    // These eventually should not be
+    command_handler: CommandHandler,
     window: Window,
-    view: View,
-    file: File,
 }
 
 impl Handler {
     pub fn new(window: Window, text: String) -> Self {
-        let mut cache = GlyphCache::new();
-        let view = View::new(new_rect(28, 15), &mut cache);
-        let mut file = File::new();
-        file.push_str(&text);
-
         return Self {
-            cache,
+            command_handler: CommandHandler::new(text),
             window,
-            view,
-            file,
         };
     }
 
@@ -59,21 +47,26 @@ impl Handler {
                     self.window_event(event, window_id, &mut commands)
                 }
                 Event::UserEvent(ted_event) => self.ted_event(ted_event, &mut commands),
-                Event::RedrawRequested(window_id) => self.draw(window_id),
+                Event::RedrawRequested(window_id) => self.draw(window_id, &mut commands),
                 _ => (),
             }
+
+            self.command_handler.run(&self.window, flow, commands);
         };
     }
 
-    fn draw(&mut self, window_id: WindowId) {
-        self.view.draw(&mut self.file, &mut self.cache);
+    fn draw(&mut self, window_id: WindowId, commands: &mut Vec<TedCommand>) {
+        commands.push(TedCommand::Draw);
     }
 
     fn ted_event(&mut self, evt: TedEvent, commands: &mut Vec<TedCommand>) {
         match evt {
             TedEvent::Tick(tick) => {
                 if tick % 12 == 0 {
-                    self.view.toggle_cursor_blink(commands);
+                    commands.push(TedCommand::ForView {
+                        command: ViewCommand::ToggleCursorBlink,
+                    });
+                    // self.view.toggle_cursor_blink(commands);
                 }
             }
         }
@@ -112,12 +105,16 @@ impl Handler {
                 }
 
                 if let Some(direction) = Direction::from_arrow_key(key) {
-                    self.view.cursor_move(direction, commands);
+                    commands.push(TedCommand::ForView {
+                        command: ViewCommand::CursorMove(direction),
+                    });
                     return;
                 }
 
                 if key == event::VirtualKeyCode::Back {
-                    self.view.delete(&self.file, commands);
+                    commands.push(TedCommand::ForView {
+                        command: ViewCommand::Delete,
+                    });
                     return;
                 }
 
@@ -126,7 +123,9 @@ impl Handler {
                     None => return,
                 };
 
-                self.view.insert(&self.file, c, commands);
+                commands.push(TedCommand::ForView {
+                    command: ViewCommand::Insert { text: c },
+                });
             }
 
             _ => {}
