@@ -64,7 +64,7 @@ pub struct CommandHandler {
 impl CommandHandler {
     pub fn new(text: String) -> Self {
         let mut cache = GlyphCache::new();
-        let view = View::new(new_rect(28, 15), &mut cache);
+        let view = View::new(new_rect(35, 20), &mut cache);
         let mut file = File::new();
         file.push(&text);
 

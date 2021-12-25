@@ -101,8 +101,8 @@ impl TextShader {
         // 'is_lines' with actual offsets, likely in clip-space units
         //                              - Albert Liu, Dec 24, 2021 Fri 15:31 EST
         let (begin, end) = match is_lines {
-            true => (-1.0f32, -0.8f32),
-            false => (-0.8f32, 1.0f32),
+            true => (-1.0f32, -0.9f32),
+            false => (-0.9f32, 1.0f32),
         };
 
         gl.bind_uniform(&self.u_clip_begin, begin);
