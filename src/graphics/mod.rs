@@ -1,10 +1,9 @@
 mod fonts;
 mod webgl;
 
+use crate::util::*;
 pub use fonts::*;
 pub use webgl::*;
-
-use crate::util::*;
 
 pub struct TextShader {
     program: Program,

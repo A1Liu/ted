@@ -1,4 +1,3 @@
-use super::webgl::*;
 use crate::util::*;
 use mint::Point2;
 use std::collections::hash_map::HashMap;
@@ -366,21 +365,6 @@ fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData 
         dims: new_rect(width, height),
         data,
     };
-}
-
-impl WebGlType for Glyph {
-    const GL_TYPE: u32 = Context::UNSIGNED_INT;
-    const SIZE: i32 = 2;
-
-    unsafe fn view(array: &[Self]) -> js_sys::Object {
-        let ptr = array.as_ptr() as *const u32;
-        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 2 * 6);
-        return js_sys::Uint32Array::view(buffer).into();
-    }
-
-    fn is_int() -> bool {
-        return true;
-    }
 }
 
 pub struct Builder {

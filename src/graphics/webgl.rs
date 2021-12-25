@@ -1,3 +1,4 @@
+use super::fonts::*;
 use crate::util::*;
 use js_sys::Object;
 pub use web_sys::WebGl2RenderingContext as Context;
@@ -22,6 +23,104 @@ where
 
     fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
         unimplemented!();
+    }
+}
+
+impl WebGlType for Glyph {
+    const GL_TYPE: u32 = Context::UNSIGNED_INT;
+    const SIZE: i32 = 2;
+
+    unsafe fn view(array: &[Self]) -> js_sys::Object {
+        let ptr = array.as_ptr() as *const u32;
+        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 2 * 6);
+        return js_sys::Uint32Array::view(buffer).into();
+    }
+
+    fn is_int() -> bool {
+        return true;
+    }
+}
+
+impl WebGlType for f32 {
+    const GL_TYPE: u32 = Context::FLOAT;
+    const SIZE: i32 = 1;
+
+    unsafe fn view(array: &[Self]) -> Object {
+        return js_sys::Float32Array::view(array).into();
+    }
+
+    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
+        ctx.uniform1f(loc, self);
+    }
+}
+
+impl WebGlType for u32 {
+    const GL_TYPE: u32 = Context::UNSIGNED_INT;
+    const SIZE: i32 = 1;
+
+    unsafe fn view(array: &[Self]) -> Object {
+        return js_sys::Uint32Array::view(array).into();
+    }
+
+    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
+        ctx.uniform1ui(loc, self);
+    }
+}
+
+impl WebGlType for Vector2<f32> {
+    const GL_TYPE: u32 = Context::FLOAT;
+    const SIZE: i32 = 2;
+
+    unsafe fn view(array: &[Self]) -> js_sys::Object {
+        let ptr = array.as_ptr() as *const f32;
+        let buffer: &[f32] = core::slice::from_raw_parts(ptr, array.len() * 2);
+        return js_sys::Float32Array::view(buffer).into();
+    }
+
+    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
+        ctx.uniform2f(loc, self.x, self.y);
+    }
+
+    fn is_int() -> bool {
+        return true;
+    }
+}
+
+impl WebGlType for Vector3<u32> {
+    const GL_TYPE: u32 = Context::UNSIGNED_INT;
+    const SIZE: i32 = 3;
+
+    unsafe fn view(array: &[Self]) -> js_sys::Object {
+        let ptr = array.as_ptr() as *const u32;
+        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 3);
+        return js_sys::Uint32Array::view(buffer).into();
+    }
+
+    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
+        ctx.uniform3ui(loc, self.x, self.y, self.z);
+    }
+
+    fn is_int() -> bool {
+        return true;
+    }
+}
+
+impl WebGlType for Point2<u32> {
+    const GL_TYPE: u32 = Context::UNSIGNED_INT;
+    const SIZE: i32 = 2;
+
+    unsafe fn view(array: &[Self]) -> js_sys::Object {
+        let ptr = array.as_ptr() as *const u32;
+        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 2);
+        return js_sys::Uint32Array::view(buffer).into();
+    }
+
+    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
+        ctx.uniform2ui(loc, self.x, self.y);
+    }
+
+    fn is_int() -> bool {
+        return true;
     }
 }
 
@@ -266,89 +365,6 @@ fn link_program(
         Err(ctx
             .get_program_info_log(&program)
             .unwrap_or_else(|| String::from("Unknown error creating program object")))
-    }
-}
-
-impl WebGlType for f32 {
-    const GL_TYPE: u32 = Context::FLOAT;
-    const SIZE: i32 = 1;
-
-    unsafe fn view(array: &[Self]) -> Object {
-        return js_sys::Float32Array::view(array).into();
-    }
-
-    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
-        ctx.uniform1f(loc, self);
-    }
-}
-
-impl WebGlType for u32 {
-    const GL_TYPE: u32 = Context::UNSIGNED_INT;
-    const SIZE: i32 = 1;
-
-    unsafe fn view(array: &[Self]) -> Object {
-        return js_sys::Uint32Array::view(array).into();
-    }
-
-    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
-        ctx.uniform1ui(loc, self);
-    }
-}
-
-impl WebGlType for Vector2<f32> {
-    const GL_TYPE: u32 = Context::FLOAT;
-    const SIZE: i32 = 2;
-
-    unsafe fn view(array: &[Self]) -> js_sys::Object {
-        let ptr = array.as_ptr() as *const f32;
-        let buffer: &[f32] = core::slice::from_raw_parts(ptr, array.len() * 2);
-        return js_sys::Float32Array::view(buffer).into();
-    }
-
-    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
-        ctx.uniform2f(loc, self.x, self.y);
-    }
-
-    fn is_int() -> bool {
-        return true;
-    }
-}
-
-impl WebGlType for Vector3<u32> {
-    const GL_TYPE: u32 = Context::UNSIGNED_INT;
-    const SIZE: i32 = 3;
-
-    unsafe fn view(array: &[Self]) -> js_sys::Object {
-        let ptr = array.as_ptr() as *const u32;
-        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 3);
-        return js_sys::Uint32Array::view(buffer).into();
-    }
-
-    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
-        ctx.uniform3ui(loc, self.x, self.y, self.z);
-    }
-
-    fn is_int() -> bool {
-        return true;
-    }
-}
-
-impl WebGlType for Point2<u32> {
-    const GL_TYPE: u32 = Context::UNSIGNED_INT;
-    const SIZE: i32 = 2;
-
-    unsafe fn view(array: &[Self]) -> js_sys::Object {
-        let ptr = array.as_ptr() as *const u32;
-        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 2);
-        return js_sys::Uint32Array::view(buffer).into();
-    }
-
-    fn bind_uniform(self, ctx: &Context, loc: Option<&web_sys::WebGlUniformLocation>) {
-        ctx.uniform2ui(loc, self.x, self.y);
-    }
-
-    fn is_int() -> bool {
-        return true;
     }
 }
 

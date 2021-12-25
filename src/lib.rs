@@ -14,7 +14,7 @@
 #[macro_use]
 mod print_utils;
 
-mod commands;
+mod graphics;
 mod text;
 mod util;
 
@@ -22,10 +22,10 @@ mod util;
 mod view;
 
 #[cfg(target_arch = "wasm32")]
-mod event_loop;
+mod commands;
 
 #[cfg(target_arch = "wasm32")]
-mod graphics;
+mod event_loop;
 
 #[cfg(target_arch = "wasm32")]
 pub use wasm_exports::*;
