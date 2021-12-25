@@ -30,8 +30,9 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
 
 ## Next Up
-- Line numbers
 - Refactor and test the command system
+- Refactor `flow_text` to have enough flexibility for the line wrapping issue
+  and ideally more stuff in the future
 - Text colors/spans
 - Mouse support
 - Make text less ugly
@@ -47,8 +48,8 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Custom display stuffs, for e.g. display of binary files and zip files
 
 ## Far in the Future
-- View just outputs glyph information, graphics backend translates glyph info into
-  rendering to user
+- View just outputs glyph information, graphics backend translates glyph info
+  into rendering to user
 - Customization?
 - Syntax highlighting; probably just make something super duper simple
 - Client-server architecture so that we can have nice things
