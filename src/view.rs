@@ -357,6 +357,7 @@ impl View {
         output.push(TedCommand::RequestRedraw);
     }
 
+    // TODO This should maybe include settings and whatnot
     fn cursor_move(&mut self, direction: Direction, output: &mut Vec<TedCommand>) {
         match direction {
             Direction::Up => {
@@ -464,7 +465,10 @@ where
         // full newline terminated lines to only extend to an additional line
         // when absolutely necessary, like when the user wants to append to a full
         // line. Right now, we just always add an extra blank visual line. It looks
-        // kinda ugly though.
+        // kinda ugly though. We probably want to do a generalization/flexibility
+        // pass on the flow_text procedure altogether, and allow for more of these
+        // kinds of decisions to be made by the callee. Maybe transition to state
+        // machine while loop kind of deal?
         state.pos.x += write_len;
         if state.pos.x >= dims.x {
             state.pos.x = 0;

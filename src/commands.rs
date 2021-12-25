@@ -61,6 +61,9 @@ pub struct CommandHandler {
     file: File,
 }
 
+// TODO this should use a stack instead of a queue, and also the pattern of passing
+// a mutable Vec might not be the best once the switch to a stack happens. Maybe
+// just return a Vec?
 impl CommandHandler {
     pub fn new(text: String) -> Self {
         let mut cache = GlyphCache::new();
