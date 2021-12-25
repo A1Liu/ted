@@ -90,8 +90,8 @@ impl WebGl {
 
     pub fn draw(&self, triangles: i32) {
         return WEB_GL.with(|ctx| {
-            ctx.clear_color(0.0, 0.0, 0.0, 1.0);
-            ctx.clear(Context::COLOR_BUFFER_BIT);
+            // ctx.clear_color(0.0, 0.0, 0.0, 1.0);
+            // ctx.clear(Context::COLOR_BUFFER_BIT);
             ctx.draw_arrays(Context::TRIANGLES, 0, triangles);
         });
     }

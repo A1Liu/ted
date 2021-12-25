@@ -78,14 +78,32 @@ impl View {
         }
     }
 
-    pub fn draw(&mut self, text: &File, glyphs: &mut GlyphCache) {
+    pub fn draw(&mut self, file: &File, glyphs: &mut GlyphCache) {
         let cursor_pos = self.cursor_blink_on.then(|| self.cursor_pos);
 
-        let mut pt = match text.text_after_cursor(self.start) {
-            None => Point2 { x: 0, y: 0 },
+        let mut line_numbers = Vec::with_capacity(self.dims.y as usize);
+        let mut display_line = Some(1);
+
+        let mut pt = match file.text_after_cursor(self.start) {
+            None => {
+                line_numbers.push(display_line.take());
+
+                Point2 { x: 0, y: 0 }
+            }
             Some(text) => {
+                let mut line = file.line_for_cursor(self.start).unwrap() + 1;
+                display_line = Some(line);
+
                 let state = flow_text(text, self.dims, |state, write_len, c| {
                     let idx = (state.pos.y * self.dims.x + state.pos.x) as usize;
+                    if state.pos.x == 0 {
+                        line_numbers.push(display_line.take());
+                    }
+
+                    if c == '\n' {
+                        line += 1;
+                        display_line = Some(line);
+                    }
 
                     if c.is_whitespace() {
                         self.glyphs[idx..(idx + write_len)].fill(EMPTY_GLYPH);
@@ -106,12 +124,66 @@ impl View {
 
         // Fill remaining glyphs with the empty glyph
         for y in pt.y..self.dims.y {
+            if pt.x == 0 {
+                line_numbers.push(display_line.take());
+            }
+
             let len = (self.dims.x - pt.x) as usize;
             let idx = (y * self.dims.x + pt.x) as usize;
 
             self.glyphs[idx..(idx + len)].fill(EMPTY_GLYPH);
             pt.x = 0;
         }
+
+        assert_eq!(line_numbers.len(), self.dims.y as usize);
+
+        const LINES_WIDTH: usize = 3;
+        let (line_block_types, line_glyphs) = {
+            let size = LINES_WIDTH * self.dims.y as usize;
+            let mut number_glyphs = Vec::with_capacity(size);
+            let mut line_block_types = Vec::with_capacity(size);
+
+            for _ in 0..size {
+                line_block_types.push(BlockType::Normal);
+            }
+
+            for line in &line_numbers {
+                let mut write_to: &mut [u8] = &mut [b' '; LINES_WIDTH];
+
+                if let Some(line) = line {
+                    use std::io::Write;
+                    write!(write_to, "{: >width$}", line, width = LINES_WIDTH).unwrap();
+                }
+
+                let c_str = core::str::from_utf8(write_to).unwrap();
+                let glyph_list = glyphs.translate_glyphs(c_str);
+                self.did_raster = self.did_raster || glyph_list.did_raster;
+                number_glyphs.extend_from_slice(&glyph_list.glyphs);
+            }
+
+            (line_block_types, number_glyphs)
+        };
+
+        let mut atlas = self.did_raster.then(|| glyphs.atlas());
+        self.did_raster = false;
+        let atlas_dims = glyphs.atlas_dims();
+
+        // render line numbers
+        let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
+            shader.render(
+                true,
+                atlas.take(),
+                &line_block_types,
+                &line_glyphs,
+                atlas_dims,
+                Rect {
+                    x: LINES_WIDTH as u32,
+                    y: self.dims.y,
+                },
+            )?;
+
+            return Ok(());
+        });
 
         // clear block state
         for block_type in &mut self.block_types {
@@ -122,10 +194,6 @@ impl View {
             let idx = self.cursor_pos.y * self.dims.x + self.cursor_pos.x;
             self.block_types[idx as usize] = BlockType::Cursor;
         }
-
-        let atlas = self.did_raster.then(|| glyphs.atlas());
-        self.did_raster = false;
-        let atlas_dims = glyphs.atlas_dims();
 
         let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
             shader.render(
@@ -140,7 +208,10 @@ impl View {
             return Ok(());
         });
 
-        // render line numbers
+        let mut block_types = Vec::with_capacity(4 * self.dims.y as usize);
+        for _ in 0..(4 * self.dims.y) {
+            block_types.push(BlockType::Normal);
+        }
 
         expect(result);
     }

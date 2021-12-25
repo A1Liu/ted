@@ -136,7 +136,7 @@ impl File {
         let (idx, remainder) = self.data.key_leq_idx(idx, BufferInfo::content)?;
         let lines_before = self.data.sum_until(idx, |_, info| info.newline_count)?;
         let bytes = self.data[idx].buffer.as_bytes().iter();
-        let lines = lines_before + bytes.take(remainder).filter(|&&b| b != b'\n').count();
+        let lines = lines_before + bytes.take(remainder).filter(|b| **b != b'\n').count();
 
         return Some(lines);
     }
