@@ -147,18 +147,28 @@ impl View {
                 line_block_types.push(BlockType::Normal);
             }
 
+            let mut write_to;
+            let mut line_glyphs;
             for line in &line_numbers {
-                let mut write_to: &mut [u8] = &mut [b' '; LINES_WIDTH];
+                write_to = [b' '; LINES_WIDTH];
 
                 if let Some(line) = line {
                     use std::io::Write;
-                    write!(write_to, "{: >width$}", line, width = LINES_WIDTH).unwrap();
+
+                    let mut buf: &mut [u8] = &mut write_to;
+                    write!(buf, "{: >width$}", line, width = LINES_WIDTH).unwrap();
                 }
 
-                let c_str = core::str::from_utf8(write_to).unwrap();
-                let glyph_list = glyphs.translate_glyphs(c_str);
-                self.did_raster = self.did_raster || glyph_list.did_raster;
-                number_glyphs.extend_from_slice(&glyph_list.glyphs);
+                line_glyphs = write_to.map(|b| {
+                    let mut tmp = [0; 4];
+                    let c_str = char::from_u32(b as u32).unwrap().encode_utf8(&mut tmp);
+                    let glyph_list = glyphs.translate_glyphs(c_str);
+                    self.did_raster = self.did_raster || glyph_list.did_raster;
+
+                    return glyph_list.glyphs[0];
+                });
+
+                number_glyphs.extend_from_slice(&line_glyphs);
             }
 
             (line_block_types, number_glyphs)
