@@ -94,7 +94,7 @@ impl TextShader {
 
         gl.bind_uniform(&self.u_atlas_dims, u_atlas_dims);
 
-        // TODO(HACK) Line numbers require space on the left-hand side. Instead
+        // TODO(HACK): Line numbers require space on the left-hand side. Instead
         // of actually calculating how much space we need, we will just use
         // whatever random number looks ok for now. Eventually we should replace
         // 'is_lines' with actual offsets, likely in clip-space units

@@ -96,13 +96,17 @@ impl View {
 
                 let state = flow_text(text, self.dims, |state, write_len, c| {
                     let idx = (state.pos.y * self.dims.x + state.pos.x) as usize;
-                    if state.pos.x == 0 {
+                    if state.pos.x == 0 && write_len != 0 {
                         line_numbers.push(display_line.take());
                     }
 
                     if c == '\n' {
                         line += 1;
                         display_line = Some(line);
+                    }
+
+                    if write_len == 0 {
+                        return;
                     }
 
                     if c.is_whitespace() {
@@ -114,7 +118,6 @@ impl View {
                     let c_str = c.encode_utf8(&mut tmp);
                     let glyph_list = glyphs.translate_glyphs(c_str);
                     self.did_raster = self.did_raster || glyph_list.did_raster;
-
                     self.glyphs[idx..(idx + write_len)].fill(glyph_list.glyphs[0]);
                 });
 
@@ -392,6 +395,7 @@ impl View {
 
             let flow = FlowState {
                 index: 0,
+                is_wrapping: false,
                 is_full: false,
                 pos,
             };
@@ -440,6 +444,7 @@ impl View {
 #[derive(Clone, Copy)]
 struct FlowState {
     is_full: bool,
+    is_wrapping: bool,
     pos: Point2<u32>,
     index: usize,
 }
@@ -460,6 +465,7 @@ where
         if state.pos.x >= dims.x {
             state.pos.x = 0;
             state.pos.y += 1;
+            state.is_wrapping = true;
         }
 
         state.is_full = state.pos.y >= dims.y;
@@ -467,14 +473,24 @@ where
 
     let mut state = FlowState {
         is_full: false,
+        is_wrapping: false,
         pos: Point2 { x: 0, y: 0 },
         index: 0,
     };
 
     for text in text {
         for c in text.chars() {
+            let mut found_newline = false;
             let len = match c {
-                '\n' => dims.x - state.pos.x,
+                '\n' => {
+                    found_newline = true;
+
+                    if state.pos.x == 0 && state.is_wrapping {
+                        0
+                    } else {
+                        dims.x - state.pos.x
+                    }
+                }
                 '\t' => 2,
                 c if c.is_control() => {
                     state.index += 1;
@@ -484,6 +500,15 @@ where
             };
 
             place_char(&mut state, len, c);
+
+            // TODO(design): This is a bit weird. Vim even handles this a little
+            // bit weirdly. The point of this is to prevent an exactly full line
+            // from wrapping and then also causing a newline. However, it also
+            // prevents the cursor from being able to append to a full line.
+            if found_newline {
+                state.is_wrapping = false;
+            }
+
             state.index += 1;
             if state.is_full {
                 return state;
