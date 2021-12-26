@@ -4,6 +4,12 @@ use crate::text::*;
 use crate::util::*;
 use winit::event;
 
+// Favor file position when possible
+enum CursorPos {
+    File { pos: usize },
+    Virtual { pos: Point2<u32> },
+}
+
 pub struct View {
     start: usize,
     dims: Rect,
