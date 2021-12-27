@@ -167,6 +167,14 @@ impl File {
     }
 
     pub fn text_after_cursor<'a>(&'a self, cursor: usize) -> Option<TextIter<'a>> {
+        if cursor == 0 {
+            return Some(TextIter {
+                file: self,
+                idx: 0,
+                buffer_idx: 0,
+            });
+        }
+
         let (idx, remainder) = self.data.key_idx(cursor, BufferInfo::content)?;
         let idx = self.data.count_until(idx)?;
 

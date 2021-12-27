@@ -101,7 +101,7 @@ impl View {
                 };
 
                 let state = flow_text(config, |state, params| {
-                    if state.pos.x == 0 {
+                    if state.began_line {
                         line_numbers.push(display_line.take());
                     }
 
@@ -123,9 +123,9 @@ impl View {
                         }
                     }
 
-                    let begin = idx + params.write_len as usize;
-                    let end = idx + (self.dims.x - state.pos.x) as usize;
                     if params.will_wrap {
+                        let begin = idx + params.write_len as usize;
+                        let end = idx + (self.dims.x - state.pos.x) as usize;
                         self.glyphs[begin..end].fill(EMPTY_GLYPH);
                     }
                 });
@@ -410,6 +410,7 @@ impl View {
             let flow = FlowState {
                 index: 0,
                 is_full: false,
+                began_line: true,
                 pos,
             };
 
@@ -473,6 +474,7 @@ struct FlowState {
     is_full: bool,
     pos: Point2<u32>,
     index: usize,
+    began_line: bool,
 }
 
 struct FlowParams {
@@ -501,6 +503,7 @@ where
         is_full: false,
         pos: Point2 { x: 0, y: 0 },
         index: 0,
+        began_line: true,
     };
 
     for text in config.text {
@@ -519,15 +522,11 @@ where
                 }
             };
 
-            let mut will_wrap = false;
+            let mut will_wrap = c == '\n';
             if let Some(width) = config.wrap_width {
                 if state.pos.x + write_len >= width {
                     will_wrap = true;
                 }
-            }
-
-            if c == '\n' {
-                will_wrap = true;
             }
 
             let mut params = FlowParams {
@@ -539,6 +538,7 @@ where
             f(state, &mut params);
 
             state.pos.x += params.write_len;
+            state.began_line = params.will_wrap;
             if params.will_wrap {
                 state.pos.x = 0;
                 state.pos.y += 1;
