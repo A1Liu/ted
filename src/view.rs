@@ -91,15 +91,14 @@ impl View {
                 Point2 { x: 0, y: 0 }
             }
             Some(text) => {
-                let mut line = file.line_for_cursor(self.start).unwrap() + 1;
-                display_line = Some(line);
-
                 let config = FlowConfig {
                     text,
                     wrap_width: Some(self.dims.x),
                     vertical_bound: Some(self.dims.y),
                 };
 
+                let mut line = file.line_for_cursor(self.start).unwrap() + 1;
+                display_line = Some(line);
                 let state = flow_text(config, |state, params| {
                     if state.began_line {
                         line_numbers.push(display_line.take());
@@ -344,12 +343,13 @@ impl View {
         }
 
         // TODO flowing past the end of the screen
-        let mut next_pos = None;
         let config = FlowConfig {
             text: file.text_after_cursor(self.start).unwrap(),
             wrap_width: Some(self.dims.x),
             vertical_bound: Some(self.dims.y),
         };
+
+        let mut next_pos = None;
         let flow = flow_text(config, |state, params| {
             if state.index == index {
                 next_pos = Some(state.pos);
@@ -400,30 +400,13 @@ impl View {
     }
 
     fn file_cursor(&self, file: &File) -> (FlowState, FlowResult) {
-        if file.len() == 0 {
-            let pos = Point2 { x: 0, y: 0 };
-            let result = match self.cursor_pos == pos {
-                true => FlowResult::Found { index: 0 },
-                false => FlowResult::NotFound,
-            };
-
-            let flow = FlowState {
-                index: 0,
-                is_full: false,
-                began_line: true,
-                pos,
-            };
-
-            return (flow, result);
-        }
-
-        let mut result = FlowResult::NotFound;
-        let text = file.text_after_cursor(self.start).unwrap();
         let config = FlowConfig {
-            text,
+            text: file.text_after_cursor(self.start).unwrap(),
             wrap_width: Some(self.dims.x),
             vertical_bound: Some(self.dims.y),
         };
+
+        let mut result = FlowResult::NotFound;
         let flow = flow_text(config, |state, params| {
             if state.pos == self.cursor_pos {
                 result = FlowResult::Found { index: state.index };
