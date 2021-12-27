@@ -79,16 +79,13 @@ impl View {
     }
 
     pub fn draw(&mut self, file: &File, glyphs: &mut GlyphCache) {
-        let cursor_pos = self.cursor_blink_on.then(|| self.cursor_pos);
-
-        let mut line_numbers = Vec::with_capacity(self.dims.y as usize);
-
         let config = FlowConfig {
             text: file.text_after_cursor(self.start).unwrap(),
             wrap_width: Some(self.dims.x),
             vertical_bound: Some(self.dims.y),
         };
 
+        let mut line_numbers = Vec::with_capacity(self.dims.y as usize);
         let mut line = file.line_for_cursor(self.start).unwrap() + 1;
         let mut display_line = Some(line);
         let state = flow_text(config, |state, params| {
@@ -195,6 +192,8 @@ impl View {
 
             return Ok(());
         });
+
+        expect(result);
 
         // clear block state
         for block_type in &mut self.block_types {
