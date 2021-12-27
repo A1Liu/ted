@@ -96,34 +96,38 @@ impl View {
 
                 let config = FlowConfig {
                     text,
-                    dims: self.dims,
+                    wrap_width: Some(self.dims.x),
+                    vertical_bound: Some(self.dims.y),
                 };
 
-                let state = flow_text(config, |state, write_len, c| {
-                    let idx = (state.pos.y * self.dims.x + state.pos.x) as usize;
+                let state = flow_text(config, |state, params| {
                     if state.pos.x == 0 {
                         line_numbers.push(display_line.take());
                     }
 
-                    if c == '\n' {
+                    if params.c == '\n' {
                         line += 1;
                         display_line = Some(line);
                     }
 
-                    if write_len == 0 {
-                        return;
+                    let idx = (state.pos.y * self.dims.x + state.pos.x) as usize;
+                    let write_len = params.write_len as usize;
+                    match params.c.is_whitespace() {
+                        true => self.glyphs[idx..(idx + write_len)].fill(EMPTY_GLYPH),
+                        false => {
+                            let mut tmp = [0; 4];
+                            let c_str = params.c.encode_utf8(&mut tmp);
+                            let glyph_list = glyphs.translate_glyphs(c_str);
+                            self.did_raster = self.did_raster || glyph_list.did_raster;
+                            self.glyphs[idx..(idx + write_len)].fill(glyph_list.glyphs[0]);
+                        }
                     }
 
-                    if c.is_whitespace() {
-                        self.glyphs[idx..(idx + write_len)].fill(EMPTY_GLYPH);
-                        return;
+                    let begin = idx + params.write_len as usize;
+                    let end = idx + (self.dims.x - state.pos.x) as usize;
+                    if params.will_wrap {
+                        self.glyphs[begin..end].fill(EMPTY_GLYPH);
                     }
-
-                    let mut tmp = [0; 4];
-                    let c_str = c.encode_utf8(&mut tmp);
-                    let glyph_list = glyphs.translate_glyphs(c_str);
-                    self.did_raster = self.did_raster || glyph_list.did_raster;
-                    self.glyphs[idx..(idx + write_len)].fill(glyph_list.glyphs[0]);
                 });
 
                 state.pos
@@ -343,9 +347,10 @@ impl View {
         let mut next_pos = None;
         let config = FlowConfig {
             text: file.text_after_cursor(self.start).unwrap(),
-            dims: self.dims,
+            wrap_width: Some(self.dims.x),
+            vertical_bound: Some(self.dims.y),
         };
-        let flow = flow_text(config, |state, write_len, c| {
+        let flow = flow_text(config, |state, params| {
             if state.index == index {
                 next_pos = Some(state.pos);
             }
@@ -415,9 +420,10 @@ impl View {
         let text = file.text_after_cursor(self.start).unwrap();
         let config = FlowConfig {
             text,
-            dims: self.dims,
+            wrap_width: Some(self.dims.x),
+            vertical_bound: Some(self.dims.y),
         };
-        let flow = flow_text(config, |state, write_len, c| {
+        let flow = flow_text(config, |state, params| {
             if state.pos == self.cursor_pos {
                 result = FlowResult::Found { index: state.index };
                 return;
@@ -429,14 +435,14 @@ impl View {
                 r @ FlowResult::NotFound => {
                     if state.pos.y == self.cursor_pos.y {
                         *r = FlowResult::FoundLineBegin { begin: state.index };
-                        if c == '\n' {
+                        if params.c == '\n' {
                             let (pos, begin, end) = (state.pos, state.index, state.index);
                             *r = FlowResult::FoundLine { pos, begin, end };
                         }
                     }
                 }
                 FlowResult::FoundLineBegin { begin } => {
-                    if c == '\n' {
+                    if params.c == '\n' {
                         let (pos, begin, end) = (state.pos, *begin, state.index);
                         result = FlowResult::FoundLine { pos, begin, end };
                         return;
@@ -458,7 +464,8 @@ where
     Iter: Iterator<Item = &'a str>,
 {
     text: Iter,
-    dims: Rect,
+    wrap_width: Option<u32>,
+    vertical_bound: Option<u32>,
 }
 
 #[derive(Clone, Copy)]
@@ -468,37 +475,27 @@ struct FlowState {
     index: usize,
 }
 
+struct FlowParams {
+    write_len: u32,
+    will_wrap: bool,
+    c: char,
+}
+
 // eventually this only cares about width maybe?
 fn flow_text<'a, Iter, F>(config: FlowConfig<'a, Iter>, mut f: F) -> FlowState
 where
     Iter: Iterator<Item = &'a str>,
-    F: FnMut(FlowState, usize, char),
+    F: FnMut(FlowState, &mut FlowParams),
 {
-    let dims = config.dims;
-    let mut place_char = |state: &mut FlowState, write_len: u32, c: char| {
-        if state.pos.y >= dims.y {
-            state.is_full = true;
-        }
-
-        f(*state, write_len as usize, c);
-
-        // TODO(design): This handles full newline-terminated lines a bit weirdly.
-        // To be fair, Vim handles them a little bit weirdly too. Ideally we want
-        // full newline terminated lines to only extend to an additional line
-        // when absolutely necessary, like when the user wants to append to a full
-        // line. Right now, we just always add an extra blank visual line. It looks
-        // kinda ugly though. We probably want to do a generalization/flexibility
-        // pass on the flow_text procedure altogether, and allow for more of these
-        // kinds of decisions to be made by the callee. Maybe transition to state
-        // machine while loop kind of deal?
-        state.pos.x += write_len;
-        if state.pos.x >= dims.x {
-            state.pos.x = 0;
-            state.pos.y += 1;
-        }
-
-        state.is_full = state.pos.y >= dims.y;
-    };
+    // TODO(design): This handles full newline-terminated lines a bit weirdly.
+    // To be fair, Vim handles them a little bit weirdly too. Ideally we want
+    // full newline terminated lines to only extend to an additional line
+    // when absolutely necessary, like when the user wants to append to a full
+    // line. Right now, we just always add an extra blank visual line. It looks
+    // kinda ugly though. We probably want to do a generalization/flexibility
+    // pass on the flow_text procedure altogether, and allow for more of these
+    // kinds of decisions to be made by the callee. Maybe transition to state
+    // machine while loop kind of deal?
 
     let mut state = FlowState {
         is_full: false,
@@ -508,17 +505,50 @@ where
 
     for text in config.text {
         for c in text.chars() {
-            let len = match c {
-                '\n' => dims.x - state.pos.x,
+            let write_len = match c {
+                '\n' => 0,
                 '\t' => 2,
-                c if c.is_control() => {
-                    state.index += 1;
-                    continue;
+                c => {
+                    if c.is_control() {
+                        state.index += 1;
+                        continue;
+                    }
+
+                    // TODO grapheme stuffs
+                    1
                 }
-                _ => 1,
             };
 
-            place_char(&mut state, len, c);
+            let mut will_wrap = false;
+            if let Some(width) = config.wrap_width {
+                if state.pos.x + write_len >= width {
+                    will_wrap = true;
+                }
+            }
+
+            if c == '\n' {
+                will_wrap = true;
+            }
+
+            let mut params = FlowParams {
+                write_len,
+                will_wrap,
+                c,
+            };
+
+            f(state, &mut params);
+
+            state.pos.x += params.write_len;
+            if params.will_wrap {
+                state.pos.x = 0;
+                state.pos.y += 1;
+            }
+
+            if let Some(bound) = config.vertical_bound {
+                if state.pos.y >= bound {
+                    state.is_full = true;
+                }
+            }
 
             state.index += 1;
             if state.is_full {
