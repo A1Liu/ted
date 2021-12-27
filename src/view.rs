@@ -94,7 +94,12 @@ impl View {
                 let mut line = file.line_for_cursor(self.start).unwrap() + 1;
                 display_line = Some(line);
 
-                let state = flow_text(text, self.dims, |state, write_len, c| {
+                let config = FlowConfig {
+                    text,
+                    dims: self.dims,
+                };
+
+                let state = flow_text(config, |state, write_len, c| {
                     let idx = (state.pos.y * self.dims.x + state.pos.x) as usize;
                     if state.pos.x == 0 {
                         line_numbers.push(display_line.take());
@@ -335,9 +340,12 @@ impl View {
         }
 
         // TODO flowing past the end of the screen
-        let text = file.text_after_cursor(self.start).unwrap();
         let mut next_pos = None;
-        let flow = flow_text(text, self.dims, |state, write_len, c| {
+        let config = FlowConfig {
+            text: file.text_after_cursor(self.start).unwrap(),
+            dims: self.dims,
+        };
+        let flow = flow_text(config, |state, write_len, c| {
             if state.index == index {
                 next_pos = Some(state.pos);
             }
@@ -405,7 +413,11 @@ impl View {
 
         let mut result = FlowResult::NotFound;
         let text = file.text_after_cursor(self.start).unwrap();
-        let flow = flow_text(text, self.dims, |state, write_len, c| {
+        let config = FlowConfig {
+            text,
+            dims: self.dims,
+        };
+        let flow = flow_text(config, |state, write_len, c| {
             if state.pos == self.cursor_pos {
                 result = FlowResult::Found { index: state.index };
                 return;
@@ -441,6 +453,14 @@ impl View {
     }
 }
 
+struct FlowConfig<'a, Iter>
+where
+    Iter: Iterator<Item = &'a str>,
+{
+    text: Iter,
+    dims: Rect,
+}
+
 #[derive(Clone, Copy)]
 struct FlowState {
     is_full: bool,
@@ -449,10 +469,12 @@ struct FlowState {
 }
 
 // eventually this only cares about width maybe?
-fn flow_text<'a, F>(text: impl Iterator<Item = &'a str>, dims: Rect, mut f: F) -> FlowState
+fn flow_text<'a, Iter, F>(config: FlowConfig<'a, Iter>, mut f: F) -> FlowState
 where
+    Iter: Iterator<Item = &'a str>,
     F: FnMut(FlowState, usize, char),
 {
+    let dims = config.dims;
     let mut place_char = |state: &mut FlowState, write_len: u32, c: char| {
         if state.pos.y >= dims.y {
             state.is_full = true;
@@ -484,7 +506,7 @@ where
         index: 0,
     };
 
-    for text in text {
+    for text in config.text {
         for c in text.chars() {
             let len = match c {
                 '\n' => dims.x - state.pos.x,
