@@ -82,56 +82,46 @@ impl View {
         let cursor_pos = self.cursor_blink_on.then(|| self.cursor_pos);
 
         let mut line_numbers = Vec::with_capacity(self.dims.y as usize);
-        let mut display_line = Some(1);
 
-        let mut pt = match file.text_after_cursor(self.start) {
-            None => {
-                line_numbers.push(display_line.take());
-
-                Point2 { x: 0, y: 0 }
-            }
-            Some(text) => {
-                let config = FlowConfig {
-                    text,
-                    wrap_width: Some(self.dims.x),
-                    vertical_bound: Some(self.dims.y),
-                };
-
-                let mut line = file.line_for_cursor(self.start).unwrap() + 1;
-                display_line = Some(line);
-                let state = flow_text(config, |state, params| {
-                    if state.began_line {
-                        line_numbers.push(display_line.take());
-                    }
-
-                    if params.c == '\n' {
-                        line += 1;
-                        display_line = Some(line);
-                    }
-
-                    let idx = (state.pos.y * self.dims.x + state.pos.x) as usize;
-                    let write_len = params.write_len as usize;
-                    match params.c.is_whitespace() {
-                        true => self.glyphs[idx..(idx + write_len)].fill(EMPTY_GLYPH),
-                        false => {
-                            let mut tmp = [0; 4];
-                            let c_str = params.c.encode_utf8(&mut tmp);
-                            let glyph_list = glyphs.translate_glyphs(c_str);
-                            self.did_raster = self.did_raster || glyph_list.did_raster;
-                            self.glyphs[idx..(idx + write_len)].fill(glyph_list.glyphs[0]);
-                        }
-                    }
-
-                    if params.will_wrap {
-                        let begin = idx + params.write_len as usize;
-                        let end = idx + (self.dims.x - state.pos.x) as usize;
-                        self.glyphs[begin..end].fill(EMPTY_GLYPH);
-                    }
-                });
-
-                state.pos
-            }
+        let config = FlowConfig {
+            text: file.text_after_cursor(self.start).unwrap(),
+            wrap_width: Some(self.dims.x),
+            vertical_bound: Some(self.dims.y),
         };
+
+        let mut line = file.line_for_cursor(self.start).unwrap() + 1;
+        let mut display_line = Some(line);
+        let state = flow_text(config, |state, params| {
+            if state.began_line {
+                line_numbers.push(display_line.take());
+            }
+
+            if params.c == '\n' {
+                line += 1;
+                display_line = Some(line);
+            }
+
+            let idx = (state.pos.y * self.dims.x + state.pos.x) as usize;
+            let write_len = params.write_len as usize;
+            match params.c.is_whitespace() {
+                true => self.glyphs[idx..(idx + write_len)].fill(EMPTY_GLYPH),
+                false => {
+                    let mut tmp = [0; 4];
+                    let c_str = params.c.encode_utf8(&mut tmp);
+                    let glyph_list = glyphs.translate_glyphs(c_str);
+                    self.did_raster = self.did_raster || glyph_list.did_raster;
+                    self.glyphs[idx..(idx + write_len)].fill(glyph_list.glyphs[0]);
+                }
+            }
+
+            if params.will_wrap {
+                let begin = idx + params.write_len as usize;
+                let end = idx + (self.dims.x - state.pos.x) as usize;
+                self.glyphs[begin..end].fill(EMPTY_GLYPH);
+            }
+        });
+
+        let mut pt = state.pos;
 
         // Fill remaining glyphs with the empty glyph
         for y in pt.y..self.dims.y {

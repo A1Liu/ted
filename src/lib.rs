@@ -42,8 +42,7 @@ mod wasm_exports {
     #[global_allocator]
     static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-    const TEXT: &'static str = r#"Welcome to my silly lil WIP text editor.
-Try typing!
+    const TEXT: &'static str = r#"Click here and try typing!
 "#;
 
     #[wasm_bindgen]
