@@ -10,10 +10,6 @@ pub enum TedCommand<'a> {
     Draw,
     Exit,
 
-    InsertText { index: usize, text: &'a str },
-    AppendText { text: &'a str },
-    DeleteText { begin: usize, end: usize },
-
     ForView { command: ViewCommand<'a> },
 }
 
@@ -58,7 +54,6 @@ pub struct CommandHandler {
 
     // These eventually should not be global
     view: View,
-    file: File,
 }
 
 // TODO this should use a stack instead of a queue, and also the pattern of passing
@@ -67,11 +62,9 @@ pub struct CommandHandler {
 impl CommandHandler {
     pub fn new(text: String) -> Self {
         let mut cache = GlyphCache::new();
-        let view = View::new(new_rect(35, 20), &mut cache);
-        let mut file = File::new();
-        file.push(&text);
+        let mut view = View::new(new_rect(35, 20), &text);
 
-        return Self { cache, view, file };
+        return Self { cache, view };
     }
 
     pub fn run(&mut self, window: &Window, flow: &mut ControlFlow, mut commands: Vec<TedCommand>) {
@@ -84,16 +77,10 @@ impl CommandHandler {
             for command in queued {
                 match command {
                     TedCommand::RequestRedraw => window.request_redraw(),
-                    TedCommand::Draw => self.view.draw(&self.file, &mut self.cache),
+                    TedCommand::Draw => self.view.draw(&mut self.cache),
                     TedCommand::Exit => *flow = ControlFlow::Exit,
 
-                    TedCommand::InsertText { index, text } => self.file.insert(index, text),
-                    TedCommand::AppendText { text } => self.file.push(text),
-                    TedCommand::DeleteText { begin, end } => self.file.delete(begin, end),
-
-                    TedCommand::ForView { command } => {
-                        self.view.run(&self.file, command, &mut commands)
-                    }
+                    TedCommand::ForView { command } => self.view.run(command, &mut commands),
                 }
             }
         }

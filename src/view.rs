@@ -6,6 +6,7 @@ use winit::event;
 
 pub struct View {
     start: usize,
+    start_line: usize,
     dims: Rect,
 
     cursor_blink_on: bool,
@@ -41,7 +42,7 @@ enum FlowResult {
 }
 
 impl View {
-    pub fn new(dims: Rect, cache: &mut GlyphCache) -> Self {
+    pub fn new(dims: Rect, s: &str) -> Self {
         let size = (dims.x * dims.y) as usize;
         let mut glyphs = Vec::with_capacity(size);
         let mut block_types = Vec::with_capacity(size);
@@ -52,8 +53,11 @@ impl View {
             glyphs.push(EMPTY_GLYPH);
         }
 
+        visible_text.extend(s.chars());
+
         return Self {
             start: 0,
+            start_line: 0,
             dims,
 
             cursor_blink_on: true,
@@ -66,33 +70,25 @@ impl View {
         };
     }
 
-    pub fn run<'a>(
-        &mut self,
-        file: &File,
-        command: ViewCommand<'a>,
-        output: &mut Vec<TedCommand<'a>>,
-    ) {
+    pub fn run<'a>(&mut self, command: ViewCommand<'a>, output: &mut Vec<TedCommand<'a>>) {
         match command {
             ViewCommand::CursorMove(direction) => self.cursor_move(direction, output),
             ViewCommand::ToggleCursorBlink => self.toggle_cursor_blink(output),
-            ViewCommand::Insert { text } => self.insert(file, text, output),
-            ViewCommand::Delete {} => self.delete(file, output),
-            ViewCommand::FlowCursor { index } => self.flow_cursor(file, index),
+            ViewCommand::Insert { text } => self.insert(text, output),
+            ViewCommand::Delete {} => self.delete(output),
+            ViewCommand::FlowCursor { index } => self.flow_cursor(index),
         }
     }
 
-    pub fn draw(&mut self, file: &File, glyphs: &mut GlyphCache) {
+    pub fn draw(&mut self, glyphs: &mut GlyphCache) {
         let config = FlowConfig {
-            text: file
-                .text_after_cursor(self.start)
-                .unwrap()
-                .flat_map(|s| s.chars()),
+            text: self.visible_text.iter().map(|c| *c),
             wrap_width: Some(self.dims.x),
             vertical_bound: Some(self.dims.y),
         };
 
         let mut line_numbers = Vec::with_capacity(self.dims.y as usize);
-        let mut line = file.line_for_cursor(self.start).unwrap() + 1;
+        let mut line = self.start_line + 1;
         let mut display_line = Some(line);
         let state = flow_text(config, |state, params| {
             if state.began_line {
@@ -232,7 +228,7 @@ impl View {
         expect(result);
     }
 
-    fn set_visible<'a>(&mut self, s: String, output: &mut Vec<TedCommand<'a>>) {
+    pub fn set_visible<'a>(&mut self, s: &str, output: &mut Vec<TedCommand<'a>>) {
         self.visible_text.clear();
 
         // TODO flowing past the end of the screen
@@ -249,13 +245,13 @@ impl View {
         output.push(TedCommand::RequestRedraw);
     }
 
-    fn insert<'a>(&mut self, file: &File, s: &'a str, output: &mut Vec<TedCommand<'a>>) {
+    fn insert<'a>(&mut self, s: &'a str, output: &mut Vec<TedCommand<'a>>) {
         if s.len() == 0 {
             output.push(TedCommand::RequestRedraw);
             return;
         }
 
-        let (flow, result) = self.file_cursor(file);
+        let (flow, result) = self.file_cursor();
 
         let index = match result {
             FlowResult::Found { index } => index,
@@ -263,11 +259,7 @@ impl View {
                 let mut index = begin + pos.x as usize;
                 if s.chars().nth(0).unwrap() != '\n' {
                     for x in pos.x..self.cursor_pos.x {
-                        output.push(TedCommand::InsertText {
-                            index: end,
-                            text: "~",
-                        });
-
+                        self.visible_text.insert(index, '~');
                         index += 1;
                     }
                 }
@@ -279,7 +271,7 @@ impl View {
 
                 if s.chars().nth(0).unwrap() != '\n' {
                     for x in flow.pos.x..self.cursor_pos.x {
-                        output.push(TedCommand::AppendText { text: "~" });
+                        self.visible_text.push('~');
                         index += 1;
                     }
                     index = begin + self.cursor_pos.x as usize;
@@ -290,13 +282,13 @@ impl View {
             FlowResult::NotFound => {
                 let mut index = flow.index;
                 for y in flow.pos.y..self.cursor_pos.y {
-                    output.push(TedCommand::AppendText { text: "\n" });
+                    self.visible_text.push('\n');
                     index += 1;
                 }
 
                 if s.chars().nth(0).unwrap() != '\n' {
                     for x in 0..self.cursor_pos.x {
-                        output.push(TedCommand::AppendText { text: "~" });
+                        self.visible_text.push('~');
                         index += 1;
                     }
                 }
@@ -307,10 +299,7 @@ impl View {
 
         let text_index = self.start + index;
 
-        output.push(TedCommand::InsertText {
-            index: text_index,
-            text: s,
-        });
+        self.visible_text.splice(index..index, s.chars());
 
         let count = s.chars().count();
         output.push(for_view(ViewCommand::FlowCursor {
@@ -320,8 +309,8 @@ impl View {
         output.push(TedCommand::RequestRedraw);
     }
 
-    fn delete(&mut self, file: &File, output: &mut Vec<TedCommand>) {
-        let (flow, result) = self.file_cursor(file);
+    fn delete(&mut self, output: &mut Vec<TedCommand>) {
+        let (flow, result) = self.file_cursor();
 
         let index = match result {
             FlowResult::Found { index } => index,
@@ -337,29 +326,23 @@ impl View {
             return;
         }
 
-        output.push(TedCommand::DeleteText {
-            begin: text_index - 1,
-            end: index,
-        });
+        self.visible_text.remove(index - 1);
 
         output.push(for_view(ViewCommand::FlowCursor { index: index - 1 }));
 
         output.push(TedCommand::RequestRedraw);
     }
 
-    fn flow_cursor(&mut self, file: &File, index: usize) {
+    fn flow_cursor(&mut self, index: usize) {
         self.cursor_blink_on = true;
-        if file.len() == 0 {
+        if self.visible_text.len() == 0 {
             self.cursor_pos = Point2 { x: 0, y: 0 };
             return;
         }
 
         // TODO flowing past the end of the screen
         let config = FlowConfig {
-            text: file
-                .text_after_cursor(self.start)
-                .unwrap()
-                .flat_map(|s| s.chars()),
+            text: self.visible_text.iter().map(|c| *c),
             wrap_width: Some(self.dims.x),
             vertical_bound: Some(self.dims.y),
         };
@@ -414,12 +397,9 @@ impl View {
         output.push(TedCommand::RequestRedraw);
     }
 
-    fn file_cursor(&self, file: &File) -> (FlowState, FlowResult) {
+    fn file_cursor(&self) -> (FlowState, FlowResult) {
         let config = FlowConfig {
-            text: file
-                .text_after_cursor(self.start)
-                .unwrap()
-                .flat_map(|s| s.chars()),
+            text: self.visible_text.iter().map(|c| *c),
             wrap_width: Some(self.dims.x),
             vertical_bound: Some(self.dims.y),
         };
