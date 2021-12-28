@@ -11,6 +11,7 @@ pub struct View {
     cursor_blink_on: bool,
     cursor_pos: Point2<u32>,
 
+    visible_text: Vec<char>,
     block_types: Vec<BlockType>,
     glyphs: Vec<Glyph>,
     did_raster: bool,
@@ -44,6 +45,7 @@ impl View {
         let size = (dims.x * dims.y) as usize;
         let mut glyphs = Vec::with_capacity(size);
         let mut block_types = Vec::with_capacity(size);
+        let mut visible_text = Vec::with_capacity(size);
 
         for _ in 0..size {
             block_types.push(BlockType::Normal);
@@ -57,6 +59,7 @@ impl View {
             cursor_blink_on: true,
             cursor_pos: Point2 { x: 0, y: 0 },
 
+            visible_text,
             block_types,
             glyphs,
             did_raster: true,
