@@ -24,6 +24,7 @@ pub enum ViewCommand<'a> {
     Insert { text: &'a str },
     Delete,
     FlowCursor { index: usize },
+    SetContents { start: usize, text: &'a str },
 }
 
 pub enum Direction {

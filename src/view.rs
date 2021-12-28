@@ -77,6 +77,7 @@ impl View {
             ViewCommand::Insert { text } => self.insert(text, output),
             ViewCommand::Delete {} => self.delete(output),
             ViewCommand::FlowCursor { index } => self.flow_cursor(index),
+            ViewCommand::SetContents { start, text } => self.set_contents(start, text, output),
         }
     }
 
@@ -228,12 +229,13 @@ impl View {
         expect(result);
     }
 
-    pub fn set_visible<'a>(&mut self, s: &str, output: &mut Vec<TedCommand<'a>>) {
+    fn set_contents(&mut self, start: usize, text: &str, output: &mut Vec<TedCommand>) {
+        self.start = start;
         self.visible_text.clear();
 
         // TODO flowing past the end of the screen
         let config = FlowConfig {
-            text: s.chars(),
+            text: text.chars(),
             wrap_width: Some(self.dims.x),
             vertical_bound: Some(self.dims.y),
         };
