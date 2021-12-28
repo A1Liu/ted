@@ -232,6 +232,23 @@ impl View {
         expect(result);
     }
 
+    fn set_visible<'a>(&mut self, s: String, output: &mut Vec<TedCommand<'a>>) {
+        self.visible_text.clear();
+
+        // TODO flowing past the end of the screen
+        let config = FlowConfig {
+            text: s.chars(),
+            wrap_width: Some(self.dims.x),
+            vertical_bound: Some(self.dims.y),
+        };
+
+        flow_text(config, |state, params| {
+            self.visible_text.push(params.c);
+        });
+
+        output.push(TedCommand::RequestRedraw);
+    }
+
     fn insert<'a>(&mut self, file: &File, s: &'a str, output: &mut Vec<TedCommand<'a>>) {
         if s.len() == 0 {
             output.push(TedCommand::RequestRedraw);
