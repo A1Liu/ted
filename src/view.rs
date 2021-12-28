@@ -83,7 +83,10 @@ impl View {
 
     pub fn draw(&mut self, file: &File, glyphs: &mut GlyphCache) {
         let config = FlowConfig {
-            text: file.text_after_cursor(self.start).unwrap(),
+            text: file
+                .text_after_cursor(self.start)
+                .unwrap()
+                .flat_map(|s| s.chars()),
             wrap_width: Some(self.dims.x),
             vertical_bound: Some(self.dims.y),
         };
@@ -336,7 +339,10 @@ impl View {
 
         // TODO flowing past the end of the screen
         let config = FlowConfig {
-            text: file.text_after_cursor(self.start).unwrap(),
+            text: file
+                .text_after_cursor(self.start)
+                .unwrap()
+                .flat_map(|s| s.chars()),
             wrap_width: Some(self.dims.x),
             vertical_bound: Some(self.dims.y),
         };
@@ -393,7 +399,10 @@ impl View {
 
     fn file_cursor(&self, file: &File) -> (FlowState, FlowResult) {
         let config = FlowConfig {
-            text: file.text_after_cursor(self.start).unwrap(),
+            text: file
+                .text_after_cursor(self.start)
+                .unwrap()
+                .flat_map(|s| s.chars()),
             wrap_width: Some(self.dims.x),
             vertical_bound: Some(self.dims.y),
         };
@@ -435,9 +444,9 @@ impl View {
     }
 }
 
-struct FlowConfig<'a, Iter>
+struct FlowConfig<Iter>
 where
-    Iter: Iterator<Item = &'a str>,
+    Iter: Iterator<Item = char>,
 {
     text: Iter,
     wrap_width: Option<u32>,
@@ -459,9 +468,9 @@ struct FlowParams {
 }
 
 // eventually this only cares about width maybe?
-fn flow_text<'a, Iter, F>(config: FlowConfig<'a, Iter>, mut f: F) -> FlowState
+fn flow_text<Iter, F>(config: FlowConfig<Iter>, mut f: F) -> FlowState
 where
-    Iter: Iterator<Item = &'a str>,
+    Iter: Iterator<Item = char>,
     F: FnMut(FlowState, &mut FlowParams),
 {
     // TODO(design): This handles full newline-terminated lines a bit weirdly.
@@ -481,54 +490,52 @@ where
         began_line: true,
     };
 
-    for text in config.text {
-        for c in text.chars() {
-            let write_len = match c {
-                '\n' => 0,
-                '\t' => 2,
-                c => {
-                    if c.is_control() {
-                        state.index += 1;
-                        continue;
-                    }
-
-                    // TODO grapheme stuffs
-                    1
+    for c in config.text {
+        let write_len = match c {
+            '\n' => 0,
+            '\t' => 2,
+            c => {
+                if c.is_control() {
+                    state.index += 1;
+                    continue;
                 }
-            };
 
-            let mut will_wrap = c == '\n';
-            if let Some(width) = config.wrap_width {
-                if state.pos.x + write_len >= width {
-                    will_wrap = true;
-                }
+                // TODO grapheme stuffs
+                1
             }
+        };
 
-            let mut params = FlowParams {
-                write_len,
-                will_wrap,
-                c,
-            };
-
-            f(state, &mut params);
-
-            state.pos.x += params.write_len;
-            state.began_line = params.will_wrap;
-            if params.will_wrap {
-                state.pos.x = 0;
-                state.pos.y += 1;
+        let mut will_wrap = c == '\n';
+        if let Some(width) = config.wrap_width {
+            if state.pos.x + write_len >= width {
+                will_wrap = true;
             }
+        }
 
-            if let Some(bound) = config.vertical_bound {
-                if state.pos.y >= bound {
-                    state.is_full = true;
-                }
-            }
+        let mut params = FlowParams {
+            write_len,
+            will_wrap,
+            c,
+        };
 
-            state.index += 1;
-            if state.is_full {
-                return state;
+        f(state, &mut params);
+
+        state.pos.x += params.write_len;
+        state.began_line = params.will_wrap;
+        if params.will_wrap {
+            state.pos.x = 0;
+            state.pos.y += 1;
+        }
+
+        if let Some(bound) = config.vertical_bound {
+            if state.pos.y >= bound {
+                state.is_full = true;
             }
+        }
+
+        state.index += 1;
+        if state.is_full {
+            return state;
         }
     }
 

@@ -31,14 +31,14 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 
 ## Next Up
 - Refactor and test the command system
-- Refactor `flow_text` to have enough flexibility for the line wrapping issue
-  and ideally more stuff in the future
 - Text colors/spans
 - Mouse support
 - Make text less ugly
 - Select text
 
 ## Mid-term
+- Refactor `flow_text` to have enough flexibility for the line wrapping issue
+  and ideally more stuff in the future
 - BTree Garbage collection
 - Find and replace
 - Multiple canvases on the web
