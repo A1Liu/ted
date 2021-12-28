@@ -302,9 +302,7 @@ impl View {
         self.visible_text.splice(index..index, s.chars());
 
         let count = s.chars().count();
-        output.push(for_view(ViewCommand::FlowCursor {
-            index: index + count,
-        }));
+        self.flow_cursor(index + count);
 
         output.push(TedCommand::RequestRedraw);
     }
@@ -327,8 +325,7 @@ impl View {
         }
 
         self.visible_text.remove(index - 1);
-
-        output.push(for_view(ViewCommand::FlowCursor { index: index - 1 }));
+        self.flow_cursor(index - 1);
 
         output.push(TedCommand::RequestRedraw);
     }
