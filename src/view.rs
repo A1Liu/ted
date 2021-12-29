@@ -485,12 +485,21 @@ where
         newline_count: 0,
     };
 
-    for c in config.text {
-        let mut will_wrap = false;
+    let mut params = FlowParams {
+        write_len: 0,
+        will_wrap: false,
+        c: ' ',
+    };
 
-        let write_len = match c {
+    for c in config.text {
+        if state.is_full {
+            return state;
+        }
+
+        params.will_wrap = false;
+        params.write_len = match c {
             '\n' => {
-                will_wrap = true;
+                params.will_wrap = true;
                 state.newline_count += 1;
 
                 0
@@ -502,18 +511,13 @@ where
             }
             c => 1, // TODO grapheme stuffs
         };
+        params.c = c;
 
         if let Some(width) = config.wrap_width {
-            if state.pos.x + write_len >= width {
-                will_wrap = true;
+            if state.pos.x + params.write_len >= width {
+                params.will_wrap = true;
             }
         }
-
-        let mut params = FlowParams {
-            write_len,
-            will_wrap,
-            c,
-        };
 
         f(state, &mut params);
 
@@ -530,9 +534,6 @@ where
         }
 
         state.index += 1;
-        if state.is_full {
-            return state;
-        }
     }
 
     return state;
