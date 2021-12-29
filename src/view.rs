@@ -88,17 +88,16 @@ impl View {
             vertical_bound: Some(self.dims.y),
         };
 
-        let mut line_numbers = Vec::with_capacity(self.dims.y as usize);
+        let mut line_numbers = vec![None; self.dims.y as usize];
         let mut line = self.start_line + 1;
         let mut display_line = Some(line);
         let state = flow_text(config, |state, params| {
-            if state.began_line {
-                line_numbers.push(display_line.take());
+            if state.pos.x == 0 {
+                line_numbers[state.pos.y as usize] = display_line.take();
             }
 
             if params.c == '\n' {
-                line += 1;
-                display_line = Some(line);
+                display_line = Some(state.newline_count + line);
             }
 
             let idx = (state.pos.y * self.dims.x + state.pos.x) as usize;
@@ -126,7 +125,7 @@ impl View {
         // Fill remaining glyphs with the empty glyph
         for y in pt.y..self.dims.y {
             if pt.x == 0 {
-                line_numbers.push(display_line.take());
+                line_numbers[y as usize] = display_line.take();
             }
 
             let len = (self.dims.x - pt.x) as usize;
@@ -454,7 +453,7 @@ struct FlowState {
     is_full: bool,
     pos: Point2<u32>,
     index: usize,
-    began_line: bool,
+    newline_count: usize,
 }
 
 struct FlowParams {
@@ -483,25 +482,27 @@ where
         is_full: false,
         pos: Point2 { x: 0, y: 0 },
         index: 0,
-        began_line: true,
+        newline_count: 0,
     };
 
     for c in config.text {
-        let write_len = match c {
-            '\n' => 0,
-            '\t' => 2,
-            c => {
-                if c.is_control() {
-                    state.index += 1;
-                    continue;
-                }
+        let mut will_wrap = false;
 
-                // TODO grapheme stuffs
-                1
+        let write_len = match c {
+            '\n' => {
+                will_wrap = true;
+                state.newline_count += 1;
+
+                0
             }
+            '\t' => 2,
+            c if c.is_control() => {
+                state.index += 1;
+                continue;
+            }
+            c => 1, // TODO grapheme stuffs
         };
 
-        let mut will_wrap = c == '\n';
         if let Some(width) = config.wrap_width {
             if state.pos.x + write_len >= width {
                 will_wrap = true;
@@ -517,7 +518,6 @@ where
         f(state, &mut params);
 
         state.pos.x += params.write_len;
-        state.began_line = params.will_wrap;
         if params.will_wrap {
             state.pos.x = 0;
             state.pos.y += 1;
