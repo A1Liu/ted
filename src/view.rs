@@ -298,8 +298,6 @@ impl View {
             }
         };
 
-        let text_index = self.start + index;
-
         self.visible_text.splice(index..index, s.chars());
 
         let count = s.chars().count();
@@ -374,16 +372,19 @@ impl View {
                     self.cursor_pos.y -= 1;
                 }
             }
+
             Direction::Down => {
                 if self.cursor_pos.y < self.dims.y - 1 {
                     self.cursor_pos.y += 1;
                 }
             }
+
             Direction::Left => {
                 if self.cursor_pos.x > 0 {
                     self.cursor_pos.x -= 1;
                 }
             }
+
             Direction::Right => {
                 if self.cursor_pos.x < self.dims.x - 1 {
                     self.cursor_pos.x += 1;
