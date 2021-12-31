@@ -30,12 +30,13 @@ enum FlowResult {
 
     // Visual line, not textual
     FoundLineBegin {
+        end_pos: Point2<u32>,
         begin: usize, // textual index
     },
 
     // Visual line, not textual
     FoundLine {
-        pos: Point2<u32>,
+        end_pos: Point2<u32>,
         begin: usize, // textual index
         end: usize,   // textual index
     },
@@ -256,10 +257,15 @@ impl View {
 
         let index = match result {
             FlowResult::Found { index } => index,
-            FlowResult::FoundLine { pos, begin, end } => {
-                let mut index = begin + pos.x as usize;
+            FlowResult::FoundLine {
+                end_pos,
+                begin,
+                end,
+            } => {
+                let mut index = begin + end_pos.x as usize;
+
                 if s.chars().nth(0).unwrap() != '\n' {
-                    for x in pos.x..self.cursor_pos.x {
+                    for x in end_pos.x..self.cursor_pos.x {
                         self.visible_text.insert(index, '~');
                         index += 1;
                     }
@@ -267,15 +273,15 @@ impl View {
 
                 index
             }
-            FlowResult::FoundLineBegin { begin } => {
-                let mut index = begin + flow.pos.x as usize;
+            FlowResult::FoundLineBegin { end_pos, begin } => {
+                let mut index = begin + end_pos.x as usize;
 
                 if s.chars().nth(0).unwrap() != '\n' {
-                    for x in flow.pos.x..self.cursor_pos.x {
-                        self.visible_text.push('~');
+                    for x in end_pos.x..self.cursor_pos.x {
+                        self.visible_text.insert(index, '~');
                         index += 1;
                     }
-                    index = begin + self.cursor_pos.x as usize;
+                    // index = begin + self.cursor_pos.x as usize;
                 }
 
                 index
@@ -416,25 +422,47 @@ impl View {
                 FlowResult::FoundLine { .. } => return,
                 r @ FlowResult::NotFound => {
                     if state.pos.y == self.cursor_pos.y {
-                        *r = FlowResult::FoundLineBegin { begin: state.index };
                         if params.c == '\n' {
-                            let (pos, begin, end) = (state.pos, state.index, state.index);
-                            *r = FlowResult::FoundLine { pos, begin, end };
+                            let (end_pos, begin, end) = (state.pos, state.index, state.index);
+                            result = FlowResult::FoundLine {
+                                end_pos,
+                                begin,
+                                end,
+                            };
+
+                            return;
                         }
+
+                        result = FlowResult::FoundLineBegin {
+                            end_pos: state.pos,
+                            begin: state.index,
+                        };
                     }
                 }
-                FlowResult::FoundLineBegin { begin } => {
+
+                FlowResult::FoundLineBegin { end_pos, begin } => {
                     if params.c == '\n' {
-                        let (pos, begin, end) = (state.pos, *begin, state.index);
-                        result = FlowResult::FoundLine { pos, begin, end };
+                        let (end_pos, begin, end) = (state.pos, *begin, state.index);
+                        result = FlowResult::FoundLine {
+                            end_pos,
+                            begin,
+                            end,
+                        };
+
                         return;
                     }
+
+                    *end_pos = state.pos;
                 }
             }
         });
 
         if flow.pos == self.cursor_pos {
             result = FlowResult::Found { index: flow.index };
+        }
+
+        if let FlowResult::FoundLineBegin { end_pos, begin } = &mut result {
+            *end_pos = flow.pos;
         }
 
         return (flow, result);
