@@ -252,56 +252,78 @@ impl GlyphCache {
     }
 }
 
-// Copy-pasted from the RustFont, because that's both easier and better than adding
+// The "horizontal metrics" of a glyph. This is useful for calculating the
+// horizontal offset of a glyph from the previous one in a string when laying a
+// string out horizontally.
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+pub struct HMetrics {
+    // The horizontal offset that the origin of the next glyph should be from
+    // the origin of this glyph.
+    pub advance_width: f32,
+    // The horizontal offset between the origin of this glyph and the leftmost
+    // edge/point of the glyph.
+    pub left_side_bearing: f32,
+}
+
+// The "vertical metrics" of a font at a particular scale. This is useful for
+// calculating the amount of vertical space to give a line of text, and for
+// computing the vertical offset between successive lines.
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+pub struct VMetrics {
+    // The highest point that any glyph in the font extends to above the
+    // baseline. Typically positive.
+    pub ascent: f32,
+    // The lowest point that any glyph in the font extends to below the
+    // baseline. Typically negative.
+    pub descent: f32,
+    // The gap to leave between the descent of one line and the ascent of the
+    // next. This is of course only a guideline given by the font's designers.
+    pub line_gap: f32,
+}
+
+// Copy-pasted from the RustType, because that's both easier and better than adding
 // it as a dependency
 
-/*
-///The "vertical metrics" for this font at a given scale. These metrics are
-/// shared by all of the glyphs in the font. See `VMetrics` for more detail.
-pub fn v_metrics(&self, scale: Scale) -> VMetrics {
-    self.v_metrics_unscaled() * self.scale_for_pixel_height(scale.y)
+// The "vertical metrics" for this font at a given scale. These metrics are
+// shared by all of the glyphs in the font. See `VMetrics` for more detail.
+pub fn v_metrics(inner: &ttf::Face, height: f32) -> VMetrics {
+    let scale = scale_for_pixel_height(inner, height);
+
+    let vmetrics = VMetrics {
+        ascent: inner.ascender() as f32 * scale,
+        descent: inner.descender() as f32 * scale,
+        line_gap: inner.line_gap() as f32 * scale,
+    };
+    return vmetrics;
 }
 
-/// Get the unscaled VMetrics for this font, shared by all glyphs.
-/// See `VMetrics` for more detail.
-pub fn v_metrics_unscaled(&self) -> VMetrics {
-    let font = self.inner();
-    VMetrics {
-        ascent: font.ascender() as f32,
-        descent: font.descender() as f32,
-        line_gap: font.line_gap() as f32,
-    }
-}
-
-/// Computes a scale factor to produce a font whose "height" is 'pixels'
-/// tall. Height is measured as the distance from the highest ascender
-/// to the lowest descender; in other words, it's equivalent to calling
-/// GetFontVMetrics and computing:
-///       scale = pixels / (ascent - descent)
-/// so if you prefer to measure height by the ascent only, use a similar
-/// calculation.
-pub fn scale_for_pixel_height(&self, height: f32) -> f32 {
-    let inner = self.inner();
+// Computes a scale factor to produce a font whose "height" is 'pixels'
+// tall. Height is measured as the distance from the highest ascender
+// to the lowest descender; in other words, it's equivalent to calling
+// GetFontVMetrics and computing:
+//       scale = pixels / (ascent - descent)
+// so if you prefer to measure height by the ascent only, use a similar
+// calculation.
+//
+// height is in pixels
+pub fn scale_for_pixel_height(inner: &ttf::Face, height: f32) -> f32 {
     let fheight = f32::from(inner.ascender()) - f32::from(inner.descender());
     height / fheight
 }
 
-
-/// Retrieves the "horizontal metrics" of this glyph. See `HMetrics` for
-/// more detail.
-pub fn h_metrics(&self) -> HMetrics {
-    let inner = self.font().inner();
-    let id = self.id().into();
-
+// Retrieves the "horizontal metrics" of this glyph. See `HMetrics` for
+// more detail.
+//
+// width is in pixels
+pub fn h_metrics(inner: &ttf::Face, id: ttf::GlyphId, width: f32) -> HMetrics {
     let advance = inner.glyph_hor_advance(id).unwrap();
     let left_side_bearing = inner.glyph_hor_side_bearing(id).unwrap();
 
     HMetrics {
-        advance_width: advance as f32 * self.scale.x,
-        left_side_bearing: left_side_bearing as f32 * self.scale.x,
+        advance_width: advance as f32 * width,
+        left_side_bearing: left_side_bearing as f32 * width,
     }
 }
-*/
 
 fn char_dimensions(face: &ttf::Face, scale: f32, c: char) -> (u32, u32) {
     let glyph_id = face.glyph_index(c).unwrap();
