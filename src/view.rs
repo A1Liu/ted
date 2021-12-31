@@ -38,7 +38,6 @@ enum FlowResult {
     FoundLine {
         end_pos: Point2<u32>,
         begin: usize, // textual index
-        end: usize,   // textual index
     },
 }
 
@@ -257,11 +256,7 @@ impl View {
 
         let index = match result {
             FlowResult::Found { index } => index,
-            FlowResult::FoundLine {
-                end_pos,
-                begin,
-                end,
-            } => {
+            FlowResult::FoundLine { end_pos, begin } => {
                 let mut index = begin + end_pos.x as usize;
 
                 if s.chars().nth(0).unwrap() != '\n' {
@@ -281,7 +276,6 @@ impl View {
                         self.visible_text.insert(index, '~');
                         index += 1;
                     }
-                    // index = begin + self.cursor_pos.x as usize;
                 }
 
                 index
@@ -422,32 +416,21 @@ impl View {
                 FlowResult::FoundLine { .. } => return,
                 r @ FlowResult::NotFound => {
                     if state.pos.y == self.cursor_pos.y {
+                        let (end_pos, begin) = (state.pos, state.index);
                         if params.c == '\n' {
-                            let (end_pos, begin, end) = (state.pos, state.index, state.index);
-                            result = FlowResult::FoundLine {
-                                end_pos,
-                                begin,
-                                end,
-                            };
+                            result = FlowResult::FoundLine { end_pos, begin };
 
                             return;
                         }
 
-                        result = FlowResult::FoundLineBegin {
-                            end_pos: state.pos,
-                            begin: state.index,
-                        };
+                        result = FlowResult::FoundLineBegin { end_pos, begin };
                     }
                 }
 
                 FlowResult::FoundLineBegin { end_pos, begin } => {
                     if params.c == '\n' {
-                        let (end_pos, begin, end) = (state.pos, *begin, state.index);
-                        result = FlowResult::FoundLine {
-                            end_pos,
-                            begin,
-                            end,
-                        };
+                        let (end_pos, begin) = (state.pos, *begin);
+                        result = FlowResult::FoundLine { end_pos, begin };
 
                         return;
                     }
