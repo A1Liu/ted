@@ -1,4 +1,5 @@
 use crate::commands::*;
+use crate::flow::*;
 use crate::graphics::*;
 use crate::text::*;
 use crate::util::*;
@@ -77,17 +78,18 @@ impl View {
     // TODO does this need to be more flexible? Do we want to support the terminal
     // target sometime in the future?
     pub fn draw(&mut self, glyphs: &mut GlyphCache) {
-        let config = FlowConfig {
-            text: self.visible_text.iter().map(|c| *c),
-            wrap_width: Some(self.dims.x),
-            vertical_bound: Some(self.dims.y),
-        };
+        let config = FlowConfig::new(
+            self.visible_text.iter().map(|c| *c),
+            Some(self.dims.x),
+            Some(self.dims.y),
+        );
 
         let mut did_raster = false;
 
         let mut line_numbers = vec![None; self.dims.y as usize];
         let mut line = self.start_line + 1;
         let mut display_line = Some(line);
+
         let state = flow_text(config, |state, params| {
             if state.pos.x == 0 {
                 line_numbers[state.pos.y as usize] = display_line.take();
@@ -135,11 +137,7 @@ impl View {
         let (line_block_types, line_glyphs) = {
             let size = LINES_WIDTH * self.dims.y as usize;
             let mut number_glyphs = Vec::with_capacity(size);
-            let mut line_block_types = Vec::with_capacity(size);
-
-            for _ in 0..size {
-                line_block_types.push(BlockType::Normal);
-            }
+            let mut line_block_types = vec![BlockType::Normal; size];
 
             let mut write_to;
             let mut line_glyphs;
@@ -226,15 +224,12 @@ impl View {
         self.visible_text.clear();
 
         // TODO flowing past the end of the screen
-        let config = FlowConfig {
-            text: contents.text.chars(),
-            wrap_width: Some(self.dims.x),
-            vertical_bound: Some(self.dims.y),
-        };
+        let mut config =
+            FlowConfig::new(contents.text.chars(), Some(self.dims.x), Some(self.dims.y));
 
-        flow_text(config, |state, params| {
+        for (state, params) in &mut config {
             self.visible_text.push(params.c);
-        });
+        }
 
         output.push(TedCommand::RequestRedraw);
     }
@@ -318,11 +313,11 @@ impl View {
         }
 
         // TODO flowing past the end of the screen
-        let config = FlowConfig {
-            text: self.visible_text.iter().map(|c| *c),
-            wrap_width: Some(self.dims.x),
-            vertical_bound: Some(self.dims.y),
-        };
+        let config = FlowConfig::new(
+            self.visible_text.iter().map(|c| *c),
+            Some(self.dims.x),
+            Some(self.dims.y),
+        );
 
         let mut next_pos = None;
         let flow = flow_text(config, |state, params| {
@@ -378,11 +373,11 @@ impl View {
     }
 
     fn file_cursor(&self) -> (FlowState, FlowResult) {
-        let config = FlowConfig {
-            text: self.visible_text.iter().map(|c| *c),
-            wrap_width: Some(self.dims.x),
-            vertical_bound: Some(self.dims.y),
-        };
+        let config = FlowConfig::new(
+            self.visible_text.iter().map(|c| *c),
+            Some(self.dims.x),
+            Some(self.dims.y),
+        );
 
         let mut found_line_end = false;
         let mut result = FlowResult::NotFound;
@@ -430,104 +425,4 @@ impl View {
 
         return (flow, result);
     }
-}
-
-struct FlowConfig<Iter>
-where
-    Iter: Iterator<Item = char>,
-{
-    text: Iter,
-    wrap_width: Option<u32>,
-    vertical_bound: Option<u32>,
-}
-
-#[derive(Clone, Copy)]
-struct FlowState {
-    is_full: bool,
-    pos: Point2<u32>,
-    index: usize,
-    newline_count: usize,
-}
-
-struct FlowParams {
-    write_len: u32,
-    will_wrap: bool,
-    c: char,
-}
-
-// eventually this only cares about width maybe?
-fn flow_text<Iter, F>(config: FlowConfig<Iter>, mut f: F) -> FlowState
-where
-    Iter: Iterator<Item = char>,
-    F: FnMut(FlowState, &mut FlowParams),
-{
-    // TODO(design): This handles full newline-terminated lines a bit weirdly.
-    // To be fair, Vim handles them a little bit weirdly too. Ideally we want
-    // full newline terminated lines to only extend to an additional line
-    // when absolutely necessary, like when the user wants to append to a full
-    // line. Right now, we just always add an extra blank visual line. It looks
-    // kinda ugly though. We probably want to do a generalization/flexibility
-    // pass on the flow_text procedure altogether, and allow for more of these
-    // kinds of decisions to be made by the callee. Maybe transition to state
-    // machine while loop kind of deal?
-
-    let mut state = FlowState {
-        is_full: false,
-        pos: Point2 { x: 0, y: 0 },
-        index: 0,
-        newline_count: 0,
-    };
-
-    let mut params = FlowParams {
-        write_len: 0,
-        will_wrap: false,
-        c: ' ',
-    };
-
-    for c in config.text {
-        if state.is_full {
-            return state;
-        }
-
-        params.will_wrap = false;
-        params.write_len = match c {
-            '\n' => {
-                params.will_wrap = true;
-                state.newline_count += 1;
-
-                0
-            }
-            '\t' => 2,
-            c if c.is_control() => {
-                state.index += 1;
-                continue;
-            }
-            c => 1, // TODO grapheme stuffs
-        };
-        params.c = c;
-
-        if let Some(width) = config.wrap_width {
-            if state.pos.x + params.write_len >= width {
-                params.will_wrap = true;
-            }
-        }
-
-        f(state, &mut params);
-
-        state.pos.x += params.write_len;
-        if params.will_wrap {
-            state.pos.x = 0;
-            state.pos.y += 1;
-        }
-
-        if let Some(bound) = config.vertical_bound {
-            if state.pos.y >= bound {
-                state.is_full = true;
-            }
-        }
-
-        state.index += 1;
-    }
-
-    return state;
 }
