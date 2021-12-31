@@ -99,21 +99,21 @@ impl View {
                 display_line = Some(state.newline_count + line);
             }
 
-            let idx = (state.pos.y * self.dims.x + state.pos.x) as usize;
-            let write_len = params.write_len as usize;
+            let row_begin = state.pos.y * self.dims.x;
+            let begin = (row_begin + state.pos.x) as usize;
+            let end = begin + params.write_len as usize;
             match params.c.is_whitespace() {
-                true => self.glyphs[idx..(idx + write_len)].fill(EMPTY_GLYPH),
+                true => self.glyphs[begin..end].fill(EMPTY_GLYPH),
                 false => {
                     let res = glyphs.translate_glyph(params.c);
                     did_raster = did_raster || res.did_raster;
-                    self.glyphs[idx..(idx + write_len)].fill(res.glyph);
+                    self.glyphs[begin..end].fill(res.glyph);
                 }
             }
 
             if params.will_wrap {
-                let begin = idx + params.write_len as usize;
-                let end = idx + (self.dims.x - state.pos.x) as usize;
-                self.glyphs[begin..end].fill(EMPTY_GLYPH);
+                let row_end = (row_begin + self.dims.x) as usize;
+                self.glyphs[end..row_end].fill(EMPTY_GLYPH);
             }
         }
 
