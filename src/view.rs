@@ -102,9 +102,7 @@ impl View {
             match params.c.is_whitespace() {
                 true => self.glyphs[idx..(idx + write_len)].fill(EMPTY_GLYPH),
                 false => {
-                    let mut tmp = [0; 4];
-                    let c_str = params.c.encode_utf8(&mut tmp);
-                    let glyph_list = glyphs.translate_glyphs(c_str);
+                    let glyph_list = glyphs.translate_glyph(params.c);
                     did_raster = did_raster || glyph_list.did_raster;
                     self.glyphs[idx..(idx + write_len)].fill(glyph_list.glyphs[0]);
                 }
@@ -156,9 +154,8 @@ impl View {
                 }
 
                 line_glyphs = write_to.map(|b| {
-                    let mut tmp = [0; 4];
-                    let c_str = char::from_u32(b as u32).unwrap().encode_utf8(&mut tmp);
-                    let glyph_list = glyphs.translate_glyphs(c_str);
+                    let c = char::from_u32(b as u32).unwrap();
+                    let glyph_list = glyphs.translate_glyph(c);
                     did_raster = did_raster || glyph_list.did_raster;
 
                     return glyph_list.glyphs[0];

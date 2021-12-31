@@ -93,25 +93,12 @@ impl GlyphCache {
         return &self.atlas;
     }
 
-    pub fn translate_glyphs(&mut self, characters: &str) -> GlyphList {
-        let mut chars = characters.chars();
+    pub fn translate_glyph(&mut self, c: char) -> GlyphList {
         let mut glyphs = Vec::new();
+        glyphs.reserve(1);
 
-        let char_count = characters.len();
-        glyphs.reserve(char_count);
-
-        let character;
-        'fast_path: loop {
-            while let Some(c) = chars.next() {
-                if let Some(&pos) = self.descriptors.get(&c) {
-                    glyphs.push(self.make_glyph(pos));
-                    continue;
-                }
-
-                character = c;
-                break 'fast_path;
-            }
-
+        if let Some(&pos) = self.descriptors.get(&c) {
+            glyphs.push(self.make_glyph(pos));
             return GlyphList::new(false, glyphs);
         }
 
@@ -124,7 +111,7 @@ impl GlyphCache {
         let scale = (SIZE as f32) / (ppem as f32);
 
         let (mut width, mut height) = (0, 0);
-        for c in characters.chars().chain(DEFAULT_CHARS.chars()) {
+        for c in DEFAULT_CHARS.chars() {
             let (w, h) = char_dimensions(&face, scale, c);
 
             width = core::cmp::max(width, w);
@@ -134,19 +121,11 @@ impl GlyphCache {
         let (width, height) = (width + PAD_L + PAD_R, height + PAD_T + PAD_B);
 
         if width < self.glyph_dims.x && height < self.glyph_dims.y {
-            let pos = self.add_char(&face, scale, character);
+            let pos = self.add_char(&face, scale, c);
             glyphs.push(self.make_glyph(pos));
-
-            while let Some(c) = chars.next() {
-                let pos = self.add_char(&face, scale, c);
-                glyphs.push(self.make_glyph(pos));
-            }
 
             return GlyphList::new(true, glyphs);
         }
-
-        let chars = ();
-        let character = ();
 
         glyphs.clear();
         self.descriptors.clear();
@@ -161,10 +140,8 @@ impl GlyphCache {
             self.add_char(&face, scale, c);
         }
 
-        for c in characters.chars() {
-            let pos = self.add_char(&face, scale, c);
-            glyphs.push(self.make_glyph(pos));
-        }
+        let pos = self.add_char(&face, scale, c);
+        glyphs.push(self.make_glyph(pos));
 
         return GlyphList::new(true, glyphs);
     }
