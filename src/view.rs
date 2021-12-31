@@ -48,7 +48,10 @@ impl View {
             glyphs.push(EMPTY_GLYPH);
         }
 
-        visible_text.extend(s.chars());
+        let mut config = FlowConfig::new(s.chars(), Some(dims.x), Some(dims.y));
+        for (state, params) in &mut config {
+            visible_text.push(params.c);
+        }
 
         return Self {
             start: 0,
@@ -219,10 +222,8 @@ impl View {
         self.start_line = contents.start_line;
         self.visible_text.clear();
 
-        // TODO flowing past the end of the screen
         let mut config =
             FlowConfig::new(contents.text.chars(), Some(self.dims.x), Some(self.dims.y));
-
         for (state, params) in &mut config {
             self.visible_text.push(params.c);
         }
