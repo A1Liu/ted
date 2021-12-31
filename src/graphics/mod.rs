@@ -133,6 +133,12 @@ pub struct BlockType {
     bot_right_6: u32,
 }
 
+impl core::cmp::PartialEq for BlockType {
+    fn eq(&self, other: &Self) -> bool {
+        return self.top_left_1 == other.top_left_1;
+    }
+}
+
 impl BlockType {
     pub const Normal: Self = Self::new(0);
     pub const Cursor: Self = Self::new(1);

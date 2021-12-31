@@ -14,12 +14,14 @@
 #[macro_use]
 mod print_utils;
 
-mod graphics;
 mod text;
 mod util;
 
 #[cfg(target_arch = "wasm32")]
 mod view;
+
+#[cfg(target_arch = "wasm32")]
+mod graphics;
 
 #[cfg(target_arch = "wasm32")]
 mod commands;

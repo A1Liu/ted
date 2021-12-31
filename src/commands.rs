@@ -1,5 +1,4 @@
 use crate::graphics::*;
-use crate::text::*;
 use crate::util::*;
 use crate::view::*;
 use winit::event_loop::ControlFlow;
@@ -22,9 +21,15 @@ pub enum ViewCommand<'a> {
     CursorMove(Direction),
     ToggleCursorBlink,
     Insert { text: &'a str },
-    Delete,
+    DeleteAfterCursor,
     FlowCursor { index: usize },
-    SetContents { start: usize, text: &'a str },
+    SetContents(SetContents<'a>),
+}
+
+pub struct SetContents<'a> {
+    pub start: usize,
+    pub start_line: usize,
+    pub text: &'a str,
 }
 
 pub enum Direction {
@@ -53,7 +58,7 @@ pub struct CommandHandler {
     // This should be global
     cache: GlyphCache,
 
-    // These eventually should not be global
+    // This eventually should not be global
     view: View,
 }
 

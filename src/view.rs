@@ -4,6 +4,7 @@ use crate::text::*;
 use crate::util::*;
 use winit::event;
 
+#[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct View {
     start: usize,
     start_line: usize,
@@ -15,7 +16,6 @@ pub struct View {
     visible_text: Vec<char>,
     block_types: Vec<BlockType>,
     glyphs: Vec<Glyph>,
-    did_raster: bool,
 }
 
 // @Memory we can probably reduce the number of fields used here. Not
@@ -60,7 +60,6 @@ impl View {
             visible_text,
             block_types,
             glyphs,
-            did_raster: true,
         };
     }
 
@@ -69,18 +68,22 @@ impl View {
             ViewCommand::CursorMove(direction) => self.cursor_move(direction, output),
             ViewCommand::ToggleCursorBlink => self.toggle_cursor_blink(output),
             ViewCommand::Insert { text } => self.insert(text, output),
-            ViewCommand::Delete {} => self.delete(output),
+            ViewCommand::DeleteAfterCursor => self.delete(output),
             ViewCommand::FlowCursor { index } => self.flow_cursor(index),
-            ViewCommand::SetContents { start, text } => self.set_contents(start, text, output),
+            ViewCommand::SetContents(contents) => self.set_contents(contents, output),
         }
     }
 
+    // TODO does this need to be more flexible? Do we want to support the terminal
+    // target sometime in the future?
     pub fn draw(&mut self, glyphs: &mut GlyphCache) {
         let config = FlowConfig {
             text: self.visible_text.iter().map(|c| *c),
             wrap_width: Some(self.dims.x),
             vertical_bound: Some(self.dims.y),
         };
+
+        let mut did_raster = false;
 
         let mut line_numbers = vec![None; self.dims.y as usize];
         let mut line = self.start_line + 1;
@@ -102,7 +105,7 @@ impl View {
                     let mut tmp = [0; 4];
                     let c_str = params.c.encode_utf8(&mut tmp);
                     let glyph_list = glyphs.translate_glyphs(c_str);
-                    self.did_raster = self.did_raster || glyph_list.did_raster;
+                    did_raster = did_raster || glyph_list.did_raster;
                     self.glyphs[idx..(idx + write_len)].fill(glyph_list.glyphs[0]);
                 }
             }
@@ -114,22 +117,21 @@ impl View {
             }
         });
 
-        let mut pt = state.pos;
-
         // Fill remaining glyphs with the empty glyph
-        for y in pt.y..self.dims.y {
-            if pt.x == 0 {
+        let mut x = state.pos.x;
+        for y in state.pos.y..self.dims.y {
+            if x == 0 {
                 line_numbers[y as usize] = display_line.take();
             }
 
-            let len = (self.dims.x - pt.x) as usize;
-            let idx = (y * self.dims.x + pt.x) as usize;
-
-            self.glyphs[idx..(idx + len)].fill(EMPTY_GLYPH);
-            pt.x = 0;
+            let row_begin = y * self.dims.x;
+            let begin = (row_begin + x) as usize;
+            let end = (row_begin + self.dims.x) as usize;
+            self.glyphs[begin..end].fill(EMPTY_GLYPH);
+            x = 0;
         }
 
-        assert_eq!(line_numbers.len(), self.dims.y as usize);
+        debug_assert_eq!(line_numbers.len(), self.dims.y as usize);
 
         const LINES_WIDTH: usize = 3;
         let (line_block_types, line_glyphs) = {
@@ -157,7 +159,7 @@ impl View {
                     let mut tmp = [0; 4];
                     let c_str = char::from_u32(b as u32).unwrap().encode_utf8(&mut tmp);
                     let glyph_list = glyphs.translate_glyphs(c_str);
-                    self.did_raster = self.did_raster || glyph_list.did_raster;
+                    did_raster = did_raster || glyph_list.did_raster;
 
                     return glyph_list.glyphs[0];
                 });
@@ -168,8 +170,7 @@ impl View {
             (line_block_types, number_glyphs)
         };
 
-        let mut atlas = self.did_raster.then(|| glyphs.atlas());
-        self.did_raster = false;
+        let mut atlas = did_raster.then(|| glyphs.atlas());
         let atlas_dims = glyphs.atlas_dims();
 
         // render line numbers
@@ -222,13 +223,14 @@ impl View {
         expect(result);
     }
 
-    fn set_contents(&mut self, start: usize, text: &str, output: &mut Vec<TedCommand>) {
-        self.start = start;
+    fn set_contents(&mut self, contents: SetContents, output: &mut Vec<TedCommand>) {
+        self.start = contents.start;
+        self.start_line = contents.start_line;
         self.visible_text.clear();
 
         // TODO flowing past the end of the screen
         let config = FlowConfig {
-            text: text.chars(),
+            text: contents.text.chars(),
             wrap_width: Some(self.dims.x),
             vertical_bound: Some(self.dims.y),
         };

@@ -103,7 +103,7 @@ impl Handler {
                 }
 
                 if key == event::VirtualKeyCode::Back {
-                    commands.push(for_view(ViewCommand::Delete));
+                    commands.push(for_view(ViewCommand::DeleteAfterCursor));
                     return;
                 }
 

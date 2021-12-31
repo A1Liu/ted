@@ -30,10 +30,11 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
 
 ## Next Up
+- Glyph rasterization doesn't need to use Vec
+- Make text less ugly
 - Refactor and test the command system
 - Text colors/spans
 - Mouse support
-- Make text less ugly
 - Select text
 
 ## Mid-term
