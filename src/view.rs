@@ -211,11 +211,6 @@ impl View {
             return Ok(());
         });
 
-        let mut block_types = Vec::with_capacity(4 * self.dims.y as usize);
-        for _ in 0..(4 * self.dims.y) {
-            block_types.push(BlockType::Normal);
-        }
-
         expect(result);
     }
 
