@@ -29,12 +29,6 @@ enum FlowResult {
     },
 
     // Visual line, not textual
-    FoundLineBegin {
-        end_pos: Point2<u32>,
-        begin: usize, // textual index
-    },
-
-    // Visual line, not textual
     FoundLine {
         end_pos: Point2<u32>,
         begin: usize, // textual index
@@ -268,18 +262,6 @@ impl View {
 
                 index
             }
-            FlowResult::FoundLineBegin { end_pos, begin } => {
-                let mut index = begin + end_pos.x as usize;
-
-                if s.chars().nth(0).unwrap() != '\n' {
-                    for x in end_pos.x..self.cursor_pos.x {
-                        self.visible_text.insert(index, '~');
-                        index += 1;
-                    }
-                }
-
-                index
-            }
             FlowResult::NotFound => {
                 let mut index = flow.index;
                 for y in flow.pos.y..self.cursor_pos.y {
@@ -404,6 +386,7 @@ impl View {
             vertical_bound: Some(self.dims.y),
         };
 
+        let mut found_line_end = false;
         let mut result = FlowResult::NotFound;
         let flow = flow_text(config, |state, params| {
             if state.pos == self.cursor_pos {
@@ -413,29 +396,26 @@ impl View {
 
             match &mut result {
                 FlowResult::Found { .. } => return,
-                FlowResult::FoundLine { .. } => return,
-                r @ FlowResult::NotFound => {
-                    if state.pos.y == self.cursor_pos.y {
-                        let (end_pos, begin) = (state.pos, state.index);
-                        if params.c == '\n' {
-                            result = FlowResult::FoundLine { end_pos, begin };
-
-                            return;
-                        }
-
-                        result = FlowResult::FoundLineBegin { end_pos, begin };
-                    }
-                }
-
-                FlowResult::FoundLineBegin { end_pos, begin } => {
-                    if params.c == '\n' {
-                        let (end_pos, begin) = (state.pos, *begin);
-                        result = FlowResult::FoundLine { end_pos, begin };
-
+                FlowResult::FoundLine { end_pos, begin } => {
+                    if found_line_end {
                         return;
                     }
 
                     *end_pos = state.pos;
+
+                    if params.c == '\n' {
+                        found_line_end = true;
+                    }
+                }
+                FlowResult::NotFound => {
+                    if state.pos.y == self.cursor_pos.y {
+                        let (end_pos, begin) = (state.pos, state.index);
+                        result = FlowResult::FoundLine { end_pos, begin };
+
+                        if params.c == '\n' {
+                            found_line_end = true;
+                        }
+                    }
                 }
             }
         });
@@ -444,8 +424,10 @@ impl View {
             result = FlowResult::Found { index: flow.index };
         }
 
-        if let FlowResult::FoundLineBegin { end_pos, begin } = &mut result {
-            *end_pos = flow.pos;
+        if let FlowResult::FoundLine { end_pos, begin } = &mut result {
+            if !found_line_end {
+                *end_pos = flow.pos;
+            }
         }
 
         return (flow, result);
