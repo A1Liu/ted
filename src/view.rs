@@ -78,7 +78,7 @@ impl View {
     // TODO does this need to be more flexible? Do we want to support the terminal
     // target sometime in the future?
     pub fn draw(&mut self, glyphs: &mut GlyphCache) {
-        let config = FlowConfig::new(
+        let mut config = FlowConfig::new(
             self.visible_text.iter().map(|c| *c),
             Some(self.dims.x),
             Some(self.dims.y),
@@ -90,7 +90,7 @@ impl View {
         let mut line = self.start_line + 1;
         let mut display_line = Some(line);
 
-        let state = flow_text(config, |state, params| {
+        for (state, params) in &mut config {
             if state.pos.x == 0 {
                 line_numbers[state.pos.y as usize] = display_line.take();
             }
@@ -115,9 +115,10 @@ impl View {
                 let end = idx + (self.dims.x - state.pos.x) as usize;
                 self.glyphs[begin..end].fill(EMPTY_GLYPH);
             }
-        });
+        }
 
         // Fill remaining glyphs with the empty glyph
+        let state = config.finalize();
         let mut x = state.pos.x;
         for y in state.pos.y..self.dims.y {
             if x == 0 {
@@ -313,19 +314,20 @@ impl View {
         }
 
         // TODO flowing past the end of the screen
-        let config = FlowConfig::new(
+        let mut config = FlowConfig::new(
             self.visible_text.iter().map(|c| *c),
             Some(self.dims.x),
             Some(self.dims.y),
         );
 
         let mut next_pos = None;
-        let flow = flow_text(config, |state, params| {
+        for (state, params) in &mut config {
             if state.index == index {
                 next_pos = Some(state.pos);
             }
-        });
+        }
 
+        let flow = config.finalize();
         if flow.index == index && !flow.is_full {
             next_pos = Some(flow.pos);
         }
@@ -373,7 +375,7 @@ impl View {
     }
 
     fn file_cursor(&self) -> (FlowState, FlowResult) {
-        let config = FlowConfig::new(
+        let mut config = FlowConfig::new(
             self.visible_text.iter().map(|c| *c),
             Some(self.dims.x),
             Some(self.dims.y),
@@ -381,17 +383,17 @@ impl View {
 
         let mut found_line_end = false;
         let mut result = FlowResult::NotFound;
-        let flow = flow_text(config, |state, params| {
+        for (state, params) in &mut config {
             if state.pos == self.cursor_pos {
                 result = FlowResult::Found { index: state.index };
-                return;
+                continue;
             }
 
             match &mut result {
-                FlowResult::Found { .. } => return,
+                FlowResult::Found { .. } => continue,
                 FlowResult::FoundLine { end_pos, begin } => {
                     if found_line_end {
-                        return;
+                        continue;
                     }
 
                     *end_pos = state.pos;
@@ -411,8 +413,9 @@ impl View {
                     }
                 }
             }
-        });
+        }
 
+        let flow = config.finalize();
         if flow.pos == self.cursor_pos {
             result = FlowResult::Found { index: flow.index };
         }

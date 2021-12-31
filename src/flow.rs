@@ -13,6 +13,32 @@ where
     vertical_bound: Option<u32>,
 }
 
+#[derive(Clone, Copy)]
+pub struct FlowState {
+    pub is_full: bool,
+    pub pos: Point2<u32>,
+    pub index: usize,
+    pub newline_count: usize,
+}
+
+impl Default for FlowState {
+    fn default() -> Self {
+        return Self {
+            is_full: false,
+            pos: Point2 { x: 0, y: 0 },
+            index: 0,
+            newline_count: 0,
+        };
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct FlowParams {
+    pub write_len: u32,
+    pub will_wrap: bool,
+    pub c: char,
+}
+
 impl<Iter> FlowConfig<Iter>
 where
     Iter: Iterator<Item = char>,
@@ -107,112 +133,10 @@ where
                 }
             }
 
+            self.needs_final = true;
             return Some((self.state, self.params));
         }
 
         return None;
     }
-}
-
-#[derive(Clone, Copy)]
-pub struct FlowState {
-    pub is_full: bool,
-    pub pos: Point2<u32>,
-    pub index: usize,
-    pub newline_count: usize,
-}
-
-impl Default for FlowState {
-    fn default() -> Self {
-        return Self {
-            is_full: false,
-            pos: Point2 { x: 0, y: 0 },
-            index: 0,
-            newline_count: 0,
-        };
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct FlowParams {
-    pub write_len: u32,
-    pub will_wrap: bool,
-    pub c: char,
-}
-
-// eventually this only cares about width maybe?
-pub fn flow_text<Iter, F>(config: FlowConfig<Iter>, mut f: F) -> FlowState
-where
-    Iter: Iterator<Item = char>,
-    F: FnMut(FlowState, &mut FlowParams),
-{
-    // TODO(design): This handles full newline-terminated lines a bit weirdly.
-    // To be fair, Vim handles them a little bit weirdly too. Ideally we want
-    // full newline terminated lines to only extend to an additional line
-    // when absolutely necessary, like when the user wants to append to a full
-    // line. Right now, we just always add an extra blank visual line. It looks
-    // kinda ugly though. We probably want to do a generalization/flexibility
-    // pass on the flow_text procedure altogether, and allow for more of these
-    // kinds of decisions to be made by the callee. Maybe transition to state
-    // machine while loop kind of deal?
-
-    let mut state = FlowState {
-        is_full: false,
-        pos: Point2 { x: 0, y: 0 },
-        index: 0,
-        newline_count: 0,
-    };
-
-    let mut params = FlowParams {
-        write_len: 0,
-        will_wrap: false,
-        c: ' ',
-    };
-
-    for c in config.text {
-        if state.is_full {
-            return state;
-        }
-
-        params.will_wrap = false;
-        params.write_len = match c {
-            '\n' => {
-                params.will_wrap = true;
-                state.newline_count += 1;
-
-                0
-            }
-            '\t' => 2,
-            c if c.is_control() => {
-                state.index += 1;
-                continue;
-            }
-            c => 1, // TODO grapheme stuffs
-        };
-        params.c = c;
-
-        if let Some(width) = config.wrap_width {
-            if state.pos.x + params.write_len >= width {
-                params.will_wrap = true;
-            }
-        }
-
-        f(state, &mut params);
-
-        state.pos.x += params.write_len;
-        if params.will_wrap {
-            state.pos.x = 0;
-            state.pos.y += 1;
-        }
-
-        if let Some(bound) = config.vertical_bound {
-            if state.pos.y >= bound {
-                state.is_full = true;
-            }
-        }
-
-        state.index += 1;
-    }
-
-    return state;
 }
