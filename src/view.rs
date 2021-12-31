@@ -378,7 +378,6 @@ impl View {
         output.push(TedCommand::RequestRedraw);
     }
 
-    // TODO maybe simplify this?
     fn file_cursor(&self) -> (FlowState, FlowResult) {
         let config = FlowConfig {
             text: self.visible_text.iter().map(|c| *c),
