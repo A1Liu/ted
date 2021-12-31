@@ -61,14 +61,14 @@ pub struct GlyphCache {
     atlas_current_row_width: u32,
 }
 
-pub struct GlyphList {
+pub struct GlyphResult {
     pub did_raster: bool,
-    pub glyphs: Vec<Glyph>,
+    pub glyph: Glyph,
 }
 
-impl GlyphList {
-    pub fn new(did_raster: bool, glyphs: Vec<Glyph>) -> Self {
-        return Self { did_raster, glyphs };
+impl GlyphResult {
+    pub fn new(did_raster: bool, glyph: Glyph) -> Self {
+        return Self { did_raster, glyph };
     }
 }
 
@@ -93,13 +93,10 @@ impl GlyphCache {
         return &self.atlas;
     }
 
-    pub fn translate_glyph(&mut self, c: char) -> GlyphList {
-        let mut glyphs = Vec::new();
-        glyphs.reserve(1);
-
+    pub fn translate_glyph(&mut self, c: char) -> GlyphResult {
         if let Some(&pos) = self.descriptors.get(&c) {
-            glyphs.push(self.make_glyph(pos));
-            return GlyphList::new(false, glyphs);
+            let glyph = self.make_glyph(pos);
+            return GlyphResult::new(false, glyph);
         }
 
         let face = ttf::Face::from_slice(COURIER, 0).unwrap();
@@ -122,12 +119,10 @@ impl GlyphCache {
 
         if width < self.glyph_dims.x && height < self.glyph_dims.y {
             let pos = self.add_char(&face, scale, c);
-            glyphs.push(self.make_glyph(pos));
-
-            return GlyphList::new(true, glyphs);
+            let glyph = self.make_glyph(pos);
+            return GlyphResult::new(true, glyph);
         }
 
-        glyphs.clear();
         self.descriptors.clear();
         self.atlas.clear();
 
@@ -141,9 +136,8 @@ impl GlyphCache {
         }
 
         let pos = self.add_char(&face, scale, c);
-        glyphs.push(self.make_glyph(pos));
-
-        return GlyphList::new(true, glyphs);
+        let glyph = self.make_glyph(pos);
+        return GlyphResult::new(true, glyph);
     }
 
     fn make_glyph(&self, mut glyph: Point2<u32>) -> Glyph {
