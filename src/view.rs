@@ -64,21 +64,25 @@ impl View {
             ViewCommand::DeleteAfterCursor => self.delete(output),
             ViewCommand::FlowCursor { index } => self.flow_cursor(index),
             ViewCommand::SetContents(contents) => self.set_contents(contents, output),
+            ViewCommand::Draw => self.draw(output),
         }
     }
 
     // TODO does this need to be more flexible? Do we want to support the terminal
     // target sometime in the future?
-    pub fn draw(&mut self) {
+    pub fn draw(&self, output: &mut Vec<TedCommand>) {
+        let size = (self.dims.x * self.dims.y) as usize;
+        let mut line_numbers = Vec::with_capacity(self.dims.y as usize);
+        let mut block_types = vec![BlockType::Normal; size];
+        let mut text = vec![' '; size];
+
         let mut config = FlowConfig::new(
             self.visible_text.iter().map(|c| *c),
             Some(self.dims.x),
             Some(self.dims.y),
         );
 
-        let mut did_raster = false;
-
-        let mut line_numbers = vec![None; self.dims.y as usize];
+        line_numbers.extend(core::iter::repeat(None).take(self.dims.y as usize));
         let mut line = self.start_line + 1;
         let mut display_line = Some(line);
 
@@ -94,19 +98,15 @@ impl View {
             let row_begin = state.pos.y * self.dims.x;
             let begin = (row_begin + state.pos.x) as usize;
             let end = begin + params.write_len as usize;
-            // match params.c.is_whitespace() {
-            //     true => self.glyphs[begin..end].fill(EMPTY_GLYPH),
-            //     false => {
-            //         let res = glyphs.translate_glyph(params.c);
-            //         did_raster = did_raster || res.did_raster;
-            //         self.glyphs[begin..end].fill(res.glyph);
-            //     }
-            // }
+            match params.c.is_whitespace() {
+                true => text[begin..end].fill(' '),
+                false => text[begin..end].fill(params.c),
+            }
 
-            // if params.will_wrap {
-            //     let row_end = (row_begin + self.dims.x) as usize;
-            //     self.glyphs[end..row_end].fill(EMPTY_GLYPH);
-            // }
+            if params.will_wrap {
+                let row_end = (row_begin + self.dims.x) as usize;
+                text[end..row_end].fill(' ');
+            }
         }
 
         // Fill remaining glyphs with the empty glyph
@@ -120,7 +120,7 @@ impl View {
             let row_begin = y * self.dims.x;
             let begin = (row_begin + x) as usize;
             let end = (row_begin + self.dims.x) as usize;
-            // self.glyphs[begin..end].fill(EMPTY_GLYPH);
+            text[begin..end].fill(' ');
             x = 0;
         }
 

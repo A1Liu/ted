@@ -5,8 +5,8 @@ use winit::event_loop::ControlFlow;
 use winit::window::Window;
 
 pub enum TedCommand {
+    DrawView {},
     RequestRedraw,
-    Draw,
     Exit,
 
     ForView { command: ViewCommand },
@@ -24,6 +24,7 @@ pub enum ViewCommand {
     DeleteAfterCursor,
     FlowCursor { index: usize },
     SetContents(SetContents),
+    Draw,
 }
 
 pub struct SetContents {
@@ -85,8 +86,8 @@ impl CommandHandler {
         while let Some(command) = commands.pop() {
             match command {
                 TedCommand::RequestRedraw => window.request_redraw(),
-                TedCommand::Draw => self.view.draw(),
                 TedCommand::Exit => *flow = ControlFlow::Exit,
+                TedCommand::DrawView {} => {}
                 TedCommand::ForView { command } => {
                     let cmd = Command {
                         buffer,

@@ -53,7 +53,7 @@ impl Handler {
         let command = match event {
             Event::WindowEvent { event, window_id } => self.window_event(event, window_id)?,
             Event::UserEvent(ted_event) => self.ted_event(ted_event)?,
-            Event::RedrawRequested(window_id) => TedCommand::Draw,
+            Event::RedrawRequested(window_id) => for_view(ViewCommand::Draw),
             _ => return None,
         };
 
