@@ -24,6 +24,15 @@ pub struct TextShader {
     in_glyph_pos: Buffer<Glyph>,
 }
 
+pub struct TextShaderInput {
+    pub is_lines: bool,
+    pub atlas: Option<Vec<u8>>,
+    pub block_types: Vec<BlockType>,
+    pub glyphs: Vec<Glyph>,
+    pub atlas_dims: Rect,
+    pub dims: Rect,
+}
+
 impl TextShader {
     fn new() -> Result<Self, JsValue> {
         let vert_text = core::include_str!("./vertex.glsl");
@@ -60,36 +69,28 @@ impl TextShader {
         });
     }
 
-    pub fn render(
-        &self,
-        is_lines: bool,
-        atlas: Option<&[u8]>,
-        block_types: &[BlockType],
-        glyphs: &[Glyph],
-        atlas_dims: Rect,
-        dims: Rect,
-    ) -> Result<(), JsValue> {
+    pub fn render(&self, input: TextShaderInput) -> Result<(), JsValue> {
         gl.use_program(&self.program);
 
-        gl.write_buffer(&self.in_block_type, block_types);
-        gl.write_buffer(&self.in_glyph_pos, glyphs);
-        if let Some(atlas) = atlas {
-            gl.update_tex(&self.tex, atlas_dims, atlas)?;
+        gl.write_buffer(&self.in_block_type, &input.block_types);
+        gl.write_buffer(&self.in_glyph_pos, &input.glyphs);
+        if let Some(atlas) = input.atlas {
+            gl.update_tex(&self.tex, input.atlas_dims, &atlas)?;
         }
 
         gl.bind_vao(&self.vao);
         gl.bind_tex(&self.u_glyph_atlas, 0, &self.tex);
 
         let u_dims = Vector2 {
-            x: dims.x as f32,
-            y: dims.y as f32,
+            x: input.dims.x as f32,
+            y: input.dims.y as f32,
         };
 
         gl.bind_uniform(&self.u_dims, u_dims);
 
         let u_atlas_dims = Vector2 {
-            x: atlas_dims.x as f32,
-            y: atlas_dims.y as f32,
+            x: input.atlas_dims.x as f32,
+            y: input.atlas_dims.y as f32,
         };
 
         gl.bind_uniform(&self.u_atlas_dims, u_atlas_dims);
@@ -99,7 +100,7 @@ impl TextShader {
         // whatever random number looks ok for now. Eventually we should replace
         // 'is_lines' with actual offsets, likely in clip-space units
         //                              - Albert Liu, Dec 24, 2021 Fri 15:31 EST
-        let (begin, end) = match is_lines {
+        let (begin, end) = match input.is_lines {
             true => (-1.0f32, -0.9f32),
             false => (-0.9f32, 1.0f32),
         };
@@ -107,7 +108,7 @@ impl TextShader {
         gl.bind_uniform(&self.u_clip_begin, begin);
         gl.bind_uniform(&self.u_clip_end, end);
 
-        gl.draw((dims.x * dims.y * 6) as i32);
+        gl.draw((input.dims.x * input.dims.y * 6) as i32);
 
         return Ok(());
     }
