@@ -4,32 +4,32 @@ use crate::view::*;
 use winit::event_loop::ControlFlow;
 use winit::window::Window;
 
-pub enum TedCommand<'a> {
+pub enum TedCommand {
     RequestRedraw,
     Draw,
     Exit,
 
-    ForView { command: ViewCommand<'a> },
+    ForView { command: ViewCommand },
 }
 
 #[inline(always)]
-pub fn for_view<'a>(command: ViewCommand<'a>) -> TedCommand<'a> {
+pub fn for_view(command: ViewCommand) -> TedCommand {
     return TedCommand::ForView { command };
 }
 
-pub enum ViewCommand<'a> {
+pub enum ViewCommand {
     CursorMove(Direction),
     ToggleCursorBlink,
-    Insert { text: &'a str },
+    Insert { text: String },
     DeleteAfterCursor,
     FlowCursor { index: usize },
-    SetContents(SetContents<'a>),
+    SetContents(SetContents),
 }
 
-pub struct SetContents<'a> {
+pub struct SetContents {
     pub start: usize,
     pub start_line: usize,
-    pub text: &'a str,
+    pub text: String,
 }
 
 pub enum Direction {
@@ -76,22 +76,33 @@ impl CommandHandler {
         };
     }
 
-    pub fn run(&mut self, window: &Window, flow: &mut ControlFlow, mut commands: Vec<TedCommand>) {
-        loop {
-            let queued: Vec<_> = commands.drain(..).collect();
-            if queued.len() == 0 {
-                break;
-            }
+    pub fn run(&mut self, window: &Window, flow: &mut ControlFlow, command: TedCommand) {
+        let mut commands = Vec::with_capacity(8);
+        let mut buffer = &mut Vec::with_capacity(8);
 
-            for command in queued {
-                match command {
-                    TedCommand::RequestRedraw => window.request_redraw(),
-                    TedCommand::Draw => self.view.draw(),
-                    TedCommand::Exit => *flow = ControlFlow::Exit,
+        commands.push(command);
 
-                    TedCommand::ForView { command } => self.view.run(command, &mut commands),
+        while let Some(command) = commands.pop() {
+            match command {
+                TedCommand::RequestRedraw => window.request_redraw(),
+                TedCommand::Draw => self.view.draw(),
+                TedCommand::Exit => *flow = ControlFlow::Exit,
+                TedCommand::ForView { command } => {
+                    let cmd = Command {
+                        buffer,
+                        value: command,
+                    };
+
+                    self.view.run(cmd)
                 }
             }
+
+            commands.extend(buffer.drain(..).rev());
         }
     }
+}
+
+pub struct Command<'a, Value> {
+    pub buffer: &'a mut Vec<TedCommand>,
+    pub value: Value,
 }

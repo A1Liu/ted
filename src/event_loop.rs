@@ -40,36 +40,43 @@ impl Handler {
             // input, and uses significantly less power/CPU time than ControlFlow::Poll.
             *flow = ControlFlow::Wait;
 
-            let mut commands: Vec<TedCommand> = Vec::new();
+            let command = match self.dispatch(event) {
+                None => return,
+                Some(c) => c,
+            };
 
-            match event {
-                Event::WindowEvent { event, window_id } => {
-                    self.window_event(event, window_id, &mut commands)
-                }
-                Event::UserEvent(ted_event) => self.ted_event(ted_event, &mut commands),
-                Event::RedrawRequested(window_id) => commands.push(TedCommand::Draw),
-                _ => (),
-            }
-
-            self.command_handler.run(&self.window, flow, commands);
+            self.command_handler.run(&self.window, flow, command);
         };
     }
 
-    fn ted_event(&mut self, evt: TedEvent, commands: &mut Vec<TedCommand>) {
+    fn dispatch(&mut self, event: Event<TedEvent>) -> Option<TedCommand> {
+        let command = match event {
+            Event::WindowEvent { event, window_id } => self.window_event(event, window_id)?,
+            Event::UserEvent(ted_event) => self.ted_event(ted_event)?,
+            Event::RedrawRequested(window_id) => TedCommand::Draw,
+            _ => return None,
+        };
+
+        return Some(command);
+    }
+
+    fn ted_event(&mut self, evt: TedEvent) -> Option<TedCommand> {
         match evt {
             TedEvent::Tick(tick) => {
                 if tick % 12 == 0 {
-                    commands.push(for_view(ViewCommand::ToggleCursorBlink));
+                    return Some(for_view(ViewCommand::ToggleCursorBlink));
                 }
             }
         }
+
+        return None;
     }
 
-    fn window_event(&mut self, event: WindowEvent, id: WindowId, commands: &mut Vec<TedCommand>) {
+    fn window_event(&mut self, event: WindowEvent, id: WindowId) -> Option<TedCommand> {
         match event {
             WindowEvent::CloseRequested => {
                 if self.window.id() == id {
-                    commands.push(TedCommand::Exit);
+                    return Some(TedCommand::Exit);
                 }
             }
 
@@ -79,14 +86,11 @@ impl Handler {
                 is_synthetic,
             } => {
                 if input.state != ElementState::Pressed {
-                    return;
+                    return None;
                 }
 
                 // https://docs.rs/winit/0.26.0/winit/event/enum.VirtualKeyCode.html
-                let key = match input.virtual_keycode {
-                    Some(key) => key,
-                    None => return,
-                };
+                let key = input.virtual_keycode?;
 
                 // We need to use this right now because the alternative literally isn't
                 // implemented on the web
@@ -94,29 +98,26 @@ impl Handler {
                 let modifiers = input.modifiers;
 
                 if modifiers.ctrl() || modifiers.logo() || modifiers.alt() {
-                    return;
+                    return None;
                 }
 
                 if let Some(direction) = Direction::from_arrow_key(key) {
-                    commands.push(for_view(ViewCommand::CursorMove(direction)));
-                    return;
+                    return Some(for_view(ViewCommand::CursorMove(direction)));
                 }
 
                 if key == event::VirtualKeyCode::Back {
-                    commands.push(for_view(ViewCommand::DeleteAfterCursor));
-                    return;
+                    return Some(for_view(ViewCommand::DeleteAfterCursor));
                 }
 
-                let c = match keycode_str(modifiers, key) {
-                    Some(c) => c,
-                    None => return,
-                };
+                let text = keycode_str(modifiers, key)?.to_string();
 
-                commands.push(for_view(ViewCommand::Insert { text: c }));
+                return Some(for_view(ViewCommand::Insert { text }));
             }
 
             _ => {}
         }
+
+        return None;
     }
 }
 

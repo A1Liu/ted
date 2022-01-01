@@ -54,8 +54,10 @@ impl View {
         };
     }
 
-    pub fn run<'a>(&mut self, command: ViewCommand<'a>, output: &mut Vec<TedCommand<'a>>) {
-        match command {
+    pub fn run(&mut self, command: Command<ViewCommand>) {
+        let output = command.buffer;
+
+        match command.value {
             ViewCommand::CursorMove(direction) => self.cursor_move(direction, output),
             ViewCommand::ToggleCursorBlink => self.toggle_cursor_blink(output),
             ViewCommand::Insert { text } => self.insert(text, output),
@@ -177,7 +179,7 @@ impl View {
         output.push(TedCommand::RequestRedraw);
     }
 
-    fn insert<'a>(&mut self, s: &'a str, output: &mut Vec<TedCommand<'a>>) {
+    fn insert(&mut self, s: String, output: &mut Vec<TedCommand>) {
         if s.len() == 0 {
             output.push(TedCommand::RequestRedraw);
             return;
