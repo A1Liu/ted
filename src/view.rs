@@ -71,18 +71,16 @@ impl View {
     // TODO does this need to be more flexible? Do we want to support the terminal
     // target sometime in the future?
     pub fn draw(&self, output: &mut Vec<TedCommand>) {
-        let size = (self.dims.x * self.dims.y) as usize;
-        let mut line_numbers = Vec::with_capacity(self.dims.y as usize);
-        let mut block_types = vec![BlockType::Normal; size];
-        let mut text = vec![' '; size];
-
         let mut config = FlowConfig::new(
             self.visible_text.iter().map(|c| *c),
             Some(self.dims.x),
             Some(self.dims.y),
         );
 
-        line_numbers.extend(core::iter::repeat(None).take(self.dims.y as usize));
+        let size = (self.dims.x * self.dims.y) as usize;
+        let mut text = vec![' '; size];
+
+        let mut line_numbers = vec![None; self.dims.y as usize];
         let mut line = self.start_line + 1;
         let mut display_line = Some(line);
 
@@ -92,21 +90,21 @@ impl View {
             }
 
             if params.c == '\n' {
-                display_line = Some(state.newline_count + line);
+                display_line.replace(state.newline_count + line);
             }
 
             let row_begin = state.pos.y * self.dims.x;
             let begin = (row_begin + state.pos.x) as usize;
             let end = begin + params.write_len as usize;
             match params.c.is_whitespace() {
-                true => text[begin..end].fill(' '),
                 false => text[begin..end].fill(params.c),
+                true => {}
             }
 
-            if params.will_wrap {
-                let row_end = (row_begin + self.dims.x) as usize;
-                text[end..row_end].fill(' ');
-            }
+            // if params.will_wrap {
+            //     let row_end = (row_begin + self.dims.x) as usize;
+            //     text[end..row_end].fill(' ');
+            // }
         }
 
         // Fill remaining glyphs with the empty glyph
@@ -117,26 +115,29 @@ impl View {
                 line_numbers[y as usize] = display_line.take();
             }
 
-            let row_begin = y * self.dims.x;
-            let begin = (row_begin + x) as usize;
-            let end = (row_begin + self.dims.x) as usize;
-            text[begin..end].fill(' ');
+            // let row_begin = y * self.dims.x;
+            // let begin = (row_begin + x) as usize;
+            // let end = (row_begin + self.dims.x) as usize;
+            // text[begin..end].fill(' ');
             x = 0;
+        }
+
+        let mut block_types = vec![BlockType::Normal; size];
+        if self.cursor_blink_on {
+            let idx = self.cursor_pos.y * self.dims.x + self.cursor_pos.x;
+            block_types[idx as usize] = BlockType::Cursor;
         }
 
         debug_assert_eq!(line_numbers.len(), self.dims.y as usize);
 
-        const LINES_WIDTH: usize = 3;
-        let (line_block_types, line_glyphs) = {
+        {
+            const LINES_WIDTH: usize = 3;
             let size = LINES_WIDTH * self.dims.y as usize;
             let mut number_glyphs = Vec::with_capacity(size);
             let mut line_block_types = vec![BlockType::Normal; size];
 
-            let mut write_to;
-            let mut line_glyphs;
-            for line in &line_numbers {
-                write_to = [b' '; LINES_WIDTH];
-
+            for line in line_numbers {
+                let mut write_to = [b' '; LINES_WIDTH];
                 if let Some(line) = line {
                     use std::io::Write;
 
@@ -144,24 +145,10 @@ impl View {
                     write!(buf, "{: >width$}", line, width = LINES_WIDTH).unwrap();
                 }
 
-                line_glyphs = write_to.map(|b| {
-                    // let c = char::from_u32(b as u32).unwrap();
-                    // let res = glyphs.translate_glyph(c);
-                    // did_raster = did_raster || res.did_raster;
-
-                    // return res.glyph;
-                    EMPTY_GLYPH
-                });
-
-                number_glyphs.extend_from_slice(&line_glyphs);
+                for b in write_to {
+                    number_glyphs.push(char::from_u32(b as u32).unwrap());
+                }
             }
-
-            (line_block_types, number_glyphs)
-        };
-
-        if self.cursor_blink_on {
-            let idx = self.cursor_pos.y * self.dims.x + self.cursor_pos.x;
-            // self.block_types[idx as usize] = BlockType::Cursor;
         }
     }
 
