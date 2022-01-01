@@ -1,7 +1,6 @@
 use crate::util::*;
 use mint::Point2;
 use std::collections::hash_map::HashMap;
-use ttf_parser as ttf;
 
 const MAX_ATLAS_WIDTH: u32 = 4096;
 const COURIER: &[u8] = core::include_bytes!("./cour.ttf");

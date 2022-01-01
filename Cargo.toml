@@ -12,10 +12,6 @@ crate-type = ["cdylib", "rlib"]
 mint = "0.5.8"
 btree = { path = "./btree" }
 
-# Can't use font-rs here because the latest released version has an out-of-bounds
-# error; instead we just copy-paste their rasterization code
-ttf-parser = { version = "0.13.4", default-features = false, features = [] }
-
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 winit = { version = "0.26.0", features = ["mint"] }
 glutin = "0.28.0"
