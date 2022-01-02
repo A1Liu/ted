@@ -1,7 +1,5 @@
 use crate::commands::*;
 use crate::flow::*;
-use crate::graphics::*;
-use crate::text::*;
 use crate::util::*;
 use std::io::Write;
 use winit::event;
@@ -16,6 +14,13 @@ pub struct View {
     cursor_pos: Point2<u32>,
 
     visible_text: Vec<char>,
+}
+
+#[derive(Clone, Copy)]
+#[cfg_attr(debug_assertions, derive(PartialEq))]
+pub enum BlockType {
+    Normal,
+    Cursor,
 }
 
 // @Memory we can probably reduce the number of fields used here. Not
@@ -67,13 +72,13 @@ impl View {
             ViewCommand::DeleteAfterCursor => self.delete(output),
             ViewCommand::FlowCursor { index } => self.flow_cursor(index),
             ViewCommand::SetContents(contents) => self.set_contents(contents, output),
-            ViewCommand::Draw => {} // self.draw(output),
+            ViewCommand::Draw => self.draw(output),
         }
     }
 
     // TODO does this need to be more flexible? Do we want to support the terminal
     // target sometime in the future?
-    pub fn draw(&self, cache: &mut GlyphCache, output: &mut Vec<TedCommand>) {
+    pub fn draw(&self, output: &mut Vec<TedCommand>) {
         let mut config = FlowConfig::new(
             self.visible_text.iter().map(|c| *c),
             Some(self.dims.x),
@@ -81,10 +86,9 @@ impl View {
         );
 
         let size = (self.dims.x * self.dims.y) as usize;
-        let mut glyphs = vec![EMPTY_GLYPH; size];
+        let mut text = vec![' '; size];
         let mut line_numbers = vec![None; self.dims.y as usize];
 
-        let mut did_raster = false;
         let mut line = self.start_line + 1;
         let mut display_line = Some(line);
 
@@ -102,12 +106,9 @@ impl View {
                 c if c.is_whitespace() => continue,
 
                 c => {
-                    let res = cache.translate_glyph(c);
-                    did_raster = did_raster || res.did_raster;
-
                     let begin = (state.pos.y * self.dims.x + state.pos.x) as usize;
                     let end = begin + params.write_len as usize;
-                    glyphs[begin..end].fill(res.glyph);
+                    text[begin..end].fill(c);
                 }
             }
         }
@@ -127,30 +128,16 @@ impl View {
             block_types[idx as usize] = BlockType::Cursor;
         }
 
-        let atlas_dims = cache.atlas_dims();
-
-        let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
-            let is_lines = false;
-            let atlas = did_raster.then(|| cache.atlas());
-            let dims = self.dims;
-
-            shader.render(TextShaderInput {
-                is_lines,
-                atlas,
-                block_types,
-                glyphs,
-                atlas_dims,
-                dims,
-            })?;
-
-            return Ok(());
+        output.push(TedCommand::DrawView {
+            is_lines: false,
+            block_types,
+            text,
+            dims: self.dims,
         });
-
-        expect(result);
 
         const LINES_WIDTH: usize = 3;
         let line_size = LINES_WIDTH * self.dims.y as usize;
-        let mut line_glyphs = Vec::with_capacity(line_size);
+        let mut line_text = Vec::with_capacity(line_size);
 
         for line in line_numbers {
             let mut write_to = [b' '; LINES_WIDTH];
@@ -161,37 +148,19 @@ impl View {
 
             for b in write_to {
                 let c = char::from_u32(b as u32).unwrap();
-
-                // These will always be in the default glyphs so we good here
-                let res = cache.translate_glyph(c);
-                line_glyphs.push(res.glyph);
+                line_text.push(c);
             }
         }
 
-        // render line numbers
-        let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
-            let is_lines = true;
-            let atlas = None;
-            let block_types = vec![BlockType::Normal; line_size];
-            let glyphs = line_glyphs;
-            let dims = Rect {
+        output.push(TedCommand::DrawView {
+            is_lines: true,
+            block_types: vec![BlockType::Normal; line_size],
+            text: line_text,
+            dims: Rect {
                 x: LINES_WIDTH as u32,
                 y: self.dims.y,
-            };
-
-            shader.render(TextShaderInput {
-                is_lines,
-                atlas,
-                block_types,
-                glyphs,
-                atlas_dims,
-                dims,
-            })?;
-
-            return Ok(());
+            },
         });
-
-        expect(result);
     }
 
     fn set_contents(&mut self, contents: SetContents, output: &mut Vec<TedCommand>) {

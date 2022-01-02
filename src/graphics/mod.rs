@@ -2,6 +2,7 @@ mod fonts;
 mod webgl;
 
 use crate::util::*;
+use crate::view::BlockType;
 pub use fonts::*;
 pub use webgl::*;
 
@@ -20,14 +21,14 @@ pub struct TextShader {
 
     // Resources
     tex: Texture,
-    in_block_type: Buffer<BlockType>,
+    in_block_type: Buffer<BlockTypeData>,
     in_glyph_pos: Buffer<Glyph>,
 }
 
 pub struct TextShaderInput<'a> {
     pub is_lines: bool,
     pub atlas: Option<&'a [u8]>,
-    pub block_types: Vec<BlockType>,
+    pub block_types: Vec<BlockTypeData>,
     pub glyphs: Vec<Glyph>,
     pub atlas_dims: Rect,
     pub dims: Rect,
@@ -118,13 +119,9 @@ thread_local! {
     pub static TEXT_SHADER: TextShader = expect(TextShader::new());
 }
 
-// For z:
-// 0 is normal
-// 1 is cursor
-// 2 is selected
 #[derive(Clone, Copy)]
 #[repr(C)]
-pub struct BlockType {
+pub struct BlockTypeData {
     // each box is 2 trianges of 3 points each
     top_left_1: u32,
     top_right_2: u32,
@@ -134,17 +131,23 @@ pub struct BlockType {
     bot_right_6: u32,
 }
 
-impl core::cmp::PartialEq for BlockType {
+impl core::cmp::PartialEq for BlockTypeData {
     fn eq(&self, other: &Self) -> bool {
         return self.top_left_1 == other.top_left_1;
     }
 }
 
-impl BlockType {
-    pub const Normal: Self = Self::new(0);
-    pub const Cursor: Self = Self::new(1);
+impl BlockTypeData {
+    pub fn new(bt: BlockType) -> Self {
+        // For z:
+        // 0 is normal
+        // 1 is cursor
+        // 2 is selected
+        let value = match bt {
+            BlockType::Normal => 0,
+            BlockType::Cursor => 1,
+        };
 
-    const fn new(value: u32) -> Self {
         return Self {
             top_left_1: value,
             top_right_2: value,
@@ -156,7 +159,7 @@ impl BlockType {
     }
 }
 
-impl WebGlType for BlockType {
+impl WebGlType for BlockTypeData {
     const GL_TYPE: u32 = Context::UNSIGNED_INT;
     const SIZE: i32 = 1;
 

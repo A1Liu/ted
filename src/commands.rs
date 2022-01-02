@@ -4,12 +4,21 @@ use crate::view::*;
 use winit::event_loop::ControlFlow;
 use winit::window::Window;
 
+#[cfg_attr(debug_assertions, derive(PartialEq))]
 pub enum TedCommand {
-    DrawView {},
+    DrawView {
+        is_lines: bool,
+        block_types: Vec<BlockType>,
+        text: Vec<char>,
+        dims: Rect,
+    },
+
     RequestRedraw,
     Exit,
 
-    ForView { command: ViewCommand },
+    ForView {
+        command: ViewCommand,
+    },
 }
 
 #[inline(always)]
@@ -17,6 +26,7 @@ pub fn for_view(command: ViewCommand) -> TedCommand {
     return TedCommand::ForView { command };
 }
 
+#[cfg_attr(debug_assertions, derive(PartialEq))]
 pub enum ViewCommand {
     CursorMove(Direction),
     ToggleCursorBlink,
@@ -27,12 +37,14 @@ pub enum ViewCommand {
     Draw,
 }
 
+#[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct SetContents {
     pub start: usize,
     pub start_line: usize,
     pub text: String,
 }
 
+#[cfg_attr(debug_assertions, derive(PartialEq))]
 pub enum Direction {
     Up,
     Down,
@@ -84,10 +96,43 @@ impl CommandHandler {
             match command {
                 TedCommand::RequestRedraw => window.request_redraw(),
                 TedCommand::Exit => *flow = ControlFlow::Exit,
-                TedCommand::ForView {
-                    command: ViewCommand::Draw,
+
+                TedCommand::DrawView {
+                    is_lines,
+                    block_types,
+                    text,
+                    dims,
+                } => {
+                    let mut did_raster = false;
+                    let glyphs_iter = text.into_iter().map(|c| {
+                        let res = self.cache.translate_glyph(c);
+                        did_raster = did_raster || res.did_raster;
+                        return res.glyph;
+                    });
+                    let block_types_iter = block_types.into_iter().map(BlockTypeData::new);
+
+                    let glyphs: Vec<Glyph> = glyphs_iter.collect();
+                    let block_types: Vec<BlockTypeData> = block_types_iter.collect();
+
+                    let atlas_dims = self.cache.atlas_dims();
+                    let atlas = did_raster.then(|| self.cache.atlas());
+
+                    let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
+                        shader.render(TextShaderInput {
+                            is_lines,
+                            atlas,
+                            block_types,
+                            glyphs,
+                            atlas_dims,
+                            dims,
+                        })?;
+
+                        return Ok(());
+                    });
+
+                    expect(result);
                 }
-                | TedCommand::DrawView {} => self.view.draw(&mut self.cache, buffer),
+
                 TedCommand::ForView { command } => {
                     let cmd = Command {
                         buffer,
