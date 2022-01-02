@@ -100,11 +100,6 @@ impl View {
                 false => text[begin..end].fill(params.c),
                 true => {}
             }
-
-            // if params.will_wrap {
-            //     let row_end = (row_begin + self.dims.x) as usize;
-            //     text[end..row_end].fill(' ');
-            // }
         }
 
         // Fill remaining glyphs with the empty glyph
@@ -115,10 +110,6 @@ impl View {
                 line_numbers[y as usize] = display_line.take();
             }
 
-            // let row_begin = y * self.dims.x;
-            // let begin = (row_begin + x) as usize;
-            // let end = (row_begin + self.dims.x) as usize;
-            // text[begin..end].fill(' ');
             x = 0;
         }
 
