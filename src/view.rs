@@ -3,6 +3,7 @@ use crate::flow::*;
 use crate::graphics::*;
 use crate::text::*;
 use crate::util::*;
+use std::io::Write;
 use winit::event;
 
 #[cfg_attr(debug_assertions, derive(PartialEq))]
@@ -15,8 +16,6 @@ pub struct View {
     cursor_pos: Point2<u32>,
 
     visible_text: Vec<char>,
-    block_types: Vec<BlockType>,
-    glyphs: Vec<Glyph>,
 }
 
 // @Memory we can probably reduce the number of fields used here. Not
@@ -39,14 +38,7 @@ enum FlowResult {
 impl View {
     pub fn new(dims: Rect, s: &str) -> Self {
         let size = (dims.x * dims.y) as usize;
-        let mut glyphs = Vec::with_capacity(size);
-        let mut block_types = Vec::with_capacity(size);
         let mut visible_text = Vec::with_capacity(size);
-
-        for _ in 0..size {
-            block_types.push(BlockType::Normal);
-            glyphs.push(EMPTY_GLYPH);
-        }
 
         let mut config = FlowConfig::new(s.chars(), Some(dims.x), Some(dims.y));
         for (state, params) in &mut config {
@@ -62,8 +54,6 @@ impl View {
             cursor_pos: Point2 { x: 0, y: 0 },
 
             visible_text,
-            block_types,
-            glyphs,
         };
     }
 
@@ -108,7 +98,9 @@ impl View {
                     display_line.replace(state.newline_count + line);
                     continue;
                 }
+
                 c if c.is_whitespace() => continue,
+
                 c => {
                     let res = cache.translate_glyph(c);
                     did_raster = did_raster || res.did_raster;
@@ -122,65 +114,11 @@ impl View {
 
         // Fill remaining glyphs with the empty glyph
         let state = config.finalize();
-        let mut x = state.pos.x;
-        for y in state.pos.y..self.dims.y {
-            if x == 0 {
-                line_numbers[y as usize] = display_line.take();
-            }
-
-            x = 0;
+        if state.pos.y < self.dims.y && state.pos.x == 0 {
+            line_numbers[state.pos.y as usize] = display_line.take();
         }
 
         debug_assert_eq!(line_numbers.len(), self.dims.y as usize);
-
-        let atlas_dims = cache.atlas_dims();
-
-        {
-            const LINES_WIDTH: usize = 3;
-            let size = LINES_WIDTH * self.dims.y as usize;
-            let mut glyphs = Vec::with_capacity(size);
-            let mut block_types = vec![BlockType::Normal; size];
-
-            for line in line_numbers {
-                let mut write_to = [b' '; LINES_WIDTH];
-                if let Some(line) = line {
-                    use std::io::Write;
-
-                    let mut buf: &mut [u8] = &mut write_to;
-                    write!(buf, "{: >width$}", line, width = LINES_WIDTH).unwrap();
-                }
-
-                for b in write_to {
-                    let c = char::from_u32(b as u32).unwrap();
-                    let res = cache.translate_glyph(c);
-                    did_raster = did_raster || res.did_raster;
-                    glyphs.push(res.glyph);
-                }
-            }
-
-            let is_lines = true;
-            let atlas = did_raster.then(|| cache.atlas());
-            let dims = Rect {
-                x: LINES_WIDTH as u32,
-                y: self.dims.y,
-            };
-
-            // render line numbers
-            let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
-                shader.render(TextShaderInput {
-                    is_lines,
-                    atlas,
-                    block_types,
-                    glyphs,
-                    atlas_dims,
-                    dims,
-                })?;
-
-                return Ok(());
-            });
-
-            expect(result);
-        }
 
         // clear block state
         let mut block_types = vec![BlockType::Normal; size];
@@ -189,11 +127,58 @@ impl View {
             block_types[idx as usize] = BlockType::Cursor;
         }
 
-        let is_lines = false;
-        let atlas = None;
-        let dims = self.dims;
+        let atlas_dims = cache.atlas_dims();
 
         let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
+            let is_lines = false;
+            let atlas = did_raster.then(|| cache.atlas());
+            let dims = self.dims;
+
+            shader.render(TextShaderInput {
+                is_lines,
+                atlas,
+                block_types,
+                glyphs,
+                atlas_dims,
+                dims,
+            })?;
+
+            return Ok(());
+        });
+
+        expect(result);
+
+        const LINES_WIDTH: usize = 3;
+        let line_size = LINES_WIDTH * self.dims.y as usize;
+        let mut line_glyphs = Vec::with_capacity(line_size);
+
+        for line in line_numbers {
+            let mut write_to = [b' '; LINES_WIDTH];
+            if let Some(line) = line {
+                let mut buf: &mut [u8] = &mut write_to;
+                write!(buf, "{: >width$}", line, width = LINES_WIDTH).unwrap();
+            }
+
+            for b in write_to {
+                let c = char::from_u32(b as u32).unwrap();
+
+                // These will always be in the default glyphs so we good here
+                let res = cache.translate_glyph(c);
+                line_glyphs.push(res.glyph);
+            }
+        }
+
+        // render line numbers
+        let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
+            let is_lines = true;
+            let atlas = None;
+            let block_types = vec![BlockType::Normal; line_size];
+            let glyphs = line_glyphs;
+            let dims = Rect {
+                x: LINES_WIDTH as u32,
+                y: self.dims.y,
+            };
+
             shader.render(TextShaderInput {
                 is_lines,
                 atlas,
