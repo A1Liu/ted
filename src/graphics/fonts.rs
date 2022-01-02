@@ -9,6 +9,10 @@ const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
 // These affect how the font looks I think? I'm not really sure tbh.
 //                                  - Albert Liu, Dec 11, 2021 Sat 22:44 EST
 const SIZE: usize = 128; // some kind of font thing idk.
+const PAD_L: u32 = 8; // in pixels or something?
+const PAD_R: u32 = 4; // in pixels
+const PAD_T: u32 = 4; // in pixels
+const PAD_B: u32 = 8; // in pixels
 
 pub const EMPTY_GLYPH: Glyph = Glyph {
     top_left_1: Point2 { x: 0, y: 0 },
@@ -100,29 +104,32 @@ impl GlyphCache {
             panic!("Can't handle variable fonts");
         }
 
-        let scale = 0.05f32;
-        let vmetrics = v_metrics(&face, scale);
-        let height = vmetrics.ascent - vmetrics.descent + vmetrics.line_gap;
+        let ppem = face.units_per_em();
+        let scale = (SIZE as f32) / (ppem as f32);
 
-        let empty_glyph_id = face.glyph_index(' ').unwrap();
-        let hmetrics = h_metrics(&face, empty_glyph_id, scale);
-        let width = hmetrics.advance_width;
-
+        let (mut width, mut height) = (0, 0);
         for c in DEFAULT_CHARS.chars() {
-            let empty_glyph_id = face.glyph_index(c).unwrap();
-            let glyph_width = h_metrics(&face, empty_glyph_id, scale).advance_width;
-            debug_assert_eq!(width, glyph_width);
+            let (w, h) = char_dimensions(&face, scale, c);
+
+            width = core::cmp::max(width, w);
+            height = core::cmp::max(height, h);
+        }
+
+        let (width, height) = (width + PAD_L + PAD_R, height + PAD_T + PAD_B);
+
+        if width < self.glyph_dims.x && height < self.glyph_dims.y {
+            let pos = self.add_char(&face, scale, c);
+            let glyph = self.make_glyph(pos);
+            return GlyphResult::new(true, glyph);
         }
 
         self.descriptors.clear();
         self.atlas.clear();
 
-        self.glyph_dims = new_rect(width as u32, height as u32);
+        self.glyph_dims = new_rect(width, height);
         self.atlas_dims.x = MAX_ATLAS_WIDTH / width * width;
         self.atlas_dims.y = 0;
         self.atlas_current_row_width = self.atlas_dims.x;
-
-        let scale = scale as f32 / 1.1;
 
         for c in DEFAULT_CHARS.chars() {
             self.add_char(&face, scale, c);
@@ -179,15 +186,11 @@ impl GlyphCache {
         let glyph_id = face.glyph_index(c).unwrap();
         let glyph_data = rasterize_glyph(face, scale, glyph_id);
 
-        debug_assert!(glyph_data.dims.x < self.glyph_dims.x);
-        debug_assert!(glyph_data.dims.y < self.glyph_dims.y);
-
         let x = self.atlas_current_row_width;
         self.atlas_current_row_width += self.glyph_dims.x;
         let y = self.atlas_dims.y - self.glyph_dims.y;
 
         let glyph = Point2 { x, y };
-
         self.write_glyph_data(glyph, glyph_data);
         self.descriptors.insert(c, glyph);
 
@@ -210,15 +213,18 @@ impl GlyphCache {
         let data_width = data.dims.x as usize;
         let data = data.data;
 
-        let data_begin_row = atlas_height - data_height;
-        let data_end_row = atlas_height;
-        let data_begin_col = glyph_x;
-        let data_end_col = glyph_x + data_width;
+        let (pad_l, pad_r) = (PAD_L as usize, PAD_R as usize);
+        let (pad_t, pad_b) = (PAD_T as usize, PAD_B as usize);
 
-        let glyph_begin_row = glyph_y;
+        let data_begin_row = atlas_height - data_height - pad_b;
+        let data_end_row = atlas_height - pad_b;
+        let data_begin_col = glyph_x + pad_l;
+        let data_end_col = glyph_x + pad_l + data_width;
+
+        let glyph_begin_row = glyph_y + pad_t;
         // glyph_end_row == data_end_row
         // glyph_begin_col == data_begin_col
-        let glyph_end_col = glyph_x + glyph_width;
+        let glyph_end_col = glyph_x + glyph_width - pad_r;
 
         // Could probably skip this step
         // Empty out any space that might've been filled by a previous glyph
@@ -253,10 +259,10 @@ impl GlyphCache {
 pub struct HMetrics {
     // The horizontal offset that the origin of the next glyph should be from
     // the origin of this glyph.
-    pub advance_width: u32,
+    pub advance_width: f32,
     // The horizontal offset between the origin of this glyph and the leftmost
     // edge/point of the glyph.
-    pub left_side_bearing: i16,
+    pub left_side_bearing: f32,
 }
 
 // The "vertical metrics" of a font at a particular scale. This is useful for
@@ -266,13 +272,13 @@ pub struct HMetrics {
 pub struct VMetrics {
     // The highest point that any glyph in the font extends to above the
     // baseline. Typically positive.
-    pub ascent: i32,
+    pub ascent: f32,
     // The lowest point that any glyph in the font extends to below the
     // baseline. Typically negative.
-    pub descent: i32,
+    pub descent: f32,
     // The gap to leave between the descent of one line and the ascent of the
     // next. This is of course only a guideline given by the font's designers.
-    pub line_gap: i32,
+    pub line_gap: f32,
 }
 
 // Copy-pasted from the RustType, because that's both easier and better than adding
@@ -284,9 +290,9 @@ pub struct VMetrics {
 // height is a scaling factor in pixels
 pub fn v_metrics(inner: &ttf::Face, height: f32) -> VMetrics {
     let vmetrics = VMetrics {
-        ascent: (inner.ascender() as f32 * height) as i32,
-        descent: (inner.descender() as f32 * height) as i32,
-        line_gap: (inner.line_gap() as f32 * height) as i32,
+        ascent: inner.ascender() as f32 * height,
+        descent: inner.descender() as f32 * height,
+        line_gap: inner.line_gap() as f32 * height,
     };
     return vmetrics;
 }
@@ -300,8 +306,8 @@ pub fn h_metrics(inner: &ttf::Face, id: ttf::GlyphId, width: f32) -> HMetrics {
     let left_side_bearing = inner.glyph_hor_side_bearing(id).unwrap();
 
     HMetrics {
-        advance_width: (advance as f32 * width) as u32,
-        left_side_bearing: (left_side_bearing as f32 * width) as i16,
+        advance_width: advance as f32 * width,
+        left_side_bearing: left_side_bearing as f32 * width,
     }
 }
 
