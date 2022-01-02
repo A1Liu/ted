@@ -57,7 +57,7 @@ impl Direction {
 // components.
 pub struct CommandHandler {
     // This should be global
-    // cache: GlyphCache,
+    cache: GlyphCache,
 
     // This eventually should not be global
     view: View,
@@ -68,13 +68,10 @@ pub struct CommandHandler {
 // just return a Vec?
 impl CommandHandler {
     pub fn new(text: String) -> Self {
-        // let mut cache = GlyphCache::new();
+        let mut cache = GlyphCache::new();
         let mut view = View::new(new_rect(35, 20), &text);
 
-        return Self {
-            // cache,
-            view,
-        };
+        return Self { cache, view };
     }
 
     pub fn run(&mut self, window: &Window, flow: &mut ControlFlow, command: TedCommand) {
@@ -87,7 +84,10 @@ impl CommandHandler {
             match command {
                 TedCommand::RequestRedraw => window.request_redraw(),
                 TedCommand::Exit => *flow = ControlFlow::Exit,
-                TedCommand::DrawView {} => {}
+                TedCommand::ForView {
+                    command: ViewCommand::Draw,
+                }
+                | TedCommand::DrawView {} => self.view.draw(&mut self.cache, buffer),
                 TedCommand::ForView { command } => {
                     let cmd = Command {
                         buffer,

@@ -24,9 +24,9 @@ pub struct TextShader {
     in_glyph_pos: Buffer<Glyph>,
 }
 
-pub struct TextShaderInput {
+pub struct TextShaderInput<'a> {
     pub is_lines: bool,
-    pub atlas: Option<Vec<u8>>,
+    pub atlas: Option<&'a [u8]>,
     pub block_types: Vec<BlockType>,
     pub glyphs: Vec<Glyph>,
     pub atlas_dims: Rect,

@@ -11,9 +11,12 @@ pub struct View {
     start_line: usize,
     dims: Rect,
 
-    visible_text: Vec<char>,
     cursor_blink_on: bool,
     cursor_pos: Point2<u32>,
+
+    visible_text: Vec<char>,
+    block_types: Vec<BlockType>,
+    glyphs: Vec<Glyph>,
 }
 
 // @Memory we can probably reduce the number of fields used here. Not
@@ -36,7 +39,14 @@ enum FlowResult {
 impl View {
     pub fn new(dims: Rect, s: &str) -> Self {
         let size = (dims.x * dims.y) as usize;
+        let mut glyphs = Vec::with_capacity(size);
+        let mut block_types = Vec::with_capacity(size);
         let mut visible_text = Vec::with_capacity(size);
+
+        for _ in 0..size {
+            block_types.push(BlockType::Normal);
+            glyphs.push(EMPTY_GLYPH);
+        }
 
         let mut config = FlowConfig::new(s.chars(), Some(dims.x), Some(dims.y));
         for (state, params) in &mut config {
@@ -48,9 +58,12 @@ impl View {
             start_line: 0,
             dims,
 
-            visible_text,
             cursor_blink_on: true,
             cursor_pos: Point2 { x: 0, y: 0 },
+
+            visible_text,
+            block_types,
+            glyphs,
         };
     }
 
@@ -64,13 +77,13 @@ impl View {
             ViewCommand::DeleteAfterCursor => self.delete(output),
             ViewCommand::FlowCursor { index } => self.flow_cursor(index),
             ViewCommand::SetContents(contents) => self.set_contents(contents, output),
-            ViewCommand::Draw => self.draw(output),
+            ViewCommand::Draw => {} // self.draw(output),
         }
     }
 
     // TODO does this need to be more flexible? Do we want to support the terminal
     // target sometime in the future?
-    pub fn draw(&self, output: &mut Vec<TedCommand>) {
+    pub fn draw(&self, glyphs: &mut GlyphCache, output: &mut Vec<TedCommand>) {
         let mut config = FlowConfig::new(
             self.visible_text.iter().map(|c| *c),
             Some(self.dims.x),
@@ -78,9 +91,10 @@ impl View {
         );
 
         let size = (self.dims.x * self.dims.y) as usize;
-        let mut text = vec![' '; size];
-
+        let mut text = vec![EMPTY_GLYPH; size];
         let mut line_numbers = vec![None; self.dims.y as usize];
+
+        let mut did_raster = false;
         let mut line = self.start_line + 1;
         let mut display_line = Some(line);
 
@@ -97,8 +111,17 @@ impl View {
             let begin = (row_begin + state.pos.x) as usize;
             let end = begin + params.write_len as usize;
             match params.c.is_whitespace() {
-                false => text[begin..end].fill(params.c),
-                true => {}
+                true => text[begin..end].fill(EMPTY_GLYPH),
+                false => {
+                    let res = glyphs.translate_glyph(params.c);
+                    did_raster = did_raster || res.did_raster;
+                    text[begin..end].fill(res.glyph);
+                }
+            }
+
+            if params.will_wrap {
+                let row_end = (row_begin + self.dims.x) as usize;
+                text[end..row_end].fill(EMPTY_GLYPH);
             }
         }
 
@@ -110,19 +133,17 @@ impl View {
                 line_numbers[y as usize] = display_line.take();
             }
 
+            let row_begin = y * self.dims.x;
+            let begin = (row_begin + x) as usize;
+            let end = (row_begin + self.dims.x) as usize;
+            text[begin..end].fill(EMPTY_GLYPH);
             x = 0;
-        }
-
-        let mut block_types = vec![BlockType::Normal; size];
-        if self.cursor_blink_on {
-            let idx = self.cursor_pos.y * self.dims.x + self.cursor_pos.x;
-            block_types[idx as usize] = BlockType::Cursor;
         }
 
         debug_assert_eq!(line_numbers.len(), self.dims.y as usize);
 
-        {
-            const LINES_WIDTH: usize = 3;
+        const LINES_WIDTH: usize = 3;
+        let (line_block_types, line_glyphs) = {
             let size = LINES_WIDTH * self.dims.y as usize;
             let mut number_glyphs = Vec::with_capacity(size);
             let mut line_block_types = vec![BlockType::Normal; size];
@@ -137,10 +158,59 @@ impl View {
                 }
 
                 for b in write_to {
-                    number_glyphs.push(char::from_u32(b as u32).unwrap());
+                    let c = char::from_u32(b as u32).unwrap();
+                    let res = glyphs.translate_glyph(c);
+                    did_raster = did_raster || res.did_raster;
+                    number_glyphs.push(res.glyph);
                 }
             }
+
+            (line_block_types, number_glyphs)
+        };
+
+        let mut atlas = did_raster.then(|| glyphs.atlas());
+        let atlas_dims = glyphs.atlas_dims();
+
+        // render line numbers
+        let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
+            shader.render(TextShaderInput {
+                is_lines: true,
+                atlas: atlas.take(),
+                block_types: line_block_types,
+                glyphs: line_glyphs,
+                atlas_dims,
+                dims: Rect {
+                    x: LINES_WIDTH as u32,
+                    y: self.dims.y,
+                },
+            })?;
+
+            return Ok(());
+        });
+
+        expect(result);
+
+        // clear block state
+        let mut block_types = vec![BlockType::Normal; size];
+        if self.cursor_blink_on {
+            let idx = self.cursor_pos.y * self.dims.x + self.cursor_pos.x;
+            block_types[idx as usize] = BlockType::Cursor;
         }
+
+        let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
+            shader.render(TextShaderInput {
+                is_lines: false,
+                atlas: atlas.take(),
+                block_types,
+                glyphs: text,
+                atlas_dims,
+                dims: self.dims,
+            })?;
+
+            return Ok(());
+        });
+
+        expect(result);
     }
 
     fn set_contents(&mut self, contents: SetContents, output: &mut Vec<TedCommand>) {
