@@ -83,7 +83,7 @@ impl View {
 
     // TODO does this need to be more flexible? Do we want to support the terminal
     // target sometime in the future?
-    pub fn draw(&self, glyphs: &mut GlyphCache, output: &mut Vec<TedCommand>) {
+    pub fn draw(&self, cache: &mut GlyphCache, output: &mut Vec<TedCommand>) {
         let mut config = FlowConfig::new(
             self.visible_text.iter().map(|c| *c),
             Some(self.dims.x),
@@ -91,7 +91,7 @@ impl View {
         );
 
         let size = (self.dims.x * self.dims.y) as usize;
-        let mut text = vec![EMPTY_GLYPH; size];
+        let mut glyphs = vec![EMPTY_GLYPH; size];
         let mut line_numbers = vec![None; self.dims.y as usize];
 
         let mut did_raster = false;
@@ -103,25 +103,20 @@ impl View {
                 line_numbers[state.pos.y as usize] = display_line.take();
             }
 
-            if params.c == '\n' {
-                display_line.replace(state.newline_count + line);
-            }
-
-            let row_begin = state.pos.y * self.dims.x;
-            let begin = (row_begin + state.pos.x) as usize;
-            let end = begin + params.write_len as usize;
-            match params.c.is_whitespace() {
-                true => text[begin..end].fill(EMPTY_GLYPH),
-                false => {
-                    let res = glyphs.translate_glyph(params.c);
-                    did_raster = did_raster || res.did_raster;
-                    text[begin..end].fill(res.glyph);
+            match params.c {
+                '\n' => {
+                    display_line.replace(state.newline_count + line);
+                    continue;
                 }
-            }
+                c if c.is_whitespace() => continue,
+                c => {
+                    let res = cache.translate_glyph(c);
+                    did_raster = did_raster || res.did_raster;
 
-            if params.will_wrap {
-                let row_end = (row_begin + self.dims.x) as usize;
-                text[end..row_end].fill(EMPTY_GLYPH);
+                    let begin = (state.pos.y * self.dims.x + state.pos.x) as usize;
+                    let end = begin + params.write_len as usize;
+                    glyphs[begin..end].fill(res.glyph);
+                }
             }
         }
 
@@ -133,20 +128,18 @@ impl View {
                 line_numbers[y as usize] = display_line.take();
             }
 
-            let row_begin = y * self.dims.x;
-            let begin = (row_begin + x) as usize;
-            let end = (row_begin + self.dims.x) as usize;
-            text[begin..end].fill(EMPTY_GLYPH);
             x = 0;
         }
 
         debug_assert_eq!(line_numbers.len(), self.dims.y as usize);
 
-        const LINES_WIDTH: usize = 3;
-        let (line_block_types, line_glyphs) = {
+        let atlas_dims = cache.atlas_dims();
+
+        {
+            const LINES_WIDTH: usize = 3;
             let size = LINES_WIDTH * self.dims.y as usize;
-            let mut number_glyphs = Vec::with_capacity(size);
-            let mut line_block_types = vec![BlockType::Normal; size];
+            let mut glyphs = Vec::with_capacity(size);
+            let mut block_types = vec![BlockType::Normal; size];
 
             for line in line_numbers {
                 let mut write_to = [b' '; LINES_WIDTH];
@@ -159,36 +152,35 @@ impl View {
 
                 for b in write_to {
                     let c = char::from_u32(b as u32).unwrap();
-                    let res = glyphs.translate_glyph(c);
+                    let res = cache.translate_glyph(c);
                     did_raster = did_raster || res.did_raster;
-                    number_glyphs.push(res.glyph);
+                    glyphs.push(res.glyph);
                 }
             }
 
-            (line_block_types, number_glyphs)
-        };
+            let is_lines = true;
+            let atlas = did_raster.then(|| cache.atlas());
+            let dims = Rect {
+                x: LINES_WIDTH as u32,
+                y: self.dims.y,
+            };
 
-        let mut atlas = did_raster.then(|| glyphs.atlas());
-        let atlas_dims = glyphs.atlas_dims();
+            // render line numbers
+            let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
+                shader.render(TextShaderInput {
+                    is_lines,
+                    atlas,
+                    block_types,
+                    glyphs,
+                    atlas_dims,
+                    dims,
+                })?;
 
-        // render line numbers
-        let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
-            shader.render(TextShaderInput {
-                is_lines: true,
-                atlas: atlas.take(),
-                block_types: line_block_types,
-                glyphs: line_glyphs,
-                atlas_dims,
-                dims: Rect {
-                    x: LINES_WIDTH as u32,
-                    y: self.dims.y,
-                },
-            })?;
+                return Ok(());
+            });
 
-            return Ok(());
-        });
-
-        expect(result);
+            expect(result);
+        }
 
         // clear block state
         let mut block_types = vec![BlockType::Normal; size];
@@ -197,14 +189,18 @@ impl View {
             block_types[idx as usize] = BlockType::Cursor;
         }
 
+        let is_lines = false;
+        let atlas = None;
+        let dims = self.dims;
+
         let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
             shader.render(TextShaderInput {
-                is_lines: false,
-                atlas: atlas.take(),
+                is_lines,
+                atlas,
                 block_types,
-                glyphs: text,
+                glyphs,
                 atlas_dims,
-                dims: self.dims,
+                dims,
             })?;
 
             return Ok(());
