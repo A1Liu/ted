@@ -76,8 +76,11 @@ impl View {
         }
     }
 
-    // TODO does this need to be more flexible? Do we want to support the terminal
-    // target sometime in the future?
+    // 1.) Does this need to be more flexible?
+    // 2.) Do we want to support the terminal target sometime in the future?
+    //
+    // Answer: 1.) no. 2.) eventually, but this can be done in a different function.
+    //                              - Albert Liu, Jan 02, 2022 Sun 06:59 EST
     pub fn draw(&self, output: &mut Vec<TedCommand>) {
         let mut config = FlowConfig::new(
             self.visible_text.iter().map(|c| *c),

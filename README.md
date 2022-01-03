@@ -15,7 +15,11 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
     structs. Would be easy to use, and would not require nonsense code bloat.
     In the interim though, we can do a runtime conversion to get similar productivity
     benefits.
-  - Not using Serde because of resulting binary size and increased compile times.
+  - Going to try to avoid Serde because of resulting binary size and increased
+    compile times. Current binary size is 235KB, which is pretty gigantic for
+    how little work it does, and a TodoMVC app with Serde is 476Kb. Runtime serialization
+    performance is low priority for the message sizes this project works with,
+    but avoiding a gigantic download size is an incredibly high priority.
 
 ## Size Opt Stuffs
 - [ ] https://github.com/rustwasm/wasm-pack/issues/737
@@ -35,6 +39,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Text colors/spans
 - Mouse support
 - Select text
+- Serialization using less binary bloat?
 
 ## Mid-term
 - Refactor text flowing to have enough flexibility for the line wrapping issue

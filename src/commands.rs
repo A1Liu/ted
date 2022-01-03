@@ -75,9 +75,6 @@ pub struct CommandHandler {
     view: View,
 }
 
-// TODO this should use a stack instead of a queue, and also the pattern of passing
-// a mutable Vec might not be the best once the switch to a stack happens. Maybe
-// just return a Vec?
 impl CommandHandler {
     pub fn new(text: String) -> Self {
         let mut cache = GlyphCache::new();
@@ -88,6 +85,10 @@ impl CommandHandler {
 
     pub fn run(&mut self, window: &Window, flow: &mut ControlFlow, command: TedCommand) {
         let mut commands = Vec::with_capacity(8);
+
+        // TODO the pattern of passing a mutable Vec might not be the best. Although,
+        // idk what else to use here. Ideally there would be less allocations,
+        // not more.
         let mut buffer = &mut Vec::with_capacity(8);
 
         commands.push(command);
