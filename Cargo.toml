@@ -7,7 +7,6 @@ edition = "2021"
 name = "editor"
 path = "src/lib.rs"
 
-
 # the "rlib" isn't technically necessary here. "cdylib" is used by WASM stuff,
 # and "rlib" would be used by rust programs that depend on this library if there
 # were any.
@@ -16,6 +15,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 mint = "0.5.8"
 btree = { path = "./btree" }
+rusttype = { path = "./rusttype" }
 
 # Can't use font-rs here because the latest released version has an out-of-bounds
 # error; instead we just copy-paste their rasterization code
