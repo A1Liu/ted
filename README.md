@@ -34,7 +34,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
 
 ## Next Up
-- Make text less ugly
+- Make text less ugly (copy code from RustType?)
 - Refactor and test the command system
 - Text colors/spans
 - Mouse support
