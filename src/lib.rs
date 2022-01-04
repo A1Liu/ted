@@ -68,10 +68,10 @@ mod wasm_exports {
 
             let handler = {
                 let canvas = expect(get_canvas());
-                let window = WindowBuilder::new()
+                let window_opt = WindowBuilder::new()
                     .with_canvas(Some(canvas))
-                    .build(&event_loop)
-                    .unwrap();
+                    .build(&event_loop);
+                let window = expect(window_opt);
 
                 Handler::new(window, TEXT.to_string())
             };

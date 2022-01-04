@@ -146,11 +146,11 @@ impl View {
             let mut write_to = [b' '; LINES_WIDTH];
             if let Some(line) = line {
                 let mut buf: &mut [u8] = &mut write_to;
-                write!(buf, "{: >width$}", line, width = LINES_WIDTH).unwrap();
+                expect(write!(buf, "{: >width$}", line, width = LINES_WIDTH));
             }
 
             for b in write_to {
-                let c = char::from_u32(b as u32).unwrap();
+                let c = unwrap(char::from_u32(b as u32));
                 line_text.push(c);
             }
         }
@@ -193,7 +193,7 @@ impl View {
             FlowResult::FoundLine { end_pos, begin } => {
                 let mut index = begin + end_pos.x as usize;
 
-                if s.chars().nth(0).unwrap() != '\n' {
+                if unwrap(s.chars().nth(0)) != '\n' {
                     for x in end_pos.x..self.cursor_pos.x {
                         self.visible_text.insert(index, '~');
                         index += 1;
@@ -209,7 +209,7 @@ impl View {
                     index += 1;
                 }
 
-                if s.chars().nth(0).unwrap() != '\n' {
+                if unwrap(s.chars().nth(0)) != '\n' {
                     for x in 0..self.cursor_pos.x {
                         self.visible_text.push('~');
                         index += 1;

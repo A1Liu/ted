@@ -1,3 +1,4 @@
+use crate::util::*;
 use btree::*;
 
 pub struct File {
@@ -13,14 +14,14 @@ impl File {
     }
 
     pub fn push(&mut self, text: &str) {
-        let last = self.data.last_idx().unwrap();
-        let offset = self.data.get(last).unwrap().get_info().content_size;
+        let last = unwrap(self.data.last_idx());
+        let offset = unwrap(self.data.get(last)).get_info().content_size;
 
         self.insert_at(last, offset, text);
     }
 
     pub fn insert(&mut self, idx: usize, text: &str) {
-        let (idx, offset) = self.data.key_leq_idx(idx, BufferInfo::content).unwrap();
+        let (idx, offset) = unwrap(self.data.key_leq_idx(idx, BufferInfo::content));
 
         self.insert_at(idx, offset, text);
     }
@@ -32,7 +33,7 @@ impl File {
 
         let mut len = end - begin;
         while len > 0 {
-            let (idx, offset) = self.data.key_idx(begin, BufferInfo::content).unwrap();
+            let (idx, offset) = unwrap(self.data.key_idx(begin, BufferInfo::content));
             self.data.edit_or_remove(idx, |buf| {
                 let char_count = buf.char_count as usize;
                 if char_count > len {
@@ -78,7 +79,7 @@ impl File {
             return 0;
         }
 
-        return self.cursor_for_line(lines - 1).unwrap();
+        return unwrap(self.cursor_for_line(lines - 1));
     }
 
     fn insert_at(&mut self, idx: ElemIdx, mut offset: usize, text: &str) {
@@ -102,7 +103,7 @@ impl File {
             return (iter, above);
         });
 
-        let (mut remaining_chars, buf) = result.unwrap();
+        let (mut remaining_chars, buf) = unwrap(result);
         let mut buf = match buf.is_empty() {
             true => buf,
             false => {
@@ -295,7 +296,7 @@ impl TextBuffer {
         let mut idx = 0;
         let mut iter = buffer.chars();
         while idx < offset {
-            let c = iter.next().unwrap();
+            let c = unwrap(iter.next());
             self.push(c);
             idx += 1;
         }
