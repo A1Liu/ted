@@ -8,7 +8,7 @@ const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
 
 // These affect how the font looks I think? I'm not really sure tbh.
 //                                  - Albert Liu, Dec 11, 2021 Sat 22:44 EST
-const SIZE: usize = 128; // some kind of font thing idk.
+const SIZE: usize = 64; // some kind of font thing idk.
 const PAD_L: u32 = 8; // in pixels or something?
 const PAD_R: u32 = 4; // in pixels
 const PAD_T: u32 = 4; // in pixels
@@ -99,20 +99,24 @@ impl GlyphCache {
             return GlyphResult::new(false, glyph);
         }
 
+        // glyph isn't in cache so we don't raster it.
         let face = ttf::Face::from_slice(COURIER, 0).unwrap();
         if face.is_variable() || !face.is_monospaced() {
             panic!("Can't handle variable fonts");
         }
 
-        let ppem = face.units_per_em();
-        let scale = (SIZE as f32) / (ppem as f32);
+        let (ascent, descent) = (face.ascender(), face.descender());
+        let line_gap = face.line_gap();
+        let fheight = f32::from(face.ascender()) - f32::from(face.descender());
+        let scale = (SIZE as f32) / fheight;
+        let height = (ascent - descent + line_gap) as f32 * scale;
+        let height = height as u32;
 
-        let (mut width, mut height) = (0, 0);
+        let mut width = 0;
         for c in DEFAULT_CHARS.chars() {
             let (w, h) = char_dimensions(&face, scale, c);
 
             width = core::cmp::max(width, w);
-            height = core::cmp::max(height, h);
         }
 
         let (width, height) = (width + PAD_L + PAD_R, height + PAD_T + PAD_B);
