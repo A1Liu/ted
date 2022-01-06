@@ -75,7 +75,7 @@ impl GlyphResult {
     }
 }
 
-// Actual meanings of the horizontal and vertical metrics
+// Actual explanations:
 // https://gitlab.redox-os.org/redox-os/rusttype/-/blob/master/src/lib.rs#L175
 // https://freetype.org/freetype2/docs/glyphs/glyphs-3.html
 impl GlyphCache {
@@ -119,7 +119,15 @@ impl GlyphCache {
 
         let mut width = 0;
         for c in DEFAULT_CHARS.chars() {
-            let (w, h) = char_dimensions(&face, scale, c);
+            // TODO it's monospaced, so use the width of ' ' or something idk
+            let glyph_id = face.glyph_index(c).unwrap();
+            let w = match face.glyph_bounding_box(glyph_id) {
+                None => 0,
+                Some(rect) => {
+                    let (metrics, z) = metrics_and_affine(rect, scale);
+                    metrics.width()
+                }
+            };
 
             width = core::cmp::max(width, w);
         }
@@ -249,17 +257,6 @@ impl GlyphCache {
     }
 }
 
-fn char_dimensions(face: &ttf::Face, scale: f32, c: char) -> (u32, u32) {
-    let glyph_id = face.glyph_index(c).unwrap();
-    let rect = match face.glyph_bounding_box(glyph_id) {
-        Some(rect) => rect,
-        None => return (0, 0),
-    };
-
-    let (metrics, z) = metrics_and_affine(rect, scale);
-    return (metrics.width(), metrics.height());
-}
-
 fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData {
     let rect = match face.glyph_bounding_box(id) {
         Some(rect) => rect,
@@ -272,8 +269,10 @@ fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData 
         }
     };
 
-    // I hate that this uses Affine in this file instead of just doing a straightforward
-    // translation. This code was copied from font-rs so idk what to do about it.
+    // TODO I hate that this uses Affine in this file instead of just doing a
+    // straightforward translation. This code was copied from font-rs so idk
+    // what to do about it.
+    //                      - Albert Liu, Jan 06, 2022 Thu 01:30 EST
     let (metrics, z) = metrics_and_affine(rect, scale);
     let (width, height) = (metrics.width(), metrics.height());
 
@@ -335,6 +334,7 @@ impl ttf::OutlineBuilder for Builder {
         self.current = dest;
     }
 
+    // TODO This doesn't actually do anything real right now.
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
         // x1,y1 and x2,y2 are control points
         let dest = Point { x, y };
