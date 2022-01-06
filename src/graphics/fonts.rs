@@ -221,7 +221,7 @@ impl GlyphCache {
         let (pad_l, pad_r) = (PAD_L as usize, PAD_R as usize);
         let (pad_t, pad_b) = (PAD_T as usize, PAD_B as usize);
 
-        let data_begin_row = glyph_y + atlas_height - data_height - pad_b;
+        let data_begin_row = atlas_height - data_height - pad_b;
         let data_end_row = atlas_height - pad_b;
         let data_begin_col = glyph_x + pad_l;
         let data_end_col = glyph_x + pad_l + data_width;
