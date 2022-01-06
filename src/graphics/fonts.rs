@@ -50,6 +50,7 @@ impl PartialEq for Glyph {
 
 pub struct GlyphData {
     pub data: Vec<u8>,
+    pub top_offset: usize,
     pub dims: Rect,
 }
 
@@ -220,7 +221,7 @@ impl GlyphCache {
         let (pad_l, pad_r) = (PAD_L as usize, PAD_R as usize);
         let (pad_t, pad_b) = (PAD_T as usize, PAD_B as usize);
 
-        let data_begin_row = atlas_height - data_height - pad_b;
+        let data_begin_row = glyph_y + atlas_height - data_height - pad_b;
         let data_end_row = atlas_height - pad_b;
         let data_begin_col = glyph_x + pad_l;
         let data_end_col = glyph_x + pad_l + data_width;
@@ -332,6 +333,7 @@ fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData 
         None => {
             return GlyphData {
                 dims: new_rect(0, 0),
+                top_offset: 0,
                 data: Vec::new(),
             }
         }
@@ -346,6 +348,7 @@ fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData 
     let data = builder.raster.get_bitmap();
     return GlyphData {
         dims: new_rect(width, height),
+        top_offset: expect((-metrics.t).try_into()),
         data,
     };
 }
@@ -484,7 +487,6 @@ impl Raster {
     }
 
     pub fn draw_quad(&mut self, p0: Point, p1: Point, p2: Point) {
-        //println!("draw_quad {} {} {}", p0, p1, p2);
         let devx = p0.x - 2.0 * p1.x + p2.x;
         let devy = p0.y - 2.0 * p1.y + p2.y;
         let devsq = devx * devx + devy * devy;
@@ -494,7 +496,6 @@ impl Raster {
         }
         let tol = 3.0;
         let n = 1 + (tol * (devx * devx + devy * devy)).sqrt().sqrt().floor() as usize;
-        //println!("n = {}", n);
         let mut p = p0;
         let nrecip = recip(n as f32);
         let mut t = 0.0;
