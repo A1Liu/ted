@@ -34,7 +34,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
 
 ## Next Up
-- Refactor and test the command system
+- Test the command system
 - Text colors/spans
 - Mouse support
 - Select text

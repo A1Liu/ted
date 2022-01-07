@@ -145,10 +145,8 @@ impl GlyphCache {
         self.descriptors.clear();
         self.atlas.clear();
 
-        self.glyph_dims = Rect {
-            x: width,
-            y: height,
-        };
+        let (x, y) = (width, height);
+        self.glyph_dims = Rect { x, y };
         self.atlas_dims.x = MAX_ATLAS_WIDTH / width * width;
         self.atlas_dims.y = 0;
         self.atlas_current_row_width = self.atlas_dims.x;
