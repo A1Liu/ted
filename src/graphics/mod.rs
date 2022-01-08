@@ -4,6 +4,7 @@ mod webgl;
 use crate::util::*;
 use crate::view::BlockType;
 pub use fonts::*;
+use mint::Vector3;
 pub use webgl::*;
 
 pub struct TextShader {
@@ -21,6 +22,7 @@ pub struct TextShader {
 
     // Resources
     tex: Texture,
+    in_fg_color: Buffer<ColorData>,
     in_block_type: Buffer<BlockTypeData>,
     in_glyph_pos: Buffer<Glyph>,
 }
@@ -29,6 +31,7 @@ pub struct TextShaderInput<'a> {
     pub is_lines: bool,
     pub atlas: Option<&'a [u8]>,
     pub block_types: Vec<BlockTypeData>,
+    pub colors: Vec<ColorData>,
     pub glyphs: Vec<Glyph>,
     pub atlas_dims: Rect,
     pub dims: Rect,
@@ -42,6 +45,7 @@ impl TextShader {
 
         let vao = gl.vao()?;
 
+        let in_fg_color = gl.attr_buffer(&program, "in_fg_color")?;
         let in_block_type = gl.attr_buffer(&program, "in_block_type")?;
         let in_glyph_pos = gl.attr_buffer(&program, "in_glyph_pos")?;
 
@@ -57,6 +61,7 @@ impl TextShader {
             program,
             vao,
 
+            in_fg_color,
             in_block_type,
             in_glyph_pos,
 
@@ -73,6 +78,7 @@ impl TextShader {
     pub fn render(&self, input: TextShaderInput) -> Result<(), JsValue> {
         gl.use_program(&self.program);
 
+        gl.write_buffer(&self.in_fg_color, &input.colors);
         gl.write_buffer(&self.in_block_type, &input.block_types);
         gl.write_buffer(&self.in_glyph_pos, &input.glyphs);
         if let Some(atlas) = input.atlas {
@@ -117,6 +123,30 @@ impl TextShader {
 
 thread_local! {
     pub static TEXT_SHADER: TextShader = expect(TextShader::new());
+}
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct ColorData {
+    // each box is 2 trianges of 3 points each
+    data: [Vector3<f32>; 6],
+}
+
+impl ColorData {
+    pub fn new(color: Vector3<f32>) -> Self {
+        return Self { data: [color; 6] };
+    }
+}
+
+impl WebGlType for ColorData {
+    const GL_TYPE: u32 = Context::FLOAT;
+    const SIZE: i32 = 3;
+
+    unsafe fn view(array: &[Self]) -> js_sys::Object {
+        let ptr = array.as_ptr() as *const f32;
+        let buffer: &[f32] = core::slice::from_raw_parts(ptr, array.len() * 18);
+        return js_sys::Float32Array::view(buffer).into();
+    }
 }
 
 #[derive(Clone, Copy)]

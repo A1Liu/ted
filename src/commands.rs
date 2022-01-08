@@ -118,10 +118,20 @@ impl CommandHandler {
                     let atlas_dims = self.cache.atlas_dims();
                     let atlas = did_raster.then(|| self.cache.atlas());
 
+                    let colors = vec![
+                        ColorData::new(Vector3 {
+                            x: 0.4,
+                            y: 0.4,
+                            z: 1.0
+                        });
+                        block_types.len()
+                    ];
+
                     let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
                         shader.render(TextShaderInput {
                             is_lines,
                             atlas,
+                            colors,
                             block_types,
                             glyphs,
                             atlas_dims,

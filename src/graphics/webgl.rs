@@ -82,7 +82,7 @@ impl WebGlType for Vector2<f32> {
     }
 
     fn is_int() -> bool {
-        return true;
+        return false;
     }
 }
 
