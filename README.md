@@ -54,7 +54,6 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Persist data and whatnot
 - Custom display stuffs, for e.g. display of binary files and zip files
 - Support multiple fonts
-- Optional syntax highlighting with Lisp interpreter?
 - Frame allocator; just use reference to growable allocator guy (maybe with some
   kind of exponential backoff-style thing?)
 - Vim-style compile-time feature flags
@@ -69,6 +68,11 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Custom display for zip files
 - Custom display for raw binary, maybe using color for byte value in addition
   to hex representation?
+- Error logging system
+- Optional Lisp interpreter for syntax highlighting? Probably requires error
+  logging
+- C and Python APIs for scripting
+
 
 ## Even Further in the Future
 - Full unicode support?
