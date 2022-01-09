@@ -36,8 +36,10 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 ## Next Up
 - Test the command system
 - Text colors/spans
+- Replace block type with fg_color/bg_color manipulation on the CPU
 - Mouse support
 - Select text
+- Separate out graphics and whatnot from other data structures
 - Serialization using less binary bloat? Maybe just DIY it. There is no need to
   use the visitor pattern or support serializing to any arbitrary thing.
 
@@ -52,6 +54,8 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Persist data and whatnot
 - Custom display stuffs, for e.g. display of binary files and zip files
 - Support multiple fonts
+- Optional syntax highlighting with Lisp interpreter?
+- Frame allocator; use lifetime and whatever
 
 ## Far in the Future
 - View just outputs glyph information, graphics backend translates glyph info

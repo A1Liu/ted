@@ -1,3 +1,4 @@
+use crate::command_handler::*;
 use crate::commands::*;
 use crate::graphics::*;
 use crate::text::*;

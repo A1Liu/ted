@@ -14,18 +14,18 @@
 #[macro_use]
 mod print_utils;
 
+mod commands;
 mod flow;
+mod highlighting;
 mod text;
 mod util;
-
-#[cfg(target_arch = "wasm32")]
 mod view;
 
 #[cfg(target_arch = "wasm32")]
 mod graphics;
 
 #[cfg(target_arch = "wasm32")]
-mod commands;
+mod command_handler;
 
 #[cfg(target_arch = "wasm32")]
 mod event_loop;
