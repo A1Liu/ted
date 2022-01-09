@@ -96,28 +96,11 @@ impl View {
     }
 
     pub fn draw(&self, output: &mut Vec<TedCommand>) {
-        let mut config = FlowConfig::new(
-            self.visible_text.iter().map(|c| *c),
-            Some(self.dims.x),
-            Some(self.dims.y),
-        );
-
-        let size = (self.dims.x * self.dims.y) as usize;
-        let mut text = vec![' '; size];
-        let mut line_numbers = vec![None; self.dims.y as usize];
-
-        let mut line = self.start_line + 1;
-        let mut display_line = Some(line);
-
-        let default_color = Color {
-            x: 0.4,
-            y: 0.4,
-            z: 1.0,
-        };
+        let default_fg_color = color(0.4, 0.4, 1.0);
 
         let text_colors = {
             let ranges = self.highlighter.ranges(&self.visible_text);
-            let mut colors = vec![default_color; self.visible_text.len()];
+            let mut colors = vec![default_fg_color; self.visible_text.len()];
             let mut index = 0;
             for range in ranges {
                 let begin = index + range.offset_from_last;
@@ -131,7 +114,19 @@ impl View {
             colors
         };
 
-        let mut colors = vec![default_color; size];
+        let mut config = FlowConfig::new(
+            self.visible_text.iter().map(|c| *c),
+            Some(self.dims.x),
+            Some(self.dims.y),
+        );
+
+        let size = (self.dims.x * self.dims.y) as usize;
+        let mut text = vec![' '; size];
+        let mut colors = vec![default_fg_color; size];
+        let mut line_numbers = vec![None; self.dims.y as usize];
+
+        let mut line = self.start_line + 1;
+        let mut display_line = Some(line);
 
         for (state, params) in &mut config {
             if state.pos.x == 0 {
@@ -199,7 +194,7 @@ impl View {
         output.push(TedCommand::DrawView {
             is_lines: true,
             block_types: vec![BlockType::Normal; line_size],
-            colors: vec![default_color; line_size],
+            colors: vec![default_fg_color; line_size],
             text: line_text,
             dims: Rect {
                 x: LINES_WIDTH as u32,
