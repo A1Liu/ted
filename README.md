@@ -58,7 +58,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
   kind of exponential backoff-style thing?)
 - Vim-style compile-time feature flags
 
-## Far in the Future
+## Cute but nope
 - View just outputs glyph information, graphics backend translates glyph info
   into rendering to user
 - Customization?
@@ -74,21 +74,22 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - C and Python APIs for scripting
 
 
-## Even Further in the Future
+## Cute but jesus christ no
+- Language server support I guess?
 - Full unicode support?
-- Python-style indexable UTF-8 strings
+- Python-style indexable UTF-8 strings (just ascii vs full char probably)
 - Abstract away graphics stuff with cute macros and stuff
 - Cursor ref-counting or whatever works to get the behavior that Google docs has
+- Terminal support
 
 ## Architecture
 - Windows for rendering, tightly connected to graphics for each system
   - Windows have views into files that store stuff like where you cursor is
   - Window doesn't do anything by default. It only dispatches events, and when certain
     events come in, it runs those events
-  - Views do word wrapping and create data for the window to render
+  - Views have a subset of the file data, and are not source of truth for anything
+    except what to render.
 - Files are managed globally, you call functions to modify the files and those
   functions might end up being IPC calls or whatever, to support multiple windows
-- Editor uses a command system for editor mutations. Like, literally, just use
-  an enum to dispatch mutations. That way its easy to swap out an implementation
-  with another, and also testing becomes a data-in/data-out problem instead of
-  a mocking/contracts/whatever problem
+- That way its easy to swap out an implementation with another, and also testing
+  becomes a data-in/data-out problem instead of a mocking/contracts/whatever problem
