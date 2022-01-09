@@ -49,13 +49,15 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - BTree Garbage collection
 - Find and replace
 - Multiple canvases on the web
-- Graphics/shader stuff
+- More Graphics/shader stuff
 - Window sizing and whatnot
 - Persist data and whatnot
 - Custom display stuffs, for e.g. display of binary files and zip files
 - Support multiple fonts
 - Optional syntax highlighting with Lisp interpreter?
-- Frame allocator; use lifetime and whatever
+- Frame allocator; just use reference to growable allocator guy (maybe with some
+  kind of exponential backoff-style thing?)
+- Vim-style compile-time feature flags
 
 ## Far in the Future
 - View just outputs glyph information, graphics backend translates glyph info
