@@ -3,9 +3,10 @@ use mint::*;
 pub type Color = Vector3<f32>;
 
 #[derive(Clone, Copy)]
+#[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct Style {
     pub fg_color: Color,
-    pub bg_color: Color,
+    // pub bg_color: Color,
 }
 
 pub struct Highlighter {
@@ -13,6 +14,7 @@ pub struct Highlighter {
     exact_seq: Vec<Rule<Vec<char>>>,
 }
 
+#[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct RangeData {
     pub offset_from_last: usize,
     pub len: usize,

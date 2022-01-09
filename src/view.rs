@@ -1,10 +1,12 @@
 use crate::commands::*;
 use crate::flow::*;
+use crate::highlighting::*;
 use crate::util::*;
 use std::io::Write;
 use winit::event;
 
-#[cfg_attr(debug_assertions, derive(PartialEq))]
+pub use crate::highlighting::RangeData;
+
 pub struct View {
     start: usize,
     start_line: usize,
@@ -14,6 +16,7 @@ pub struct View {
     cursor_pos: Point2<u32>,
 
     visible_text: Vec<char>,
+    highlighter: Highlighter,
 }
 
 #[derive(Clone, Copy)]
@@ -50,6 +53,10 @@ impl View {
             visible_text.push(params.c);
         }
 
+        let mut rules = Vec::new();
+
+        let highlighter = Highlighter::new(rules);
+
         return Self {
             start: 0,
             start_line: 0,
@@ -58,6 +65,7 @@ impl View {
             cursor_blink_on: true,
             cursor_pos: Point2 { x: 0, y: 0 },
 
+            highlighter,
             visible_text,
         };
     }
@@ -76,11 +84,6 @@ impl View {
         }
     }
 
-    // 1.) Does this need to be more flexible?
-    // 2.) Do we want to support the terminal target sometime in the future?
-    //
-    // Answer: 1.) no. 2.) eventually, but this can be done in a different function.
-    //                              - Albert Liu, Jan 02, 2022 Sun 06:59 EST
     pub fn draw(&self, output: &mut Vec<TedCommand>) {
         let mut config = FlowConfig::new(
             self.visible_text.iter().map(|c| *c),
@@ -134,6 +137,7 @@ impl View {
         output.push(TedCommand::DrawView {
             is_lines: false,
             block_types,
+            ranges: Vec::new(),
             text,
             dims: self.dims,
         });
@@ -158,6 +162,7 @@ impl View {
         output.push(TedCommand::DrawView {
             is_lines: true,
             block_types: vec![BlockType::Normal; line_size],
+            ranges: Vec::new(),
             text: line_text,
             dims: Rect {
                 x: LINES_WIDTH as u32,

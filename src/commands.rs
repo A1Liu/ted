@@ -6,6 +6,7 @@ pub enum TedCommand {
     DrawView {
         is_lines: bool,
         block_types: Vec<BlockType>,
+        ranges: Vec<RangeData>,
         text: Vec<char>,
         dims: Rect,
     },

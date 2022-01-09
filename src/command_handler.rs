@@ -42,6 +42,7 @@ impl CommandHandler {
                 TedCommand::DrawView {
                     is_lines,
                     block_types,
+                    ranges,
                     text,
                     dims,
                 } => {
