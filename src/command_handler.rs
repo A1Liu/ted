@@ -42,7 +42,7 @@ impl CommandHandler {
                 TedCommand::DrawView {
                     is_lines,
                     block_types,
-                    ranges,
+                    colors,
                     text,
                     dims,
                 } => {
@@ -60,14 +60,7 @@ impl CommandHandler {
                     let atlas_dims = self.cache.atlas_dims();
                     let atlas = did_raster.then(|| self.cache.atlas());
 
-                    let colors = vec![
-                        ColorData::new(Vector3 {
-                            x: 0.4,
-                            y: 0.4,
-                            z: 1.0
-                        });
-                        block_types.len()
-                    ];
+                    let colors = colors.into_iter().map(ColorData::new).collect();
 
                     let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
                         shader.render(TextShaderInput {

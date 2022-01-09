@@ -5,6 +5,7 @@ use crate::util::*;
 use std::io::Write;
 use winit::event;
 
+pub use crate::highlighting::Color;
 pub use crate::highlighting::RangeData;
 
 pub struct View {
@@ -54,6 +55,16 @@ impl View {
         }
 
         let mut rules = Vec::new();
+        rules.push(SyntaxRule {
+            pattern: Pattern::ExactShort('a'),
+            style: Style {
+                fg_color: Color {
+                    x: 0.8,
+                    y: 0.3,
+                    z: 0.3,
+                },
+            },
+        });
 
         let highlighter = Highlighter::new(rules);
 
@@ -98,10 +109,38 @@ impl View {
         let mut line = self.start_line + 1;
         let mut display_line = Some(line);
 
+        let default_color = Color {
+            x: 0.4,
+            y: 0.4,
+            z: 1.0,
+        };
+
+        let text_colors = {
+            let ranges = self.highlighter.ranges(&self.visible_text);
+            let mut colors = vec![default_color; self.visible_text.len()];
+            let mut index = 0;
+            for range in ranges {
+                let begin = index + range.offset_from_last;
+                let end = begin + range.len;
+
+                colors[begin..end].fill(range.style.fg_color);
+
+                index = end;
+            }
+
+            colors
+        };
+
+        let mut colors = vec![default_color; size];
+
         for (state, params) in &mut config {
             if state.pos.x == 0 {
                 line_numbers[state.pos.y as usize] = display_line.take();
             }
+
+            let begin = (state.pos.y * self.dims.x + state.pos.x) as usize;
+            let end = begin + params.write_len as usize;
+            colors[begin..end].fill(text_colors[state.index]);
 
             match params.c {
                 '\n' => {
@@ -112,8 +151,6 @@ impl View {
                 c if c.is_whitespace() => continue,
 
                 c => {
-                    let begin = (state.pos.y * self.dims.x + state.pos.x) as usize;
-                    let end = begin + params.write_len as usize;
                     text[begin..end].fill(c);
                 }
             }
@@ -137,7 +174,7 @@ impl View {
         output.push(TedCommand::DrawView {
             is_lines: false,
             block_types,
-            ranges: Vec::new(),
+            colors,
             text,
             dims: self.dims,
         });
@@ -162,7 +199,7 @@ impl View {
         output.push(TedCommand::DrawView {
             is_lines: true,
             block_types: vec![BlockType::Normal; line_size],
-            ranges: Vec::new(),
+            colors: vec![default_color; line_size],
             text: line_text,
             dims: Rect {
                 x: LINES_WIDTH as u32,

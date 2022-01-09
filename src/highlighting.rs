@@ -6,7 +6,7 @@ pub type Color = Vector3<f32>;
 #[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct Style {
     pub fg_color: Color,
-    // pub bg_color: Color,
+    // pub bg_color: Option<Color>,
 }
 
 pub struct Highlighter {
