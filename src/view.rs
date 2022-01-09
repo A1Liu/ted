@@ -140,10 +140,9 @@ impl View {
             match params.c {
                 '\n' => {
                     display_line.replace(state.newline_count + line);
-                    continue;
                 }
 
-                c if c.is_whitespace() => continue,
+                c if c.is_whitespace() => {}
 
                 c => {
                     text[begin..end].fill(c);
