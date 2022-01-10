@@ -89,27 +89,21 @@ impl View {
         let default_fg_color = color(0.4, 0.4, 1.0);
         let default_bg_color = color(0.3, 0.3, 0.3);
 
-        let text_colors = {
+        let mut text_colors = vec![default_fg_color; self.visible_text.len()];
+        {
             let ranges = self.highlighter.ranges(&self.visible_text);
-            let mut colors = vec![default_fg_color; self.visible_text.len()];
             let mut index = 0;
             for range in ranges {
                 let begin = index + range.offset_from_last;
                 let end = begin + range.len;
 
-                colors[begin..end].fill(range.style.fg_color);
+                text_colors[begin..end].fill(range.style.fg_color);
 
                 index = end;
             }
+        }
 
-            colors
-        };
-
-        let mut config = FlowConfig::new(
-            self.visible_text.iter().map(|c| *c),
-            Some(self.dims.x),
-            Some(self.dims.y),
-        );
+        let mut config = FlowConfig::new(self.chars(), Some(self.dims.x), Some(self.dims.y));
 
         let size = (self.dims.x * self.dims.y) as usize;
         let mut text = vec![' '; size];
@@ -284,11 +278,7 @@ impl View {
         }
 
         // TODO flowing past the end of the screen
-        let mut config = FlowConfig::new(
-            self.visible_text.iter().map(|c| *c),
-            Some(self.dims.x),
-            Some(self.dims.y),
-        );
+        let mut config = FlowConfig::new(self.chars(), Some(self.dims.x), Some(self.dims.y));
 
         let mut next_pos = None;
         for (state, params) in &mut config {
@@ -345,11 +335,7 @@ impl View {
     }
 
     fn file_cursor(&self) -> (FlowState, FlowResult) {
-        let mut config = FlowConfig::new(
-            self.visible_text.iter().map(|c| *c),
-            Some(self.dims.x),
-            Some(self.dims.y),
-        );
+        let mut config = FlowConfig::new(self.chars(), Some(self.dims.x), Some(self.dims.y));
 
         let mut found_line_end = false;
         let mut result = FlowResult::NotFound;
@@ -397,5 +383,9 @@ impl View {
         }
 
         return (flow, result);
+    }
+
+    fn chars<'a>(&'a self) -> impl Iterator<Item = char> + 'a {
+        return self.visible_text.iter().map(|c| *c);
     }
 }
