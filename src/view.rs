@@ -200,10 +200,13 @@ impl View {
     }
 
     fn insert(&mut self, s: String, output: &mut Vec<TedCommand>) {
-        if s.len() == 0 {
-            output.push(TedCommand::RequestRedraw);
-            return;
-        }
+        let first_char = match s.chars().next() {
+            Some(c) => c,
+            None => {
+                output.push(TedCommand::RequestRedraw);
+                return;
+            }
+        };
 
         let (flow, result) = self.file_cursor();
 
@@ -212,7 +215,7 @@ impl View {
             FlowResult::FoundLine { end_pos, begin } => {
                 let mut index = begin + end_pos.x as usize;
 
-                if unwrap(s.chars().next()) != '\n' {
+                if first_char != '\n' {
                     for x in end_pos.x..self.cursor_pos.x {
                         self.visible_text.insert(index, '~');
                         index += 1;
@@ -228,7 +231,7 @@ impl View {
                     index += 1;
                 }
 
-                if unwrap(s.chars().next()) != '\n' {
+                if first_char != '\n' {
                     for x in 0..self.cursor_pos.x {
                         self.visible_text.push('~');
                         index += 1;

@@ -35,11 +35,9 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 
 ## Next Up
 - Test the command system
-- Text colors/spans
-- Replace block type with fg_color/bg_color manipulation on the CPU
+- Text spans
 - Mouse support
 - Select text
-- Separate out graphics and whatnot from other data structures
 - Serialization using less binary bloat? Maybe just DIY it. There is no need to
   use the visitor pattern or support serializing to any arbitrary thing.
 
@@ -47,6 +45,8 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Refactor text flowing to have enough flexibility for the line wrapping issue
   and ideally more stuff in the future
 - BTree Garbage collection
+- Make graphics cross platform maybe?
+- Syntax highlighting; probably just make something super duper simple
 - Find and replace
 - Switch to straight-line code as much as physically possible
 - Multiple canvases on the web
@@ -60,18 +60,14 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Vim-style compile-time feature flags
 
 ## Cute but nope
-- View just outputs glyph information, graphics backend translates glyph info
-  into rendering to user
 - Customization?
-- Syntax highlighting; probably just make something super duper simple
 - Client-server architecture so that we can have nice things
 - Cross platform stuffs
 - Custom display for zip files
 - Custom display for raw binary, maybe using color for byte value in addition
   to hex representation?
 - Error logging system
-- Optional Lisp interpreter for syntax highlighting? Probably requires error
-  logging
+- Tiny lisp interpreter for syntax highlighting? Probably requires error logging
 - C and Python APIs for scripting
 
 
