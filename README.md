@@ -34,9 +34,8 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
 
 ## Next Up
-- Test the command system
-- Text spans
 - Mouse support
+- Test the command system
 - Select text
 - Serialization using less binary bloat? Maybe just DIY it. There is no need to
   use the visitor pattern or support serializing to any arbitrary thing.
@@ -46,7 +45,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
   and ideally more stuff in the future
 - BTree Garbage collection
 - Make graphics cross platform maybe?
-- Syntax highlighting; probably just make something super duper simple
+- More advanced syntax highlighting; scopes, more context info, more generic kinds of rules
 - Find and replace
 - Switch to straight-line code as much as physically possible
 - Multiple canvases on the web
