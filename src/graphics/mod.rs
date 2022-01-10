@@ -2,7 +2,6 @@ mod fonts;
 mod webgl;
 
 use crate::util::*;
-use crate::view::BlockType;
 pub use fonts::*;
 use mint::Vector3;
 pub use webgl::*;
@@ -23,15 +22,15 @@ pub struct TextShader {
     // Resources
     tex: Texture,
     in_fg_color: Buffer<ColorData>,
-    in_block_type: Buffer<BlockTypeData>,
+    in_bg_color: Buffer<ColorData>,
     in_glyph_pos: Buffer<Glyph>,
 }
 
 pub struct TextShaderInput<'a> {
     pub is_lines: bool,
     pub atlas: Option<&'a [u8]>,
-    pub block_types: Vec<BlockTypeData>,
-    pub colors: Vec<ColorData>,
+    pub fg_colors: Vec<ColorData>,
+    pub bg_colors: Vec<ColorData>,
     pub glyphs: Vec<Glyph>,
     pub atlas_dims: Rect,
     pub dims: Rect,
@@ -46,7 +45,7 @@ impl TextShader {
         let vao = gl.vao()?;
 
         let in_fg_color = gl.attr_buffer(&program, "in_fg_color")?;
-        let in_block_type = gl.attr_buffer(&program, "in_block_type")?;
+        let in_bg_color = gl.attr_buffer(&program, "in_bg_color")?;
         let in_glyph_pos = gl.attr_buffer(&program, "in_glyph_pos")?;
 
         let u_dims = gl.uloc(&program, "u_dims")?;
@@ -62,7 +61,7 @@ impl TextShader {
             vao,
 
             in_fg_color,
-            in_block_type,
+            in_bg_color,
             in_glyph_pos,
 
             u_glyph_atlas,
@@ -78,8 +77,8 @@ impl TextShader {
     pub fn render(&self, input: TextShaderInput) -> Result<(), JsValue> {
         gl.use_program(&self.program);
 
-        gl.write_buffer(&self.in_fg_color, &input.colors);
-        gl.write_buffer(&self.in_block_type, &input.block_types);
+        gl.write_buffer(&self.in_fg_color, &input.fg_colors);
+        gl.write_buffer(&self.in_bg_color, &input.bg_colors);
         gl.write_buffer(&self.in_glyph_pos, &input.glyphs);
         if let Some(atlas) = input.atlas {
             gl.update_tex(&self.tex, input.atlas_dims, &atlas)?;
@@ -146,60 +145,5 @@ impl WebGlType for ColorData {
         let ptr = array.as_ptr() as *const f32;
         let buffer: &[f32] = core::slice::from_raw_parts(ptr, array.len() * 18);
         return js_sys::Float32Array::view(buffer).into();
-    }
-}
-
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct BlockTypeData {
-    // each box is 2 trianges of 3 points each
-    top_left_1: u32,
-    top_right_2: u32,
-    bot_left_3: u32,
-    bot_left_4: u32,
-    top_right_5: u32,
-    bot_right_6: u32,
-}
-
-impl core::cmp::PartialEq for BlockTypeData {
-    fn eq(&self, other: &Self) -> bool {
-        return self.top_left_1 == other.top_left_1;
-    }
-}
-
-impl BlockTypeData {
-    pub fn new(bt: BlockType) -> Self {
-        // For z:
-        // 0 is normal
-        // 1 is cursor
-        // 2 is selected
-        let value = match bt {
-            BlockType::Normal => 0,
-            BlockType::Cursor => 1,
-        };
-
-        return Self {
-            top_left_1: value,
-            top_right_2: value,
-            bot_left_3: value,
-            bot_left_4: value,
-            top_right_5: value,
-            bot_right_6: value,
-        };
-    }
-}
-
-impl WebGlType for BlockTypeData {
-    const GL_TYPE: u32 = Context::UNSIGNED_INT;
-    const SIZE: i32 = 1;
-
-    unsafe fn view(array: &[Self]) -> js_sys::Object {
-        let ptr = array.as_ptr() as *const u32;
-        let buffer: &[u32] = core::slice::from_raw_parts(ptr, array.len() * 6);
-        return js_sys::Uint32Array::view(buffer).into();
-    }
-
-    fn is_int() -> bool {
-        return true;
     }
 }

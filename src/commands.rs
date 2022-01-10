@@ -1,3 +1,4 @@
+use crate::highlighting::*;
 use crate::util::*;
 use crate::view::*;
 
@@ -5,8 +6,8 @@ use crate::view::*;
 pub enum TedCommand {
     DrawView {
         is_lines: bool,
-        block_types: Vec<BlockType>,
-        colors: Vec<Color>,
+        fg_colors: Vec<Color>,
+        bg_colors: Vec<Color>,
         text: Vec<char>,
         dims: Rect,
     },

@@ -1,5 +1,6 @@
 use crate::commands::*;
 use crate::graphics::*;
+use crate::highlighting::*;
 use crate::util::*;
 use crate::view::*;
 use winit::event_loop::ControlFlow;
@@ -41,8 +42,8 @@ impl CommandHandler {
 
                 TedCommand::DrawView {
                     is_lines,
-                    block_types,
-                    colors,
+                    fg_colors,
+                    bg_colors,
                     text,
                     dims,
                 } => {
@@ -52,22 +53,21 @@ impl CommandHandler {
                         did_raster = did_raster || res.did_raster;
                         return res.glyph;
                     });
-                    let block_types_iter = block_types.into_iter().map(BlockTypeData::new);
 
                     let glyphs: Vec<Glyph> = glyphs_iter.collect();
-                    let block_types: Vec<BlockTypeData> = block_types_iter.collect();
 
                     let atlas_dims = self.cache.atlas_dims();
                     let atlas = did_raster.then(|| self.cache.atlas());
 
-                    let colors = colors.into_iter().map(ColorData::new).collect();
+                    let fg_colors = fg_colors.into_iter().map(ColorData::new).collect();
+                    let bg_colors = bg_colors.into_iter().map(ColorData::new).collect();
 
                     let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
                         shader.render(TextShaderInput {
                             is_lines,
                             atlas,
-                            colors,
-                            block_types,
+                            fg_colors,
+                            bg_colors,
                             glyphs,
                             atlas_dims,
                             dims,

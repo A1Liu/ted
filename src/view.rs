@@ -5,9 +5,6 @@ use crate::util::*;
 use std::io::Write;
 use winit::event;
 
-pub use crate::highlighting::Color;
-pub use crate::highlighting::RangeData;
-
 pub struct View {
     start: usize,
     start_line: usize,
@@ -18,13 +15,6 @@ pub struct View {
 
     visible_text: Vec<char>,
     highlighter: Highlighter,
-}
-
-#[derive(Clone, Copy)]
-#[cfg_attr(debug_assertions, derive(PartialEq))]
-pub enum BlockType {
-    Normal,
-    Cursor,
 }
 
 // @Memory we can probably reduce the number of fields used here. Not
@@ -97,6 +87,7 @@ impl View {
 
     pub fn draw(&self, output: &mut Vec<TedCommand>) {
         let default_fg_color = color(0.4, 0.4, 1.0);
+        let default_bg_color = color(0.3, 0.3, 0.3);
 
         let text_colors = {
             let ranges = self.highlighter.ranges(&self.visible_text);
@@ -122,7 +113,7 @@ impl View {
 
         let size = (self.dims.x * self.dims.y) as usize;
         let mut text = vec![' '; size];
-        let mut colors = vec![default_fg_color; size];
+        let mut fg_colors = vec![default_fg_color; size];
         let mut line_numbers = vec![None; self.dims.y as usize];
 
         let mut line = self.start_line + 1;
@@ -135,7 +126,7 @@ impl View {
 
             let begin = (state.pos.y * self.dims.x + state.pos.x) as usize;
             let end = begin + params.write_len as usize;
-            colors[begin..end].fill(text_colors[state.index]);
+            fg_colors[begin..end].fill(text_colors[state.index]);
 
             match params.c {
                 '\n' => {
@@ -159,16 +150,17 @@ impl View {
         debug_assert_eq!(line_numbers.len(), self.dims.y as usize);
 
         // clear block state
-        let mut block_types = vec![BlockType::Normal; size];
+        let mut bg_colors = vec![default_bg_color; size];
         if self.cursor_blink_on {
-            let idx = self.cursor_pos.y * self.dims.x + self.cursor_pos.x;
-            block_types[idx as usize] = BlockType::Cursor;
+            let idx = (self.cursor_pos.y * self.dims.x + self.cursor_pos.x) as usize;
+            fg_colors[idx] = default_bg_color;
+            bg_colors[idx] = color(1.0, 1.0, 1.0);
         }
 
         output.push(TedCommand::DrawView {
             is_lines: false,
-            block_types,
-            colors,
+            fg_colors,
+            bg_colors,
             text,
             dims: self.dims,
         });
@@ -192,13 +184,10 @@ impl View {
 
         output.push(TedCommand::DrawView {
             is_lines: true,
-            block_types: vec![BlockType::Normal; line_size],
-            colors: vec![default_fg_color; line_size],
+            fg_colors: vec![default_fg_color; line_size],
+            bg_colors: vec![default_bg_color; line_size],
             text: line_text,
-            dims: Rect {
-                x: LINES_WIDTH as u32,
-                y: self.dims.y,
-            },
+            dims: new_rect(LINES_WIDTH as u32, self.dims.y),
         });
     }
 
@@ -229,7 +218,7 @@ impl View {
             FlowResult::FoundLine { end_pos, begin } => {
                 let mut index = begin + end_pos.x as usize;
 
-                if unwrap(s.chars().nth(0)) != '\n' {
+                if unwrap(s.chars().next()) != '\n' {
                     for x in end_pos.x..self.cursor_pos.x {
                         self.visible_text.insert(index, '~');
                         index += 1;
@@ -245,7 +234,7 @@ impl View {
                     index += 1;
                 }
 
-                if unwrap(s.chars().nth(0)) != '\n' {
+                if unwrap(s.chars().next()) != '\n' {
                     for x in 0..self.cursor_pos.x {
                         self.visible_text.push('~');
                         index += 1;

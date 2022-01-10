@@ -1,8 +1,8 @@
 #version 300 es
 
-in uint in_block_type;
 in uvec2 in_glyph_pos;
 in vec3 in_fg_color;
+in vec3 in_bg_color;
 
 // TODO eventually split out text dimensions from clip space dimensions
 uniform vec2 u_dims;
@@ -12,8 +12,8 @@ uniform float u_clip_end;
 uniform vec2 u_atlas_dims;
 
 out vec3 v_fg_color;
+out vec3 v_bg_color;
 out vec2 v_glyph_pos;
-flat out uint v_block_type;
 
 /*
 0       1,3
@@ -48,6 +48,6 @@ void main() {
 
     gl_Position = vec4(pos, 0.0, 1.0);
     v_glyph_pos = vec2(in_glyph_pos) / vec2(u_atlas_dims);
-    v_block_type = in_block_type;
     v_fg_color = in_fg_color;
+    v_bg_color = in_bg_color;
 }
