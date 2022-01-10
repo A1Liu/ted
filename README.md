@@ -48,6 +48,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
   and ideally more stuff in the future
 - BTree Garbage collection
 - Find and replace
+- Switch to straight-line code as much as physically possible
 - Multiple canvases on the web
 - More Graphics/shader stuff
 - Window sizing and whatnot

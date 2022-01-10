@@ -48,19 +48,34 @@ impl CommandHandler {
                     dims,
                 } => {
                     let mut did_raster = false;
-                    let glyphs_iter = text.into_iter().map(|c| {
+
+                    let text_len = text.len();
+                    let mut glyphs = Vec::with_capacity(text_len);
+                    for c in text.into_iter() {
                         let res = self.cache.translate_glyph(c);
                         did_raster = did_raster || res.did_raster;
-                        return res.glyph;
-                    });
-
-                    let glyphs: Vec<Glyph> = glyphs_iter.collect();
+                        glyphs.push(res.glyph);
+                    }
 
                     let atlas_dims = self.cache.atlas_dims();
                     let atlas = did_raster.then(|| self.cache.atlas());
 
-                    let fg_colors = fg_colors.into_iter().map(ColorData::new).collect();
-                    let bg_colors = bg_colors.into_iter().map(ColorData::new).collect();
+                    let color_len = fg_colors.len() * 6;
+                    let (fg, bg) = (fg_colors, bg_colors);
+
+                    let mut fg_colors = Vec::with_capacity(color_len);
+                    for color in fg.into_iter() {
+                        for _ in 0..6 {
+                            fg_colors.push(color);
+                        }
+                    }
+
+                    let mut bg_colors = Vec::with_capacity(color_len);
+                    for color in bg.into_iter() {
+                        for _ in 0..6 {
+                            bg_colors.push(color);
+                        }
+                    }
 
                     let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
                         shader.render(TextShaderInput {

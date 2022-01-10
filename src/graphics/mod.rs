@@ -1,9 +1,11 @@
 mod fonts;
 mod webgl;
 
+use crate::highlighting::*;
 use crate::util::*;
-pub use fonts::*;
 use mint::Vector3;
+
+pub use fonts::*;
 pub use webgl::*;
 
 pub struct TextShader {
@@ -21,16 +23,16 @@ pub struct TextShader {
 
     // Resources
     tex: Texture,
-    in_fg_color: Buffer<ColorData>,
-    in_bg_color: Buffer<ColorData>,
+    in_fg_color: Buffer<Color>,
+    in_bg_color: Buffer<Color>,
     in_glyph_pos: Buffer<Glyph>,
 }
 
 pub struct TextShaderInput<'a> {
     pub is_lines: bool,
     pub atlas: Option<&'a [u8]>,
-    pub fg_colors: Vec<ColorData>,
-    pub bg_colors: Vec<ColorData>,
+    pub fg_colors: Vec<Color>,
+    pub bg_colors: Vec<Color>,
     pub glyphs: Vec<Glyph>,
     pub atlas_dims: Rect,
     pub dims: Rect,
@@ -124,26 +126,13 @@ thread_local! {
     pub static TEXT_SHADER: TextShader = expect(TextShader::new());
 }
 
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct ColorData {
-    // each box is 2 trianges of 3 points each
-    data: [Vector3<f32>; 6],
-}
-
-impl ColorData {
-    pub fn new(color: Vector3<f32>) -> Self {
-        return Self { data: [color; 6] };
-    }
-}
-
-impl WebGlType for ColorData {
+impl WebGlType for Color {
     const GL_TYPE: u32 = Context::FLOAT;
     const SIZE: i32 = 3;
 
     unsafe fn view(array: &[Self]) -> js_sys::Object {
         let ptr = array.as_ptr() as *const f32;
-        let buffer: &[f32] = core::slice::from_raw_parts(ptr, array.len() * 18);
+        let buffer: &[f32] = core::slice::from_raw_parts(ptr, array.len() * 3);
         return js_sys::Float32Array::view(buffer).into();
     }
 }

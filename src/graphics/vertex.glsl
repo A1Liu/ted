@@ -16,14 +16,14 @@ out vec3 v_bg_color;
 out vec2 v_glyph_pos;
 
 /*
-0       1,3
+    0       1,3
 
 
 
-2,4     5
+    2,4     5
 */
 
-// This was a lot simpler when I could use integer division. :((
+// This was a lot simpler when I could use integer division. :(
 void main() {
     // Translation from vertex ID to text coordinates
     float vertex_id = float(gl_VertexID);
