@@ -86,7 +86,7 @@ impl View {
     }
 
     pub fn draw(&self, output: &mut Vec<TedCommand>) {
-        let default_fg_color = color(0.4, 0.4, 1.0);
+        let default_fg_color = color(0.9, 0.9, 0.9);
         let default_bg_color = color(0.3, 0.3, 0.3);
 
         let mut text_colors = vec![default_fg_color; self.visible_text.len()];
@@ -212,6 +212,7 @@ impl View {
 
         let index = match result {
             FlowResult::Found { index } => index,
+
             FlowResult::FoundLine { end_pos, begin } => {
                 let mut index = begin + end_pos.x as usize;
 
@@ -224,6 +225,7 @@ impl View {
 
                 index
             }
+
             FlowResult::NotFound => {
                 let mut index = flow.index;
                 for y in flow.pos.y..self.cursor_pos.y {
@@ -389,6 +391,9 @@ impl View {
     }
 
     fn chars<'a>(&'a self) -> impl Iterator<Item = char> + 'a {
+        // Previously attempted to replace this code with a handmade, non-generic
+        // version. Ended up growing the binary from 237.69kb to 237.71kb.
+        //                              - Albert Liu, Jan 10, 2022 Mon 01:06 EST
         return self.visible_text.iter().map(|c| *c);
     }
 }

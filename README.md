@@ -36,6 +36,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 ## Next Up
 - Mouse support
 - Test the command system
+- Simplify font rendering stuffs
 - Select text
 - Serialization using less binary bloat? Maybe just DIY it. There is no need to
   use the visitor pattern or support serializing to any arbitrary thing.

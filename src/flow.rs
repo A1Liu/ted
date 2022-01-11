@@ -9,6 +9,9 @@ where
     state: FlowState,
     params: FlowParams,
     needs_final: bool,
+
+    // Is this flexibility necessary?
+    //                  - Albert Liu, Jan 10, 2022 Mon 01:08 EST
     wrap_width: Option<u32>,
     vertical_bound: Option<u32>,
 }
