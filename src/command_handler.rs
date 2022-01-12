@@ -47,18 +47,15 @@ impl CommandHandler {
                     text,
                     dims,
                 } => {
-                    let mut did_raster = false;
-
                     let text_len = text.len();
                     let mut glyphs = Vec::with_capacity(text_len);
                     for c in text.into_iter() {
-                        let res = self.cache.translate_glyph(c);
-                        did_raster = did_raster || res.did_raster;
-                        glyphs.push(res.glyph);
+                        let glyph = self.cache.translate_glyph(c);
+                        glyphs.push(glyph);
                     }
 
                     let atlas_dims = self.cache.atlas_dims();
-                    let atlas = did_raster.then(|| self.cache.atlas());
+                    let atlas = self.cache.atlas_data();
 
                     let color_len = fg_colors.len() * 6;
                     let (fg, bg) = (fg_colors, bg_colors);

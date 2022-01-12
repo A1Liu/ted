@@ -35,6 +35,10 @@ const DEFAULT_CHARS: &'static str = core::concat!(
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct Glyph {
+    // TODO translate these to f32's maybe? Then we wouldn't need to save atlas
+    // dims in a uniform either.
+    //                          - Albert Liu, Jan 11, 2022 Tue 21:46 EST
+
     // each glyph is 2 trianges of 3 points each
     top_left_1: Point2<u32>,
     top_right_1: Point2<u32>,
@@ -42,12 +46,6 @@ pub struct Glyph {
     top_right_2: Point2<u32>,
     bot_left_2: Point2<u32>,
     bot_right_2: Point2<u32>,
-}
-
-impl PartialEq for Glyph {
-    fn eq(&self, other: &Self) -> bool {
-        return self.top_left_1 == other.top_left_1;
-    }
 }
 
 pub struct GlyphData {
@@ -61,29 +59,21 @@ pub struct GlyphCache {
     atlas: Vec<u8>,
     glyph_dims: Rect,
     atlas_dims: Rect,
+    did_raster: bool,
     atlas_current_row_width: u32,
 }
 
-pub struct GlyphResult {
-    pub did_raster: bool,
-    pub glyph: Glyph,
-}
-
-impl GlyphResult {
-    pub fn new(did_raster: bool, glyph: Glyph) -> Self {
-        return Self { did_raster, glyph };
-    }
-}
-
 // Actual explanations:
-// https://gitlab.redox-os.org/redox-os/rusttype/-/blob/master/src/lib.rs#L175
 // https://freetype.org/freetype2/docs/glyphs/glyphs-3.html
 impl GlyphCache {
     pub fn new() -> GlyphCache {
         return GlyphCache {
             descriptors: HashMap::new(),
+
+            // TODO this should probably just initialize to the exact texture size
             atlas: Vec::new(),
             glyph_dims: new_rect(0, 0),
+            did_raster: false,
             atlas_dims: new_rect(MAX_ATLAS_WIDTH, 0),
             atlas_current_row_width: MAX_ATLAS_WIDTH,
         };
@@ -93,21 +83,27 @@ impl GlyphCache {
         return self.atlas_dims;
     }
 
-    pub fn atlas(&self) -> &[u8] {
-        return &self.atlas;
-    }
-
-    pub fn translate_glyph(&mut self, c: char) -> GlyphResult {
-        if let Some(&pos) = self.descriptors.get(&c) {
-            let glyph = self.make_glyph(pos);
-            return GlyphResult::new(false, glyph);
+    pub fn atlas_data(&mut self) -> Option<&[u8]> {
+        if self.did_raster {
+            self.did_raster = false;
+            return Some(&self.atlas);
         }
 
-        // glyph isn't in cache so we don't raster it.
+        return None;
+    }
+
+    pub fn translate_glyph(&mut self, c: char) -> Glyph {
+        if let Some(&pos) = self.descriptors.get(&c) {
+            let glyph = self.make_glyph(pos);
+            return glyph;
+        }
+
         let face = ttf::Face::from_slice(COURIER, 0).unwrap();
         if face.is_variable() || !face.is_monospaced() {
             panic!("Can't handle variable fonts");
         }
+
+        self.did_raster = true;
 
         let (ascent, descent) = (face.ascender(), face.descender());
         let line_gap = face.line_gap();
@@ -139,7 +135,7 @@ impl GlyphCache {
         if width < self.glyph_dims.x && height < self.glyph_dims.y {
             let pos = self.add_char(&face, scale, descent, c);
             let glyph = self.make_glyph(pos);
-            return GlyphResult::new(true, glyph);
+            return glyph;
         }
 
         self.descriptors.clear();
@@ -157,7 +153,7 @@ impl GlyphCache {
 
         let pos = self.add_char(&face, scale, descent, c);
         let glyph = self.make_glyph(pos);
-        return GlyphResult::new(true, glyph);
+        return glyph;
     }
 
     fn make_glyph(&self, mut glyph: Point2<u32>) -> Glyph {

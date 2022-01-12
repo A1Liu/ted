@@ -10,8 +10,8 @@ uniform sampler2D u_glyph_atlas;
 out vec4 out_color; // you can pick any name
 
 void main() {
-    vec4 in_fg = vec4(v_fg_color, 1.0); // vec4(0.4, 0.4, 1.0, 1.0);
-    vec4 in_bg = vec4(v_bg_color, 1.0); // vec4(0.3, 0.3, 0.3, 1.0);
+    vec4 in_fg = vec4(v_fg_color, 1.0);
+    vec4 in_bg = vec4(v_bg_color, 1.0);
 
     float text_px = texture(u_glyph_atlas, v_glyph_pos).x;
 
