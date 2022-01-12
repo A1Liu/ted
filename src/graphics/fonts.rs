@@ -10,7 +10,7 @@ const COURIER: &[u8] = core::include_bytes!("./cour.ttf");
 // to the texture, but then that texture is sampled to whatever display resolution
 // we're targeting.
 //                      - Albert Liu, Jan 06, 2022 Thu 01:22 EST
-const SIZE: usize = 64; // Raster size in pixels
+const SIZE: f32 = 64.0; // Raster size in pixels
 const PAD_L: u32 = 4; // Raster size in pixels
 const PAD_R: u32 = 0; // Raster size in pixels
 const PAD_T: u32 = 8; // Raster size in pixels
@@ -106,20 +106,18 @@ impl GlyphCache {
         self.did_raster = true;
 
         let (ascent, descent) = (face.ascender(), face.descender());
-        let line_gap = face.line_gap();
-        let fheight = f32::from(face.ascender()) - f32::from(face.descender());
-        let scale = (SIZE as f32) / fheight;
+        let fheight = ascent as f32 - descent as f32;
+        let scale = SIZE / fheight;
 
+        let line_gap = face.line_gap();
         let height = (ascent - descent + line_gap) as f32 * scale;
-        let height = height as u32;
+        let height = height as u32 + PAD_T + PAD_B;
 
         // It's monospaced, so we can cheat a little bit
         let glyph_id = face.glyph_index('_').unwrap();
         let rect = unwrap(face.glyph_bounding_box(glyph_id));
         let (metrics, z) = metrics_and_affine(rect, scale);
-        let width = metrics.width;
-
-        let (width, height) = (width + PAD_L + PAD_R, height + PAD_T + PAD_B);
+        let width = metrics.width + PAD_L + PAD_R;
 
         let descent = (descent as f32 * -scale) as i32;
         let descent = expect(descent.try_into());
@@ -259,7 +257,7 @@ fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData 
     let mut builder = Builder::new(metrics.width, metrics.height, affine);
     face.outline_glyph(id, &mut builder);
 
-    let data = builder.raster.get_bitmap();
+    let data = builder.get_bitmap();
 
     return GlyphData {
         dims: new_rect(metrics.width, metrics.height),
@@ -272,70 +270,30 @@ pub struct Builder {
     current: Point,
     affine: Affine,
 
-    raster: Raster,
-}
-
-impl Builder {
-    pub fn new(w: u32, h: u32, affine: Affine) -> Builder {
-        return Builder {
-            raster: Raster::new(w as usize, h as usize),
-            current: Point { x: 0.0, y: 0.0 },
-            affine,
-        };
-    }
-
-    fn pt(&self, x: f32, y: f32) -> Point {
-        return transform(self.affine, Point { x, y });
-    }
-}
-
-impl ttf::OutlineBuilder for Builder {
-    fn move_to(&mut self, x: f32, y: f32) {
-        self.current = self.pt(x, y);
-    }
-
-    fn line_to(&mut self, x: f32, y: f32) {
-        let pt = self.pt(x, y);
-
-        self.raster.draw_line(self.current, pt);
-
-        self.current = pt;
-    }
-
-    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        let p1 = self.pt(x1, y1);
-        let dest = self.pt(x, y);
-
-        self.raster.draw_quad(self.current, p1, dest);
-
-        self.current = dest;
-    }
-
-    // TODO This doesn't actually do anything real right now.
-    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        // x1,y1 and x2,y2 are control points
-        let dest = self.pt(x, y);
-        self.raster.draw_line(self.current, dest);
-
-        self.current = dest;
-    }
-
-    fn close(&mut self) {}
-}
-
-pub struct Raster {
     w: usize,
     h: usize,
     a: Vec<f32>,
 }
 
-impl Raster {
-    pub fn new(w: usize, h: usize) -> Raster {
-        Raster {
-            w: w,
-            h: h,
+impl Builder {
+    pub fn new(w: u32, h: u32, affine: Affine) -> Builder {
+        let w = w as usize;
+        let h = h as usize;
+        return Builder {
+            current: Point { x: 0.0, y: 0.0 },
+            affine,
+
+            w,
+            h,
             a: vec![0.0; w * h + 4],
-        }
+        };
+    }
+
+    fn pt(&self, x: f32, y: f32) -> Point {
+        return Point {
+            x: self.affine.scale * x + self.affine.x_offset,
+            y: -self.affine.scale * y + self.affine.y_offset,
+        };
     }
 
     pub fn draw_line(&mut self, p0: Point, p1: Point) {
@@ -436,11 +394,35 @@ impl Raster {
     }
 }
 
-fn transform(z: Affine, p: Point) -> Point {
-    return Point {
-        x: z.scale * p.x + z.x_offset,
-        y: -z.scale * p.y + z.y_offset,
-    };
+impl ttf::OutlineBuilder for Builder {
+    fn move_to(&mut self, x: f32, y: f32) {
+        self.current = self.pt(x, y);
+    }
+
+    fn line_to(&mut self, x: f32, y: f32) {
+        let pt = self.pt(x, y);
+
+        self.draw_line(self.current, pt);
+
+        self.current = pt;
+    }
+
+    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
+        let p1 = self.pt(x1, y1);
+        let dest = self.pt(x, y);
+
+        self.draw_quad(self.current, p1, dest);
+
+        self.current = dest;
+    }
+
+    // x1,y1 and x2,y2 are control points
+    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
+        // TODO This doesn't actually do anything real right now.
+        self.line_to(x, y);
+    }
+
+    fn close(&mut self) {}
 }
 
 fn metrics_and_affine(rect: ttf::Rect, scale: f32) -> (Metrics, Affine) {
