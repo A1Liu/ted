@@ -127,9 +127,7 @@ impl WebGlType for Point2<u32> {
 #[derive(Clone, Copy)]
 pub struct VLoc(u32);
 
-pub struct WebGl {
-    phantom: (),
-}
+pub struct WebGl {}
 
 pub struct Program {
     program: WebGlProgram,
@@ -377,7 +375,7 @@ fn link_program(
 //   overflow: hidden;
 // }
 
-pub static gl: WebGl = WebGl { phantom: () };
+pub static gl: WebGl = WebGl {};
 
 thread_local! {
     static OFFSCREEN_CANVAS: web_sys::HtmlCanvasElement = expect(get_canvas());

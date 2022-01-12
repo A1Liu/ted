@@ -76,15 +76,8 @@ pub fn console_log(a: &str) {
     log(a);
 }
 
-pub fn console_warn(a: &str) {
-    log(a);
-}
-
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(a: &str);
-
-    #[wasm_bindgen(js_namespace = console)]
-    fn warn(a: &str);
 }
