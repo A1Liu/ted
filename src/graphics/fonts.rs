@@ -444,6 +444,13 @@ impl Raster {
     }
 }
 
+fn affine_pt(z: Affine, p: Point) -> Point {
+    return Point {
+        x: z.scale * p.x + z.x_offset,
+        y: -z.scale * p.y + z.y_offset,
+    };
+}
+
 fn metrics_and_affine(rect: ttf::Rect, scale: f32) -> (Metrics, Affine) {
     let (xmin, ymin, xmax, ymax) = (rect.x_min, rect.y_min, rect.x_max, rect.y_max);
     let l = (xmin as f32 * scale).floor() as i32;
@@ -451,7 +458,7 @@ fn metrics_and_affine(rect: ttf::Rect, scale: f32) -> (Metrics, Affine) {
     let r = (xmax as f32 * scale).ceil() as i32;
     let b = (ymin as f32 * -scale).ceil() as i32;
     let metrics = Metrics { l, t, r, b };
-    let z = Affine::new(scale, 0.0, 0.0, -scale, -l as f32, -t as f32);
+    let z = Affine::new(scale, -l as f32, -t as f32);
     (metrics, z)
 }
 
@@ -461,37 +468,27 @@ fn recip(x: f32) -> f32 {
 
 #[derive(Clone, Copy)]
 pub struct Affine {
-    a: f32,
-    b: f32,
-    c: f32,
-    d: f32,
-    e: f32,
-    f: f32,
+    scale: f32,
+    x_offset: f32,
+    y_offset: f32,
 }
 
 impl Affine {
-    fn new(a: f32, b: f32, c: f32, d: f32, e: f32, f: f32) -> Affine {
-        return Affine { a, b, c, d, e, f };
+    fn new(scale: f32, x_offset: f32, y_offset: f32) -> Affine {
+        return Affine {
+            scale,
+            x_offset,
+            y_offset,
+        };
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct Point {
-    x: f32,
-    y: f32,
-}
+type Point = mint::Point2<f32>;
 
 pub fn lerp(t: f32, p0: Point, p1: Point) -> Point {
     Point {
         x: p0.x + t * (p1.x - p0.x),
         y: p0.y + t * (p1.y - p0.y),
-    }
-}
-
-pub fn affine_pt(z: Affine, p: Point) -> Point {
-    Point {
-        x: z.a * p.x + z.c * p.y + z.e,
-        y: z.b * p.x + z.d * p.y + z.f,
     }
 }
 
