@@ -52,6 +52,11 @@ impl View {
                     y: 0.3,
                     z: 0.3,
                 },
+                bg_color: Some(Color {
+                    x: 0.1,
+                    y: 0.8,
+                    z: 0.8,
+                }),
             },
         });
 
@@ -88,7 +93,8 @@ impl View {
         let default_fg_color = color(0.9, 0.9, 0.9);
         let default_bg_color = color(0.3, 0.3, 0.3);
 
-        let mut text_colors = vec![default_fg_color; self.visible_text.len()];
+        let mut text_fg_colors = vec![default_fg_color; self.visible_text.len()];
+        let mut text_bg_colors = vec![default_bg_color; self.visible_text.len()];
         {
             let ranges = self.highlighter.ranges(&self.visible_text);
             let mut index = 0;
@@ -96,7 +102,10 @@ impl View {
                 let begin = index + range.offset_from_last;
                 let end = begin + range.len;
 
-                text_colors[begin..end].fill(range.style.fg_color);
+                text_fg_colors[begin..end].fill(range.style.fg_color);
+                if let Some(bg_color) = range.style.bg_color {
+                    text_bg_colors[begin..end].fill(bg_color);
+                }
 
                 index = end;
             }
@@ -107,6 +116,7 @@ impl View {
         let size = (self.dims.x * self.dims.y) as usize;
         let mut text = vec![' '; size];
         let mut fg_colors = vec![default_fg_color; size];
+        let mut bg_colors = vec![default_bg_color; size];
         let mut line_numbers = vec![None; self.dims.y as usize];
 
         let line = self.start_line + 1;
@@ -119,7 +129,8 @@ impl View {
 
             let begin = (state.pos.y * self.dims.x + state.pos.x) as usize;
             let end = begin + params.write_len as usize;
-            fg_colors[begin..end].fill(text_colors[state.index]);
+            fg_colors[begin..end].fill(text_fg_colors[state.index]);
+            bg_colors[begin..end].fill(text_bg_colors[state.index]);
 
             match params.c {
                 '\n' => {
@@ -143,7 +154,6 @@ impl View {
         debug_assert_eq!(line_numbers.len(), self.dims.y as usize);
 
         // clear block state
-        let mut bg_colors = vec![default_bg_color; size];
         if self.cursor_blink_on {
             let idx = (self.cursor_pos.y * self.dims.x + self.cursor_pos.x) as usize;
             fg_colors[idx] = default_bg_color;

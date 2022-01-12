@@ -10,7 +10,7 @@ pub const fn color(r: f32, g: f32, b: f32) -> Color {
 #[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct Style {
     pub fg_color: Color,
-    // pub bg_color: Option<Color>,
+    pub bg_color: Option<Color>,
 }
 
 pub struct Highlighter {
