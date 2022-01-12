@@ -117,7 +117,7 @@ impl GlyphCache {
         let glyph_id = face.glyph_index('_').unwrap();
         let rect = unwrap(face.glyph_bounding_box(glyph_id));
         let (metrics, z) = metrics_and_affine(rect, scale);
-        let width = metrics.width();
+        let width = metrics.width;
 
         let (width, height) = (width + PAD_L + PAD_R, height + PAD_T + PAD_B);
 
@@ -254,29 +254,25 @@ fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData 
         }
     };
 
-    // TODO I hate that this uses Affine in this file instead of just doing a
-    // straightforward translation. This code was copied from font-rs so idk
-    // what to do about it.
-    //                      - Albert Liu, Jan 06, 2022 Thu 01:30 EST
-    let (metrics, z) = metrics_and_affine(rect, scale);
-    let (width, height) = (metrics.width(), metrics.height());
+    let (metrics, affine) = metrics_and_affine(rect, scale);
 
-    let mut builder = Builder::new(width, height, z);
+    let mut builder = Builder::new(metrics.width, metrics.height, affine);
     face.outline_glyph(id, &mut builder);
 
     let data = builder.raster.get_bitmap();
 
     return GlyphData {
-        dims: new_rect(width, height),
-        top_offset: expect((-metrics.t).try_into()),
+        dims: new_rect(metrics.width, metrics.height),
+        top_offset: metrics.top_offset,
         data,
     };
 }
 
 pub struct Builder {
-    raster: Raster,
     current: Point,
     affine: Affine,
+
+    raster: Raster,
 }
 
 impl Builder {
@@ -287,34 +283,30 @@ impl Builder {
             affine,
         };
     }
+
+    fn pt(&self, x: f32, y: f32) -> Point {
+        return transform(self.affine, Point { x, y });
+    }
 }
 
 impl ttf::OutlineBuilder for Builder {
     fn move_to(&mut self, x: f32, y: f32) {
-        self.current.x = x;
-        self.current.y = y;
+        self.current = self.pt(x, y);
     }
 
     fn line_to(&mut self, x: f32, y: f32) {
-        let pt = Point { x, y };
-        let z = self.affine;
+        let pt = self.pt(x, y);
 
-        self.raster
-            .draw_line(affine_pt(z, self.current), affine_pt(z, pt));
+        self.raster.draw_line(self.current, pt);
 
         self.current = pt;
     }
 
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        let p1 = Point { x: x1, y: y1 };
-        let dest = Point { x, y };
-        let z = self.affine;
+        let p1 = self.pt(x1, y1);
+        let dest = self.pt(x, y);
 
-        self.raster.draw_quad(
-            affine_pt(z, self.current),
-            affine_pt(z, p1),
-            affine_pt(z, dest),
-        );
+        self.raster.draw_quad(self.current, p1, dest);
 
         self.current = dest;
     }
@@ -322,7 +314,7 @@ impl ttf::OutlineBuilder for Builder {
     // TODO This doesn't actually do anything real right now.
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
         // x1,y1 and x2,y2 are control points
-        let dest = Point { x, y };
+        let dest = self.pt(x, y);
         self.raster.draw_line(self.current, dest);
 
         self.current = dest;
@@ -418,7 +410,7 @@ impl Raster {
         let tol = 3.0;
         let n = 1 + (tol * (devx * devx + devy * devy)).sqrt().sqrt().floor() as usize;
         let mut p = p0;
-        let nrecip = recip(n as f32);
+        let nrecip = (n as f32).recip();
         let mut t = 0.0;
         for _i in 0..n - 1 {
             t += nrecip;
@@ -444,7 +436,7 @@ impl Raster {
     }
 }
 
-fn affine_pt(z: Affine, p: Point) -> Point {
+fn transform(z: Affine, p: Point) -> Point {
     return Point {
         x: z.scale * p.x + z.x_offset,
         y: -z.scale * p.y + z.y_offset,
@@ -452,35 +444,24 @@ fn affine_pt(z: Affine, p: Point) -> Point {
 }
 
 fn metrics_and_affine(rect: ttf::Rect, scale: f32) -> (Metrics, Affine) {
-    let (xmin, ymin, xmax, ymax) = (rect.x_min, rect.y_min, rect.x_max, rect.y_max);
-    let l = (xmin as f32 * scale).floor() as i32;
-    let t = (ymax as f32 * -scale).floor() as i32;
-    let r = (xmax as f32 * scale).ceil() as i32;
-    let b = (ymin as f32 * -scale).ceil() as i32;
-    let metrics = Metrics { l, t, r, b };
-    let z = Affine::new(scale, -l as f32, -t as f32);
-    (metrics, z)
-}
+    let l = (rect.x_min as f32 * scale).floor() as i32;
+    let t = (rect.y_max as f32 * -scale).floor() as i32;
+    let r = (rect.x_max as f32 * scale).ceil() as i32;
+    let b = (rect.y_min as f32 * -scale).ceil() as i32;
 
-fn recip(x: f32) -> f32 {
-    x.recip()
-}
+    let metrics = Metrics {
+        top_offset: -(t as isize),
+        width: (r - l) as u32,
+        height: (b - t) as u32,
+    };
 
-#[derive(Clone, Copy)]
-pub struct Affine {
-    scale: f32,
-    x_offset: f32,
-    y_offset: f32,
-}
+    let affine = Affine {
+        scale,
+        x_offset: -l as f32,
+        y_offset: -t as f32,
+    };
 
-impl Affine {
-    fn new(scale: f32, x_offset: f32, y_offset: f32) -> Affine {
-        return Affine {
-            scale,
-            x_offset,
-            y_offset,
-        };
-    }
+    (metrics, affine)
 }
 
 type Point = mint::Point2<f32>;
@@ -492,19 +473,16 @@ pub fn lerp(t: f32, p0: Point, p1: Point) -> Point {
     }
 }
 
-struct Metrics {
-    l: i32,
-    t: i32,
-    r: i32,
-    b: i32,
+#[derive(Clone, Copy)]
+pub struct Affine {
+    pub scale: f32,
+    pub x_offset: f32,
+    pub y_offset: f32,
 }
 
-impl Metrics {
-    fn width(&self) -> u32 {
-        (self.r - self.l) as u32
-    }
-
-    fn height(&self) -> u32 {
-        (self.b - self.t) as u32
-    }
+#[derive(Clone, Copy)]
+struct Metrics {
+    pub top_offset: isize,
+    pub width: u32,
+    pub height: u32,
 }
