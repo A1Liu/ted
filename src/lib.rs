@@ -35,7 +35,6 @@ pub use wasm_exports::*;
 
 #[cfg(target_arch = "wasm32")]
 mod wasm_exports {
-    use crate::commands::*;
     use crate::event_loop::*;
     use crate::util::*;
     use winit::event_loop::{EventLoop, EventLoopProxy};

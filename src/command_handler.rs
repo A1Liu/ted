@@ -1,6 +1,5 @@
 use crate::commands::*;
 use crate::graphics::*;
-use crate::highlighting::*;
 use crate::util::*;
 use crate::view::*;
 use winit::event_loop::ControlFlow;
@@ -19,8 +18,8 @@ pub struct CommandHandler {
 
 impl CommandHandler {
     pub fn new(text: String) -> Self {
-        let mut cache = GlyphCache::new();
-        let mut view = View::new(new_rect(35, 20), &text);
+        let cache = GlyphCache::new();
+        let view = View::new(new_rect(35, 20), &text);
 
         return Self { cache, view };
     }
@@ -31,7 +30,7 @@ impl CommandHandler {
         // TODO the pattern of passing a mutable Vec might not be the best. Although,
         // idk what else to use here. Ideally there would be less allocations,
         // not more.
-        let mut buffer = &mut Vec::with_capacity(8);
+        let buffer = &mut Vec::with_capacity(8);
 
         commands.push(command);
 

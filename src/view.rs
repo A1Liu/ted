@@ -3,7 +3,6 @@ use crate::flow::*;
 use crate::highlighting::*;
 use crate::util::*;
 use std::io::Write;
-use winit::event;
 
 pub struct View {
     start: usize,
@@ -110,7 +109,7 @@ impl View {
         let mut fg_colors = vec![default_fg_color; size];
         let mut line_numbers = vec![None; self.dims.y as usize];
 
-        let mut line = self.start_line + 1;
+        let line = self.start_line + 1;
         let mut display_line = Some(line);
 
         for (state, params) in &mut config {

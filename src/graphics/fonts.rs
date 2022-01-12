@@ -16,15 +16,6 @@ const PAD_R: u32 = 0; // Raster size in pixels
 const PAD_T: u32 = 8; // Raster size in pixels
 const PAD_B: u32 = 4; // Raster size in pixels
 
-pub const EMPTY_GLYPH: Glyph = Glyph {
-    top_left_1: Point2 { x: 0, y: 0 },
-    top_right_1: Point2 { x: 0, y: 0 },
-    bot_left_1: Point2 { x: 0, y: 0 },
-    top_right_2: Point2 { x: 0, y: 0 },
-    bot_left_2: Point2 { x: 0, y: 0 },
-    bot_right_2: Point2 { x: 0, y: 0 },
-};
-
 const DEFAULT_CHARS: &'static str = core::concat!(
     " ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     "abcdefghijklmnopqrstuvwxyz",

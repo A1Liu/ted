@@ -1,6 +1,5 @@
 use crate::highlighting::*;
 use crate::util::*;
-use crate::view::*;
 
 #[cfg_attr(debug_assertions, derive(PartialEq))]
 pub enum TedCommand {

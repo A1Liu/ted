@@ -3,7 +3,6 @@ mod webgl;
 
 use crate::highlighting::*;
 use crate::util::*;
-use mint::Vector3;
 
 pub use fonts::*;
 pub use webgl::*;
