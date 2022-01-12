@@ -113,20 +113,11 @@ impl GlyphCache {
         let height = (ascent - descent + line_gap) as f32 * scale;
         let height = height as u32;
 
-        let mut width = 0;
-        for c in DEFAULT_CHARS.chars() {
-            // TODO it's monospaced, so use the width of ' ' or something idk
-            let glyph_id = face.glyph_index(c).unwrap();
-            let w = match face.glyph_bounding_box(glyph_id) {
-                None => 0,
-                Some(rect) => {
-                    let (metrics, z) = metrics_and_affine(rect, scale);
-                    metrics.width()
-                }
-            };
-
-            width = core::cmp::max(width, w);
-        }
+        // It's monospaced, so we can cheat a little bit
+        let glyph_id = face.glyph_index('_').unwrap();
+        let rect = unwrap(face.glyph_bounding_box(glyph_id));
+        let (metrics, z) = metrics_and_affine(rect, scale);
+        let width = metrics.width();
 
         let (width, height) = (width + PAD_L + PAD_R, height + PAD_T + PAD_B);
 
