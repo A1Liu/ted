@@ -360,9 +360,7 @@ fn link_program(
     if success {
         Ok(program)
     } else {
-        Err(ctx
-            .get_program_info_log(&program)
-            .unwrap_or_else(|| String::from("Unknown error creating program object")))
+        Err(String::from("Unknown error creating program object"))
     }
 }
 
