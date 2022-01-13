@@ -34,6 +34,8 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
 
 ## Next Up
+- Port GON https://github.com/TylerGlaiel/GON or something similar for syntax highlighting
+- Use ryu https://github.com/dtolnay/ryu + fast_float https://docs.rs/fast-float/latest/fast_float/
 - Mouse support
 - Test the command system
 - Remove instances of the brackets operator?
@@ -41,8 +43,6 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Select text
 - Serialization using less binary bloat? Maybe just DIY it. There is no need to
   use the visitor pattern or support serializing to any arbitrary thing.
-- Port GON https://github.com/TylerGlaiel/GON or something similar for syntax highlighting
-- Use ryu https://github.com/dtolnay/ryu + fast_float https://docs.rs/fast-float/latest/fast_float/
 
 ## Mid-term
 - Refactor text flowing to have enough flexibility for the line wrapping issue
@@ -70,7 +70,6 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Custom display for raw binary, maybe using color for byte value in addition
   to hex representation?
 - Error logging system
-- Tiny lisp interpreter for syntax highlighting? Probably requires error logging
 - C and Python APIs for scripting
 
 
