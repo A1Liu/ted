@@ -62,4 +62,4 @@ lto = true
 
 [package.metadata.wasm-pack.profile.release]
 # Toggle this to get some extra debug info for size profiling
-# wasm-opt = ['-Og', '-g']
+# wasm-opt = ['-O4', '-g']
