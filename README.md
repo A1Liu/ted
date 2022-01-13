@@ -41,6 +41,8 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Select text
 - Serialization using less binary bloat? Maybe just DIY it. There is no need to
   use the visitor pattern or support serializing to any arbitrary thing.
+- Port GON https://github.com/TylerGlaiel/GON or something similar for syntax highlighting
+- Use ryu https://github.com/dtolnay/ryu + fast_float https://docs.rs/fast-float/latest/fast_float/
 
 ## Mid-term
 - Refactor text flowing to have enough flexibility for the line wrapping issue

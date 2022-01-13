@@ -17,7 +17,6 @@ mod print_utils;
 mod commands;
 mod flow;
 mod highlighting;
-mod lisp;
 mod text;
 mod util;
 mod view;
