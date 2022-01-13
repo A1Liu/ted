@@ -10,8 +10,12 @@
 #![allow(unused_mut)]
 /* */
 
+extern crate alloc;
+
 #[macro_use]
 mod util;
+
+mod alloc_api;
 
 mod commands;
 mod flow;
