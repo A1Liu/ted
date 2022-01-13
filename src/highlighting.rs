@@ -6,6 +6,16 @@ pub const fn color(r: f32, g: f32, b: f32) -> Color {
     return Color { x: r, y: g, z: b };
 }
 
+pub const NORMAL: Color = color(0.933, 0.91, 0.835);
+pub const TEXT_BG: Color = color(0.0, 0.169, 0.212);
+pub const KEYWORD: Color = color(0.522, 0.6, 0.0);
+
+pub const LINES_FG: Color = color(0.396, 0.482, 0.514);
+pub const LINES_BG: Color = color(0.027, 0.212, 0.259);
+
+pub const DEFAULT_FG: Color = NORMAL;
+pub const DEFAULT_BG: Color = TEXT_BG;
+
 #[derive(Clone, Copy)]
 #[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct Style {
@@ -73,13 +83,15 @@ impl Highlighter {
             let mut exact_iter = self.exact_seq.iter();
             let exact_match = exact_iter.find(|r| text[index..].starts_with(&r.pattern));
             if let Some(r) = exact_match {
+                let len = r.pattern.len();
+
                 data.push(RangeData {
                     offset_from_last: index - prev_index,
-                    len: 1,
+                    len,
                     style: r.style,
                 });
 
-                index += 1;
+                index += len;
                 prev_index = index;
                 continue;
             }

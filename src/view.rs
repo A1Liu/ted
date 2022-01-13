@@ -45,6 +45,14 @@ impl View {
 
         let mut rules = Vec::new();
         rules.push(SyntaxRule {
+            pattern: Pattern::Exact("here".to_string()),
+            style: Style {
+                bg_color: None,
+                fg_color: KEYWORD,
+            },
+        });
+
+        rules.push(SyntaxRule {
             pattern: Pattern::ExactShort('a'),
             style: Style {
                 fg_color: Color {
@@ -90,11 +98,8 @@ impl View {
     }
 
     pub fn draw(&self, output: &mut Vec<TedCommand>) {
-        let default_fg_color = color(0.9, 0.9, 0.9);
-        let default_bg_color = color(0.3, 0.3, 0.3);
-
-        let mut text_fg_colors = vec![default_fg_color; self.visible_text.len()];
-        let mut text_bg_colors = vec![default_bg_color; self.visible_text.len()];
+        let mut text_fg_colors = vec![DEFAULT_FG; self.visible_text.len()];
+        let mut text_bg_colors = vec![DEFAULT_BG; self.visible_text.len()];
         {
             let ranges = self.highlighter.ranges(&self.visible_text);
             let mut index = 0;
@@ -115,8 +120,8 @@ impl View {
 
         let size = (self.dims.x * self.dims.y) as usize;
         let mut text = vec![' '; size];
-        let mut fg_colors = vec![default_fg_color; size];
-        let mut bg_colors = vec![default_bg_color; size];
+        let mut fg_colors = vec![DEFAULT_FG; size];
+        let mut bg_colors = vec![DEFAULT_BG; size];
         let mut line_numbers = vec![None; self.dims.y as usize];
 
         let line = self.start_line + 1;
@@ -156,7 +161,7 @@ impl View {
         // clear block state
         if self.cursor_blink_on {
             let idx = (self.cursor_pos.y * self.dims.x + self.cursor_pos.x) as usize;
-            fg_colors[idx] = default_bg_color;
+            fg_colors[idx] = DEFAULT_BG;
             bg_colors[idx] = color(1.0, 1.0, 1.0);
         }
 
@@ -187,8 +192,8 @@ impl View {
 
         output.push(TedCommand::DrawView {
             is_lines: true,
-            fg_colors: vec![default_fg_color; line_size],
-            bg_colors: vec![default_bg_color; line_size],
+            fg_colors: vec![LINES_FG; line_size],
+            bg_colors: vec![LINES_BG; line_size],
             text: line_text,
             dims: new_rect(LINES_WIDTH as u32, self.dims.y),
         });
