@@ -234,6 +234,17 @@ where
         return Some(data as *mut T);
     }
 
+    fn slice(&self, r: core::ops::Range<usize>) -> Option<(*mut T, usize)> {
+        if r.end >= self.raw.length || r.end < r.start {
+            return None;
+        }
+
+        let data = self.raw.ptr(r.start);
+        let len = r.end - r.start;
+
+        return Some((data as *mut T, len));
+    }
+
     pub fn get(&self, i: usize) -> Option<&T> {
         let ptr = self.ptr(i)?;
 
@@ -244,6 +255,18 @@ where
         let ptr = self.ptr(i)?;
 
         return Some(unsafe { &mut *ptr });
+    }
+
+    pub fn get_slice(&self, r: core::ops::Range<usize>) -> Option<&[T]> {
+        let (ptr, len) = self.slice(r)?;
+
+        return Some(unsafe { core::slice::from_raw_parts(ptr, len) });
+    }
+
+    pub fn get_mut_slice(&mut self, r: core::ops::Range<usize>) -> Option<&mut [T]> {
+        let (ptr, len) = self.slice(r)?;
+
+        return Some(unsafe { core::slice::from_raw_parts_mut(ptr, len) });
     }
 }
 
@@ -266,6 +289,28 @@ where
 {
     fn index_mut(&mut self, i: usize) -> &mut T {
         return unwrap(self.get_mut(i));
+    }
+}
+
+impl<T, A> core::ops::Index<core::ops::Range<usize>> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    type Output = [T];
+
+    fn index(&self, i: core::ops::Range<usize>) -> &[T] {
+        return unwrap(self.get_slice(i));
+    }
+}
+
+impl<T, A> core::ops::IndexMut<core::ops::Range<usize>> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    fn index_mut(&mut self, i: core::ops::Range<usize>) -> &mut [T] {
+        return unwrap(self.get_mut_slice(i));
     }
 }
 
