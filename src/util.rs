@@ -148,14 +148,123 @@ pub const fn new_rect(x: u32, y: u32) -> Rect {
 //                                  POD ARRAY
 //
 // ----------------------------------------------------------------------------
-use crate::alloc_api::*;
-use alloc::alloc::Layout;
-use core::ptr::NonNull;
-
 struct DataInfo {
     size: usize,
     align: usize,
 }
+
+pub struct Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    raw: RawPod,
+    allocator: A,
+    phantom: core::marker::PhantomData<T>,
+}
+
+impl<T> Pod<T, Global>
+where
+    T: Copy,
+{
+    #[inline(always)]
+    pub fn new() -> Self {
+        return Self::with_allocator(Global);
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        let mut s = Self::new();
+        s.raw.realloc(&Global, capacity);
+
+        return s;
+    }
+}
+
+impl<T, A> Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    pub fn with_allocator(allocator: A) -> Self {
+        let info = DataInfo {
+            size: core::mem::size_of::<T>(),
+            align: core::mem::align_of::<T>(),
+        };
+
+        return Self {
+            raw: RawPod::new(info),
+            allocator,
+            phantom: core::marker::PhantomData,
+        };
+    }
+
+    pub fn push(&mut self, t: T) {
+        self.raw.reserve(&self.allocator, 1);
+
+        let ptr = self.raw.ptr(self.raw.length) as *mut T;
+        self.raw.length += 1;
+
+        unsafe { *ptr = t };
+    }
+
+    #[inline(always)]
+    pub fn reserve(&mut self, additional: usize) {
+        self.raw.reserve(&self.allocator, additional);
+    }
+
+    fn ptr(&self, i: usize) -> Option<*mut T> {
+        if i >= self.raw.length {
+            return None;
+        }
+
+        let data = self.raw.ptr(i);
+
+        return Some(data as *mut T);
+    }
+
+    pub fn get(&self, i: usize) -> Option<&T> {
+        let ptr = self.ptr(i)?;
+
+        return Some(unsafe { &*ptr });
+    }
+
+    pub fn get_mut(&mut self, i: usize) -> Option<&mut T> {
+        let ptr = self.ptr(i)?;
+
+        return Some(unsafe { &mut *ptr });
+    }
+}
+
+impl<T, A> core::ops::Index<usize> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    type Output = T;
+
+    fn index(&self, i: usize) -> &T {
+        return unwrap(self.get(i));
+    }
+}
+
+impl<T, A> core::ops::IndexMut<usize> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    fn index_mut(&mut self, i: usize) -> &mut T {
+        return unwrap(self.get_mut(i));
+    }
+}
+
+// ----------------------------------------------------------------------------
+//
+//                               POD ARRAY UTILS
+//
+// ----------------------------------------------------------------------------
+use crate::alloc_api::*;
+use alloc::alloc::Layout;
+use core::ptr::NonNull;
 
 struct RawPod {
     data: NonNull<u8>,
@@ -173,6 +282,21 @@ impl RawPod {
             length: 0,
             capacity: 0,
         };
+    }
+
+    #[inline(always)]
+    fn ptr(&self, i: usize) -> *mut u8 {
+        return unsafe { self.data.as_ptr().add(self.info.size * i) };
+    }
+
+    fn reserve(&mut self, alloc: &dyn Allocator, additional: usize) {
+        let needed = self.length + additional;
+        if needed <= self.capacity {
+            return;
+        }
+
+        let new_capacity = core::cmp::max(needed, self.capacity * 3 / 2);
+        self.realloc(alloc, new_capacity);
     }
 
     fn realloc(&mut self, alloc: &dyn Allocator, capacity: usize) {
@@ -234,39 +358,6 @@ impl RawPod {
         // We use the same trick that std::vec::Vec uses
         let mut s = Self::new(info);
         s.realloc(alloc, capacity);
-
-        return s;
-    }
-}
-
-pub struct Pod<T, A>
-where
-    T: Copy,
-    A: Allocator,
-{
-    raw: RawPod,
-    phantom: core::marker::PhantomData<(T, A)>,
-}
-
-impl<T> Pod<T, Global>
-where
-    T: Copy,
-{
-    pub fn new() -> Self {
-        let info = DataInfo {
-            size: core::mem::size_of::<T>(),
-            align: core::mem::align_of::<T>(),
-        };
-
-        return Self {
-            raw: RawPod::new(info),
-            phantom: core::marker::PhantomData,
-        };
-    }
-
-    pub fn with_capacity(capacity: usize) -> Self {
-        let mut s = Self::new();
-        s.raw.realloc(&Global, capacity);
 
         return s;
     }
