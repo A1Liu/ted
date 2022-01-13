@@ -195,9 +195,8 @@ impl WebGl {
 
     pub fn uloc(&self, prog: &Program, name: &str) -> Result<ULoc, JsValue> {
         return WEB_GL.with(|ctx| {
-            let make_err = || format!("Failed to write uniform");
             let loc_opt = ctx.get_uniform_location(&prog.program, name);
-            let loc = loc_opt.ok_or_else(make_err)?;
+            let loc = loc_opt.ok_or("Failed to write uniform")?;
 
             return Ok(loc);
         });
@@ -238,7 +237,17 @@ impl WebGl {
     {
         return WEB_GL.with(|ctx| {
             let loc = ctx.get_attrib_location(&prog.program, name);
-            let make_err = |e| format!("failed to get location of '{}' (got {})", name, loc);
+            let make_err = |e| {
+                #[cfg(debug_assertions)]
+                {
+                    return format!("failed to get location of '{}' (got {})", name, loc);
+                }
+
+                #[cfg(not(debug_assertions))]
+                {
+                    return String::from("failed to get location of attribute");
+                }
+            };
             let loc = loc.try_into().map_err(make_err)?;
 
             let gl_buffer = ctx.create_buffer().ok_or("failed to create buffer")?;
