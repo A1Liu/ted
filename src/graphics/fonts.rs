@@ -89,7 +89,7 @@ impl GlyphCache {
             return glyph;
         }
 
-        let face = ttf::Face::from_slice(COURIER, 0).unwrap();
+        let face = expect(ttf::Face::from_slice(COURIER, 0));
         if face.is_variable() || !face.is_monospaced() {
             panic!("Can't handle variable fonts");
         }

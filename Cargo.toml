@@ -14,7 +14,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 mint = "0.5.8"
-btree = { path = "./btree" }
 
 # Can't use font-rs here because the latest released version has an out-of-bounds
 # error; instead we just copy-paste their rasterization code
