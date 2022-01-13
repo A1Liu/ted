@@ -10,14 +10,12 @@
 #![allow(unused_mut)]
 /* */
 
-#[cfg(target_arch = "wasm32")]
 #[macro_use]
-mod print_utils;
+mod util;
 
 mod commands;
 mod flow;
 mod highlighting;
-mod util;
 mod view;
 
 #[cfg(target_arch = "wasm32")]
