@@ -270,6 +270,18 @@ where
     }
 }
 
+impl<T, A> core::ops::Deref for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    type Target = [T];
+
+    fn deref(&self) -> &[T] {
+        return &self[0..];
+    }
+}
+
 impl<T, A> core::ops::Index<usize> for Pod<T, A>
 where
     T: Copy,
@@ -289,6 +301,72 @@ where
 {
     fn index_mut(&mut self, i: usize) -> &mut T {
         return unwrap(self.get_mut(i));
+    }
+}
+
+impl<T, A> core::ops::Index<core::ops::RangeTo<usize>> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    type Output = [T];
+
+    fn index(&self, i: core::ops::RangeTo<usize>) -> &[T] {
+        return unwrap(self.get_slice(0..i.end));
+    }
+}
+
+impl<T, A> core::ops::IndexMut<core::ops::RangeTo<usize>> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    fn index_mut(&mut self, i: core::ops::RangeTo<usize>) -> &mut [T] {
+        return unwrap(self.get_mut_slice(0..i.end));
+    }
+}
+
+impl<T, A> core::ops::Index<core::ops::RangeFrom<usize>> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    type Output = [T];
+
+    fn index(&self, i: core::ops::RangeFrom<usize>) -> &[T] {
+        return unwrap(self.get_slice(i.start..self.raw.length));
+    }
+}
+
+impl<T, A> core::ops::IndexMut<core::ops::RangeFrom<usize>> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    fn index_mut(&mut self, i: core::ops::RangeFrom<usize>) -> &mut [T] {
+        return unwrap(self.get_mut_slice(i.start..self.raw.length));
+    }
+}
+
+impl<T, A> core::ops::Index<core::ops::RangeFull> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    type Output = [T];
+
+    fn index(&self, i: core::ops::RangeFull) -> &[T] {
+        return unwrap(self.get_slice(0..self.raw.length));
+    }
+}
+
+impl<T, A> core::ops::IndexMut<core::ops::RangeFull> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    fn index_mut(&mut self, i: core::ops::RangeFull) -> &mut [T] {
+        return unwrap(self.get_mut_slice(0..self.raw.length));
     }
 }
 
