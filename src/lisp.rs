@@ -17,7 +17,7 @@ const CONS: i32 = EQ - 1;
 const ATOM: i32 = CONS - 1;
 const CAR: i32 = ATOM - 1;
 const CDR: i32 = CAR - 1;
-const DEFINE: i32 = DEFINE - 1;
+const DEFINE: i32 = CDR - 1;
 
 pub struct Interp {
     atom_data: Vec<u8>,
