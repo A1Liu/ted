@@ -47,7 +47,9 @@ impl Highlighter {
                     short_seq.push(Rule { pattern, style });
                 }
                 Pattern::Exact(pattern) => {
-                    let pattern = pattern.chars().collect();
+                    let mut pattern: Vec<_> = pattern.chars().collect();
+                    pattern.shrink_to_fit();
+
                     exact_seq.push(Rule { pattern, style });
                 }
             }

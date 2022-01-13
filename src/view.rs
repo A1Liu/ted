@@ -44,8 +44,9 @@ impl View {
         }
 
         let mut rules = Vec::new();
+
         rules.push(SyntaxRule {
-            pattern: Pattern::Exact("here".to_string()),
+            pattern: Pattern::Exact("of".to_string()),
             style: Style {
                 bg_color: None,
                 fg_color: KEYWORD,
@@ -53,17 +54,21 @@ impl View {
         });
 
         rules.push(SyntaxRule {
-            pattern: Pattern::ExactShort('a'),
+            pattern: Pattern::Exact("and".to_string()),
             style: Style {
-                fg_color: Color {
+                bg_color: None,
+                fg_color: KEYWORD,
+            },
+        });
+
+        rules.push(SyntaxRule {
+            pattern: Pattern::Exact("TODO".to_string()),
+            style: Style {
+                fg_color: NORMAL,
+                bg_color: Some(Color {
                     x: 0.8,
                     y: 0.3,
                     z: 0.3,
-                },
-                bg_color: Some(Color {
-                    x: 0.1,
-                    y: 0.8,
-                    z: 0.8,
                 }),
             },
         });

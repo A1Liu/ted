@@ -45,7 +45,7 @@ mod wasm_exports {
     static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
     const TEXT: &'static str = r#"Click here and try typing!
-"#;
+TODO: lots of stuff"#;
 
     #[wasm_bindgen]
     pub fn start() {
