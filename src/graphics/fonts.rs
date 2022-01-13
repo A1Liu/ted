@@ -105,7 +105,7 @@ impl GlyphCache {
         let height = height as u32 + PAD_T + PAD_B;
 
         // It's monospaced, so we can cheat a little bit
-        let glyph_id = face.glyph_index('_').unwrap();
+        let glyph_id = unwrap(face.glyph_index('_'));
         let rect = unwrap(face.glyph_bounding_box(glyph_id));
         let (metrics, z) = metrics_and_affine(rect, scale);
         let width = metrics.width + PAD_L + PAD_R;
@@ -179,7 +179,7 @@ impl GlyphCache {
             self.atlas_dims.y += self.glyph_dims.y;
         }
 
-        let glyph_id = face.glyph_index(c).unwrap();
+        let glyph_id = unwrap(face.glyph_index(c));
         let glyph_data = rasterize_glyph(face, scale, glyph_id);
 
         let x = self.atlas_current_row_width;

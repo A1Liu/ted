@@ -343,25 +343,22 @@ fn link_program(
     ctx: &Context,
     vert_shader: &WebGlShader,
     frag_shader: &WebGlShader,
-) -> Result<WebGlProgram, String> {
-    let program = ctx
-        .create_program()
-        .ok_or_else(|| String::from("Unable to create program object"))?;
+) -> Result<WebGlProgram, &'static str> {
+    let program = match ctx.create_program() {
+        Some(p) => p,
+        None => return Err("Unable to create program object"),
+    };
 
     ctx.attach_shader(&program, vert_shader);
     ctx.attach_shader(&program, frag_shader);
     ctx.link_program(&program);
 
-    let success = ctx
-        .get_program_parameter(&program, Context::LINK_STATUS)
-        .as_bool()
-        .unwrap_or(false);
-
-    if success {
-        Ok(program)
-    } else {
-        Err(String::from("Unknown error creating program object"))
+    let status = ctx.get_program_parameter(&program, Context::LINK_STATUS);
+    if status.as_bool() == Some(true) {
+        return Ok(program);
     }
+
+    return Err("Unknown error creating program object");
 }
 
 // .visually-hidden {
