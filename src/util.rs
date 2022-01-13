@@ -153,6 +153,26 @@ struct DataInfo {
     align: usize,
 }
 
+pub trait MakePod<'a, T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    fn make_pod(&'a self) -> Pod<T, A>;
+}
+
+impl<'a, T, A> MakePod<'a, T, &'a A> for A
+where
+    T: Copy,
+    A: Allocator,
+{
+    fn make_pod(&'a self) -> Pod<T, &'a A> {
+        return Pod::with_allocator(self);
+    }
+}
+
+// 2 purposes: Prevent monomorphization as much as possible, and allow for using
+// the allocator API on stable.
 pub struct Pod<T, A>
 where
     T: Copy,

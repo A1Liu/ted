@@ -6,7 +6,7 @@ use core::ptr::NonNull;
 pub struct AllocError;
 
 // The rust version isn't out of nightly yet
-pub trait Allocator {
+pub unsafe trait Allocator {
     fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError>;
 
     fn allocate_zeroed(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
@@ -90,7 +90,7 @@ pub trait Allocator {
 
 pub struct Global;
 
-impl Allocator for Global {
+unsafe impl Allocator for Global {
     fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
         unsafe {
             let mut data = alloc(layout);
@@ -104,5 +104,55 @@ impl Allocator for Global {
 
     unsafe fn deallocate(&self, mut ptr: NonNull<u8>, layout: Layout) {
         dealloc(ptr.as_mut(), layout);
+    }
+}
+
+unsafe impl<A> Allocator for &A
+where
+    A: Allocator + ?Sized,
+{
+    #[inline]
+    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+        (**self).allocate(layout)
+    }
+
+    #[inline]
+    fn allocate_zeroed(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+        (**self).allocate_zeroed(layout)
+    }
+
+    #[inline]
+    unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
+        (**self).deallocate(ptr, layout)
+    }
+
+    #[inline]
+    unsafe fn grow(
+        &self,
+        ptr: NonNull<u8>,
+        old_layout: Layout,
+        new_layout: Layout,
+    ) -> Result<NonNull<[u8]>, AllocError> {
+        (**self).grow(ptr, old_layout, new_layout)
+    }
+
+    #[inline]
+    unsafe fn grow_zeroed(
+        &self,
+        ptr: NonNull<u8>,
+        old_layout: Layout,
+        new_layout: Layout,
+    ) -> Result<NonNull<[u8]>, AllocError> {
+        (**self).grow_zeroed(ptr, old_layout, new_layout)
+    }
+
+    #[inline]
+    unsafe fn shrink(
+        &self,
+        ptr: NonNull<u8>,
+        old_layout: Layout,
+        new_layout: Layout,
+    ) -> Result<NonNull<[u8]>, AllocError> {
+        (**self).shrink(ptr, old_layout, new_layout)
     }
 }
