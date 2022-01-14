@@ -1,5 +1,5 @@
+use super::alloc_api::*;
 use super::{expect, unwrap};
-use crate::alloc_api::*;
 use alloc::alloc::Layout;
 use core::num::NonZeroUsize;
 use core::ops::*;
