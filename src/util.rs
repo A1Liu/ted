@@ -245,24 +245,28 @@ where
         return Some((data as *mut T, len));
     }
 
+    #[inline(always)]
     pub fn get(&self, i: usize) -> Option<&T> {
         let ptr = self.ptr(i)?;
 
         return Some(unsafe { &*ptr });
     }
 
+    #[inline(always)]
     pub fn get_mut(&mut self, i: usize) -> Option<&mut T> {
         let ptr = self.ptr(i)?;
 
         return Some(unsafe { &mut *ptr });
     }
 
+    #[inline(always)]
     pub fn get_slice(&self, r: core::ops::Range<usize>) -> Option<&[T]> {
         let (ptr, len) = self.slice(r)?;
 
         return Some(unsafe { core::slice::from_raw_parts(ptr, len) });
     }
 
+    #[inline(always)]
     pub fn get_mut_slice(&mut self, r: core::ops::Range<usize>) -> Option<&mut [T]> {
         let (ptr, len) = self.slice(r)?;
 
@@ -277,8 +281,20 @@ where
 {
     type Target = [T];
 
+    #[inline(always)]
     fn deref(&self) -> &[T] {
-        return &self[0..];
+        return &self[..];
+    }
+}
+
+impl<T, A> core::ops::DerefMut for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut [T] {
+        return &mut self[..];
     }
 }
 
@@ -289,6 +305,7 @@ where
 {
     type Output = T;
 
+    #[inline(always)]
     fn index(&self, i: usize) -> &T {
         return unwrap(self.get(i));
     }
@@ -299,6 +316,7 @@ where
     T: Copy,
     A: Allocator,
 {
+    #[inline(always)]
     fn index_mut(&mut self, i: usize) -> &mut T {
         return unwrap(self.get_mut(i));
     }
@@ -311,6 +329,7 @@ where
 {
     type Output = [T];
 
+    #[inline(always)]
     fn index(&self, i: core::ops::RangeTo<usize>) -> &[T] {
         return unwrap(self.get_slice(0..i.end));
     }
@@ -321,6 +340,7 @@ where
     T: Copy,
     A: Allocator,
 {
+    #[inline(always)]
     fn index_mut(&mut self, i: core::ops::RangeTo<usize>) -> &mut [T] {
         return unwrap(self.get_mut_slice(0..i.end));
     }
@@ -333,6 +353,7 @@ where
 {
     type Output = [T];
 
+    #[inline(always)]
     fn index(&self, i: core::ops::RangeFrom<usize>) -> &[T] {
         return unwrap(self.get_slice(i.start..self.raw.length));
     }
@@ -343,6 +364,7 @@ where
     T: Copy,
     A: Allocator,
 {
+    #[inline(always)]
     fn index_mut(&mut self, i: core::ops::RangeFrom<usize>) -> &mut [T] {
         return unwrap(self.get_mut_slice(i.start..self.raw.length));
     }
@@ -355,6 +377,7 @@ where
 {
     type Output = [T];
 
+    #[inline(always)]
     fn index(&self, i: core::ops::RangeFull) -> &[T] {
         return unwrap(self.get_slice(0..self.raw.length));
     }
@@ -365,6 +388,7 @@ where
     T: Copy,
     A: Allocator,
 {
+    #[inline(always)]
     fn index_mut(&mut self, i: core::ops::RangeFull) -> &mut [T] {
         return unwrap(self.get_mut_slice(0..self.raw.length));
     }
@@ -377,6 +401,7 @@ where
 {
     type Output = [T];
 
+    #[inline(always)]
     fn index(&self, i: core::ops::Range<usize>) -> &[T] {
         return unwrap(self.get_slice(i));
     }
@@ -387,6 +412,7 @@ where
     T: Copy,
     A: Allocator,
 {
+    #[inline(always)]
     fn index_mut(&mut self, i: core::ops::Range<usize>) -> &mut [T] {
         return unwrap(self.get_mut_slice(i));
     }
