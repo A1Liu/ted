@@ -1,4 +1,8 @@
+use crate::alloc_api::*;
+use alloc::alloc::Layout;
 use core::num::NonZeroUsize;
+use core::ops::*;
+use core::ptr::NonNull;
 pub use mint::*;
 pub use winit::event_loop::EventLoopProxy;
 pub use winit::window::Window;
@@ -213,26 +217,80 @@ where
         self.raw.length = 0;
     }
 
-    pub fn insert(&mut self, i: usize, c: char) {}
+    pub fn insert(&mut self, i: usize, value: T) {
+        self.raw.reserve(&self.allocator, 1);
+        self.raw.length += 1;
 
-    pub fn insert_values(&mut self, i: usize, mut values: &mut dyn Iterator<Item = T>) {}
+        if self.raw.copy_range(i..self.raw.length, i + 1) {
+            panic!("invalid position");
+        }
+
+        let ptr = self.raw.ptr(i) as *mut T;
+        unsafe { *ptr = value };
+    }
+
+    pub fn splice<R>(&mut self, range: R, mut values: &mut dyn Iterator<Item = T>)
+    where
+        R: RangeBounds<usize>,
+    {
+        let range = self.raw.translate_range(range);
+        self._splice(range, values);
+    }
+
+    fn _splice(&mut self, range: Range<usize>, mut values: &mut dyn Iterator<Item = T>) {
+        let (start, end) = (range.start, range.end);
+
+        if !self.raw.range_is_valid(start, end) {
+            panic!("invalid range");
+        }
+
+        let mut current = start;
+        while current < end {
+            let value = match values.next() {
+                Some(value) => value,
+                None => {
+                    self.raw.copy_range(end..self.raw.length, current);
+                    self.raw.length = self.raw.length - end + current;
+
+                    return;
+                }
+            };
+
+            let ptr = self.raw.ptr(current) as *mut T;
+            unsafe { *ptr = value };
+            current += 1;
+        }
+
+        let (lower_bound, upper_bound) = values.size_hint();
+        let bound = upper_bound.unwrap_or(lower_bound);
+
+        let mut remainder = Pod::with_capacity(bound);
+        for value in values {
+            remainder.push(value);
+        }
+
+        let remainder_len = remainder.len();
+        self.raw.reserve(&self.allocator, remainder_len);
+
+        let len = self.raw.length;
+        self.raw.length += remainder_len;
+
+        self.raw.copy_range(end..len, end + remainder_len);
+
+        for value in remainder {
+            let ptr = self.raw.ptr(current) as *mut T;
+            unsafe { *ptr = value };
+            current += 1;
+        }
+    }
 
     pub fn remove(&mut self, i: usize) -> T {
-        let len = self.raw.length;
-        if i >= len {
-            panic!("invalid index");
-        }
+        let value = self[i];
 
-        unsafe {
-            let ptr = self.raw.ptr(i) as *mut T;
-            let value = *ptr;
+        self.raw.copy_range((i + 1)..self.raw.length, i);
+        self.raw.length -= 1;
 
-            // Shift everything down to fill in that spot.
-            core::ptr::copy(ptr.add(self.raw.info.size), ptr, len - i - 1);
-            self.raw.length = len - 1;
-
-            return value;
-        }
+        return value;
     }
 
     pub fn push_repeat(&mut self, t: T, repeat: usize) {
@@ -255,6 +313,13 @@ where
         self.raw.reserve(&self.allocator, additional);
     }
 
+    #[inline(always)]
+    pub fn shrink_to_fit(&mut self) {
+        let len = self.raw.length;
+        self.raw.realloc(&self.allocator, len);
+    }
+
+    #[inline(always)]
     pub fn raw_ptr(&self, i: usize) -> Option<*mut T> {
         let data = self.raw.ptr(i);
 
@@ -271,13 +336,14 @@ where
         return Some(data as *mut T);
     }
 
-    fn slice(&self, r: core::ops::Range<usize>) -> Option<(*mut T, usize)> {
-        if r.end > self.raw.length || r.end < r.start {
+    fn slice(&self, r: Range<usize>) -> Option<(*mut T, usize)> {
+        let (start, end) = (r.start, r.end);
+        if !self.raw.range_is_valid(start, end) {
             return None;
         }
 
-        let data = self.raw.ptr(r.start);
-        let len = r.end - r.start;
+        let data = self.raw.ptr(start);
+        let len = end - start;
 
         return Some((data as *mut T, len));
     }
@@ -297,14 +363,14 @@ where
     }
 
     #[inline(always)]
-    pub fn get_slice(&self, r: core::ops::Range<usize>) -> Option<&[T]> {
+    pub fn get_slice(&self, r: Range<usize>) -> Option<&[T]> {
         let (ptr, len) = self.slice(r)?;
 
         return Some(unsafe { core::slice::from_raw_parts(ptr, len) });
     }
 
     #[inline(always)]
-    pub fn get_mut_slice(&mut self, r: core::ops::Range<usize>) -> Option<&mut [T]> {
+    pub fn get_mut_slice(&mut self, r: Range<usize>) -> Option<&mut [T]> {
         let (ptr, len) = self.slice(r)?;
 
         return Some(unsafe { core::slice::from_raw_parts_mut(ptr, len) });
@@ -361,13 +427,11 @@ where
     B: Allocator,
 {
     fn eq(&self, other: &Pod<E, B>) -> bool {
-        use core::ops::Deref;
-
         return self.deref() == other.deref();
     }
 }
 
-impl<T, A> core::ops::Deref for Pod<T, A>
+impl<T, A> Deref for Pod<T, A>
 where
     T: Copy,
     A: Allocator,
@@ -380,7 +444,7 @@ where
     }
 }
 
-impl<T, A> core::ops::DerefMut for Pod<T, A>
+impl<T, A> DerefMut for Pod<T, A>
 where
     T: Copy,
     A: Allocator,
@@ -391,7 +455,7 @@ where
     }
 }
 
-impl<T, A> core::ops::Index<usize> for Pod<T, A>
+impl<T, A> Index<usize> for Pod<T, A>
 where
     T: Copy,
     A: Allocator,
@@ -404,7 +468,7 @@ where
     }
 }
 
-impl<T, A> core::ops::IndexMut<usize> for Pod<T, A>
+impl<T, A> IndexMut<usize> for Pod<T, A>
 where
     T: Copy,
     A: Allocator,
@@ -415,7 +479,7 @@ where
     }
 }
 
-impl<T, A> core::ops::Index<core::ops::RangeTo<usize>> for Pod<T, A>
+impl<T, A> Index<RangeTo<usize>> for Pod<T, A>
 where
     T: Copy,
     A: Allocator,
@@ -423,23 +487,23 @@ where
     type Output = [T];
 
     #[inline(always)]
-    fn index(&self, i: core::ops::RangeTo<usize>) -> &[T] {
+    fn index(&self, i: RangeTo<usize>) -> &[T] {
         return unwrap(self.get_slice(0..i.end));
     }
 }
 
-impl<T, A> core::ops::IndexMut<core::ops::RangeTo<usize>> for Pod<T, A>
+impl<T, A> IndexMut<RangeTo<usize>> for Pod<T, A>
 where
     T: Copy,
     A: Allocator,
 {
     #[inline(always)]
-    fn index_mut(&mut self, i: core::ops::RangeTo<usize>) -> &mut [T] {
+    fn index_mut(&mut self, i: RangeTo<usize>) -> &mut [T] {
         return unwrap(self.get_mut_slice(0..i.end));
     }
 }
 
-impl<T, A> core::ops::Index<core::ops::RangeFrom<usize>> for Pod<T, A>
+impl<T, A> Index<RangeFrom<usize>> for Pod<T, A>
 where
     T: Copy,
     A: Allocator,
@@ -447,23 +511,23 @@ where
     type Output = [T];
 
     #[inline(always)]
-    fn index(&self, i: core::ops::RangeFrom<usize>) -> &[T] {
+    fn index(&self, i: RangeFrom<usize>) -> &[T] {
         return unwrap(self.get_slice(i.start..self.raw.length));
     }
 }
 
-impl<T, A> core::ops::IndexMut<core::ops::RangeFrom<usize>> for Pod<T, A>
+impl<T, A> IndexMut<RangeFrom<usize>> for Pod<T, A>
 where
     T: Copy,
     A: Allocator,
 {
     #[inline(always)]
-    fn index_mut(&mut self, i: core::ops::RangeFrom<usize>) -> &mut [T] {
+    fn index_mut(&mut self, i: RangeFrom<usize>) -> &mut [T] {
         return unwrap(self.get_mut_slice(i.start..self.raw.length));
     }
 }
 
-impl<T, A> core::ops::Index<core::ops::RangeFull> for Pod<T, A>
+impl<T, A> Index<RangeFull> for Pod<T, A>
 where
     T: Copy,
     A: Allocator,
@@ -471,23 +535,23 @@ where
     type Output = [T];
 
     #[inline(always)]
-    fn index(&self, i: core::ops::RangeFull) -> &[T] {
+    fn index(&self, i: RangeFull) -> &[T] {
         return unwrap(self.get_slice(0..self.raw.length));
     }
 }
 
-impl<T, A> core::ops::IndexMut<core::ops::RangeFull> for Pod<T, A>
+impl<T, A> IndexMut<RangeFull> for Pod<T, A>
 where
     T: Copy,
     A: Allocator,
 {
     #[inline(always)]
-    fn index_mut(&mut self, i: core::ops::RangeFull) -> &mut [T] {
+    fn index_mut(&mut self, i: RangeFull) -> &mut [T] {
         return unwrap(self.get_mut_slice(0..self.raw.length));
     }
 }
 
-impl<T, A> core::ops::Index<core::ops::Range<usize>> for Pod<T, A>
+impl<T, A> Index<Range<usize>> for Pod<T, A>
 where
     T: Copy,
     A: Allocator,
@@ -495,18 +559,18 @@ where
     type Output = [T];
 
     #[inline(always)]
-    fn index(&self, i: core::ops::Range<usize>) -> &[T] {
+    fn index(&self, i: Range<usize>) -> &[T] {
         return unwrap(self.get_slice(i));
     }
 }
 
-impl<T, A> core::ops::IndexMut<core::ops::Range<usize>> for Pod<T, A>
+impl<T, A> IndexMut<Range<usize>> for Pod<T, A>
 where
     T: Copy,
     A: Allocator,
 {
     #[inline(always)]
-    fn index_mut(&mut self, i: core::ops::Range<usize>) -> &mut [T] {
+    fn index_mut(&mut self, i: Range<usize>) -> &mut [T] {
         return unwrap(self.get_mut_slice(i));
     }
 }
@@ -516,9 +580,6 @@ where
 //                               POD ARRAY UTILS
 //
 // ----------------------------------------------------------------------------
-use crate::alloc_api::*;
-use alloc::alloc::Layout;
-use core::ptr::NonNull;
 
 struct RawPod {
     data: NonNull<u8>,
@@ -539,8 +600,46 @@ impl RawPod {
     }
 
     #[inline(always)]
+    fn range_is_valid(&self, start: usize, end: usize) -> bool {
+        return start <= end && end <= self.length;
+    }
+
+    fn translate_range(&self, range: impl RangeBounds<usize>) -> Range<usize> {
+        let start = match range.start_bound() {
+            Bound::Included(s) => *s,
+            Bound::Excluded(s) => *s + 1,
+            Bound::Unbounded => 0,
+        };
+
+        let end = match range.end_bound() {
+            Bound::Included(e) => *e + 1,
+            Bound::Excluded(e) => *e,
+            Bound::Unbounded => self.length,
+        };
+
+        return start..end;
+    }
+
+    #[inline(always)]
     fn ptr(&self, i: usize) -> *mut u8 {
         return unsafe { self.data.as_ptr().add(self.info.size * i) };
+    }
+
+    fn copy_range(&mut self, range: Range<usize>, to: usize) -> bool {
+        let (start, end) = (range.start, range.end);
+
+        if !self.range_is_valid(start, end) {
+            return true;
+        }
+
+        let src = self.ptr(start);
+        let dest = self.ptr(to);
+        let copy_len = end - start;
+
+        // Shift everything down to fill in that spot.
+        unsafe { core::ptr::copy(src, dest, copy_len) };
+
+        return false;
     }
 
     fn reserve(&mut self, alloc: &dyn Allocator, additional: usize) {

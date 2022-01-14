@@ -274,9 +274,15 @@ impl View {
             }
         };
 
-        self.visible_text.splice(index..index, s.chars());
+        let mut chars = Pod::with_capacity(s.len());
+        for c in s.chars() {
+            chars.push(c);
+        }
 
-        let count = s.chars().count();
+        let count = chars.len();
+
+        self.visible_text.splice(index..index, chars.into_iter());
+
         self.flow_cursor(index + count);
 
         output.push(TedCommand::RequestRedraw);

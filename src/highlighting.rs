@@ -1,3 +1,4 @@
+use crate::util::*;
 use mint::*;
 
 pub type Color = Vector3<f32>;
@@ -18,16 +19,25 @@ pub const DEFAULT_BG: Color = TEXT_BG;
 
 #[derive(Clone, Copy)]
 #[cfg_attr(debug_assertions, derive(PartialEq))]
+pub struct CopyRange {
+    start: usize,
+    end: usize,
+}
+
+#[derive(Clone, Copy)]
+#[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct Style {
     pub fg_color: Color,
     pub bg_color: Option<Color>,
 }
 
 pub struct Highlighter {
-    short_seq: Vec<Rule<char>>,
-    exact_seq: Vec<Rule<Vec<char>>>,
+    seq_data: Pod<char>,
+    short_seq: Pod<Rule<char>>,
+    exact_seq: Pod<Rule<CopyRange>>,
 }
 
+#[derive(Clone, Copy)]
 #[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct RangeData {
     pub offset_from_last: usize,
@@ -37,8 +47,9 @@ pub struct RangeData {
 
 impl Highlighter {
     pub fn new(rules: Vec<SyntaxRule>) -> Self {
-        let mut short_seq = Vec::new();
-        let mut exact_seq = Vec::new();
+        let mut seq_data = Pod::new();
+        let mut short_seq = Pod::new();
+        let mut exact_seq = Pod::new();
 
         for rule in rules {
             let style = rule.style;
@@ -47,27 +58,36 @@ impl Highlighter {
                     short_seq.push(Rule { pattern, style });
                 }
                 Pattern::Exact(pattern) => {
-                    let mut pattern: Vec<_> = pattern.chars().collect();
-                    pattern.shrink_to_fit();
+                    seq_data.reserve(pattern.len());
+
+                    let start = seq_data.len();
+                    for c in pattern.chars() {
+                        seq_data.push(c);
+                    }
+
+                    let end = seq_data.len();
+                    let pattern = CopyRange { start, end };
 
                     exact_seq.push(Rule { pattern, style });
                 }
             }
         }
 
+        seq_data.shrink_to_fit();
         short_seq.shrink_to_fit();
         exact_seq.shrink_to_fit();
 
         return Self {
+            seq_data,
             short_seq,
             exact_seq,
         };
     }
 
-    pub fn ranges(&self, text: &[char]) -> Vec<RangeData> {
+    pub fn ranges(&self, text: &[char]) -> Pod<RangeData> {
         let mut index = 0;
         let mut prev_index = 0;
-        let mut data = Vec::new();
+        let mut data = Pod::new();
 
         while index < text.len() {
             if let Some(r) = self.short_seq.iter().find(|r| r.pattern == text[index]) {
@@ -83,9 +103,12 @@ impl Highlighter {
             }
 
             let mut exact_iter = self.exact_seq.iter();
-            let exact_match = exact_iter.find(|r| text[index..].starts_with(&r.pattern));
+            let exact_match = exact_iter.find(|r| {
+                let (start, end) = (r.pattern.start, r.pattern.end);
+                return text[index..].starts_with(&self.seq_data[start..end]);
+            });
             if let Some(r) = exact_match {
-                let len = r.pattern.len();
+                let len = r.pattern.end - r.pattern.start;
 
                 data.push(RangeData {
                     offset_from_last: index - prev_index,
@@ -107,6 +130,7 @@ impl Highlighter {
 
 pub type SyntaxRule = Rule<Pattern>;
 
+#[derive(Clone, Copy)]
 pub struct Rule<P> {
     pub pattern: P,
     pub style: Style,
