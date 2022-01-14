@@ -5,9 +5,9 @@ use crate::util::*;
 pub enum TedCommand {
     DrawView {
         is_lines: bool,
-        fg_colors: Vec<Color>,
-        bg_colors: Vec<Color>,
-        text: Vec<char>,
+        fg_colors: Pod<Color>,
+        bg_colors: Pod<Color>,
+        text: Pod<char>,
         dims: Rect,
     },
 

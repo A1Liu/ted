@@ -30,9 +30,9 @@ pub struct TextShader {
 pub struct TextShaderInput<'a> {
     pub is_lines: bool,
     pub atlas: Option<&'a [u8]>,
-    pub fg_colors: Vec<Color>,
-    pub bg_colors: Vec<Color>,
-    pub glyphs: Vec<Glyph>,
+    pub fg_colors: Pod<Color>,
+    pub bg_colors: Pod<Color>,
+    pub glyphs: Pod<Glyph>,
     pub atlas_dims: Rect,
     pub dims: Rect,
 }

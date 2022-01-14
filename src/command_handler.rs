@@ -47,7 +47,7 @@ impl CommandHandler {
                     dims,
                 } => {
                     let text_len = text.len();
-                    let mut glyphs = Vec::with_capacity(text_len);
+                    let mut glyphs = Pod::with_capacity(text_len);
                     for c in text.into_iter() {
                         let glyph = self.cache.translate_glyph(c);
                         glyphs.push(glyph);
@@ -59,15 +59,15 @@ impl CommandHandler {
                     let color_len = fg_colors.len() * 6;
                     let (fg, bg) = (fg_colors, bg_colors);
 
-                    let mut fg_colors = Vec::with_capacity(color_len);
-                    for color in fg.into_iter() {
+                    let mut fg_colors = Pod::with_capacity(color_len);
+                    for color in fg {
                         for _ in 0..6 {
                             fg_colors.push(color);
                         }
                     }
 
-                    let mut bg_colors = Vec::with_capacity(color_len);
-                    for color in bg.into_iter() {
+                    let mut bg_colors = Pod::with_capacity(color_len);
+                    for color in bg {
                         for _ in 0..6 {
                             bg_colors.push(color);
                         }

@@ -99,8 +99,12 @@ impl View {
     }
 
     pub fn draw(&self, output: &mut Vec<TedCommand>) {
-        let mut text_fg_colors = vec![DEFAULT_FG; self.visible_text.len()];
-        let mut text_bg_colors = vec![DEFAULT_BG; self.visible_text.len()];
+        let mut text_fg_colors = Pod::new();
+        let mut text_bg_colors = Pod::new();
+
+        text_fg_colors.push_repeat(DEFAULT_FG, self.visible_text.len());
+        text_bg_colors.push_repeat(DEFAULT_BG, self.visible_text.len());
+
         {
             let ranges = self.highlighter.ranges(&self.visible_text);
             let mut index = 0;
@@ -120,10 +124,15 @@ impl View {
         let mut config = FlowConfig::new(self.chars(), Some(self.dims.x), Some(self.dims.y));
 
         let size = (self.dims.x * self.dims.y) as usize;
-        let mut text = vec![' '; size];
-        let mut fg_colors = vec![DEFAULT_FG; size];
-        let mut bg_colors = vec![DEFAULT_BG; size];
-        let mut line_numbers = vec![None; self.dims.y as usize];
+        let mut text = Pod::new();
+        let mut fg_colors = Pod::new();
+        let mut bg_colors = Pod::new();
+        let mut line_numbers = Pod::new();
+
+        text.push_repeat(' ', size);
+        fg_colors.push_repeat(DEFAULT_FG, size);
+        bg_colors.push_repeat(DEFAULT_BG, size);
+        line_numbers.push_repeat(None, self.dims.y as usize);
 
         let line = self.start_line + 1;
         let mut display_line = Some(line);
@@ -176,7 +185,7 @@ impl View {
 
         const LINES_WIDTH: usize = 3;
         let line_size = LINES_WIDTH * self.dims.y as usize;
-        let mut line_text = Vec::with_capacity(line_size);
+        let mut line_text = Pod::with_capacity(line_size);
 
         for line in line_numbers {
             let mut write_to = [b' '; LINES_WIDTH];
@@ -191,10 +200,16 @@ impl View {
             }
         }
 
+        let mut fg_colors = Pod::new();
+        let mut bg_colors = Pod::new();
+
+        fg_colors.push_repeat(LINES_FG, line_size);
+        bg_colors.push_repeat(LINES_BG, line_size);
+
         output.push(TedCommand::DrawView {
             is_lines: true,
-            fg_colors: vec![LINES_FG; line_size],
-            bg_colors: vec![LINES_BG; line_size],
+            fg_colors,
+            bg_colors,
             text: line_text,
             dims: new_rect(LINES_WIDTH as u32, self.dims.y),
         });

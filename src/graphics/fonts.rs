@@ -40,14 +40,14 @@ pub struct Glyph {
 }
 
 pub struct GlyphData {
-    pub data: Vec<u8>,
+    pub data: Pod<u8>,
     pub top_offset: isize,
     pub dims: Rect,
 }
 
 pub struct GlyphCache {
     descriptors: HashMap<char, Point2<u32>>,
-    atlas: Vec<u8>,
+    atlas: Pod<u8>,
     glyph_dims: Rect,
     atlas_dims: Rect,
     did_raster: bool,
@@ -62,7 +62,7 @@ impl GlyphCache {
             descriptors: HashMap::new(),
 
             // TODO this should probably just initialize to the exact texture size
-            atlas: Vec::new(),
+            atlas: Pod::new(),
             glyph_dims: new_rect(0, 0),
             did_raster: false,
             atlas_dims: new_rect(MAX_ATLAS_WIDTH, 0),
@@ -238,7 +238,7 @@ fn rasterize_glyph(face: &ttf::Face, scale: f32, id: ttf::GlyphId) -> GlyphData 
             return GlyphData {
                 dims: new_rect(0, 0),
                 top_offset: 0,
-                data: Vec::new(),
+                data: Pod::new(),
             }
         }
     };
@@ -263,20 +263,24 @@ pub struct Builder {
 
     w: usize,
     h: usize,
-    a: Vec<f32>,
+    a: Pod<f32>,
 }
 
 impl Builder {
     pub fn new(w: u32, h: u32, affine: Affine) -> Builder {
         let w = w as usize;
         let h = h as usize;
+
+        let mut a = Pod::new();
+        a.push_repeat(0.0, w * h + 4);
+
         return Builder {
             current: Point { x: 0.0, y: 0.0 },
             affine,
 
             w,
             h,
-            a: vec![0.0; w * h + 4],
+            a,
         };
     }
 
@@ -370,10 +374,10 @@ impl Builder {
         self.draw_line(p, p2);
     }
 
-    pub fn get_bitmap(&self) -> Vec<u8> {
+    pub fn get_bitmap(&self) -> Pod<u8> {
         let mut acc = 0.0;
         let size = self.w * self.h;
-        let mut output = Vec::with_capacity(size);
+        let mut output = Pod::with_capacity(size);
         for &c in &self.a[0..size] {
             acc += c;
             let y = acc.abs();

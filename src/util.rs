@@ -155,7 +155,7 @@ struct DataInfo {
 
 // 2 purposes: Prevent monomorphization as much as possible, and allow for using
 // the allocator API on stable.
-pub struct Pod<T, A>
+pub struct Pod<T, A = Global>
 where
     T: Copy,
     A: Allocator,
@@ -209,6 +209,28 @@ where
         unsafe { *ptr = t };
     }
 
+    pub fn clear(&mut self) {
+        self.raw.length = 0;
+    }
+
+    pub fn remove(&mut self, i: usize) -> T {
+        let len = self.raw.length;
+        if i >= len {
+            panic!("invalid index");
+        }
+
+        unsafe {
+            let ptr = self.raw.ptr(i) as *mut T;
+            let value = *ptr;
+
+            // Shift everything down to fill in that spot.
+            core::ptr::copy(ptr.add(self.raw.info.size), ptr, len - i - 1);
+            self.raw.length = len - 1;
+
+            return value;
+        }
+    }
+
     pub fn push_repeat(&mut self, t: T, repeat: usize) {
         self.raw.reserve(&self.allocator, repeat);
 
@@ -220,8 +242,19 @@ where
     }
 
     #[inline(always)]
+    pub fn len(&self) -> usize {
+        return self.raw.length;
+    }
+
+    #[inline(always)]
     pub fn reserve(&mut self, additional: usize) {
         self.raw.reserve(&self.allocator, additional);
+    }
+
+    pub fn raw_ptr(&self, i: usize) -> Option<*mut T> {
+        let data = self.raw.ptr(i);
+
+        return Some(data as *mut T);
     }
 
     fn ptr(&self, i: usize) -> Option<*mut T> {
@@ -235,7 +268,7 @@ where
     }
 
     fn slice(&self, r: core::ops::Range<usize>) -> Option<(*mut T, usize)> {
-        if r.end >= self.raw.length || r.end < r.start {
+        if r.end > self.raw.length || r.end < r.start {
             return None;
         }
 
@@ -274,6 +307,62 @@ where
     }
 }
 
+pub struct PodIter<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    pod: Pod<T, A>,
+    index: usize,
+}
+
+impl<T, A> Iterator for PodIter<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> {
+        let index = self.index;
+        self.index += 1;
+
+        let value = self.pod.get(index)?;
+
+        return Some(*value);
+    }
+}
+
+impl<T, A> IntoIterator for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    type IntoIter = PodIter<T, A>;
+    type Item = T;
+
+    fn into_iter(self) -> Self::IntoIter {
+        return PodIter {
+            pod: self,
+            index: 0,
+        };
+    }
+}
+
+impl<T, E, A, B> core::cmp::PartialEq<Pod<E, B>> for Pod<T, A>
+where
+    T: Copy + core::cmp::PartialEq<E>,
+    A: Allocator,
+    E: Copy,
+    B: Allocator,
+{
+    fn eq(&self, other: &Pod<E, B>) -> bool {
+        use core::ops::Deref;
+
+        return self.deref() == other.deref();
+    }
+}
+
 impl<T, A> core::ops::Deref for Pod<T, A>
 where
     T: Copy,
@@ -283,7 +372,7 @@ where
 
     #[inline(always)]
     fn deref(&self) -> &[T] {
-        return &self[..];
+        return unwrap(self.get_slice(0..self.raw.length));
     }
 }
 
@@ -294,7 +383,7 @@ where
 {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut [T] {
-        return &mut self[..];
+        return unwrap(self.get_mut_slice(0..self.raw.length));
     }
 }
 
