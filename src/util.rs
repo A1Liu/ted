@@ -213,6 +213,10 @@ where
         self.raw.length = 0;
     }
 
+    pub fn insert(&mut self, i: usize, c: char) {}
+
+    pub fn insert_values(&mut self, i: usize, mut values: &mut dyn Iterator<Item = T>) {}
+
     pub fn remove(&mut self, i: usize) -> T {
         let len = self.raw.length;
         if i >= len {
