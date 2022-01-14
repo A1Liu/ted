@@ -229,15 +229,21 @@ where
         unsafe { *ptr = value };
     }
 
-    pub fn splice<R>(&mut self, range: R, mut values: &mut dyn Iterator<Item = T>)
+    pub fn splice<R, I>(&mut self, range: R, mut values: I)
     where
         R: RangeBounds<usize>,
+        I: IntoIterator<Item = T>,
+        T: core::fmt::Debug,
     {
         let range = self.raw.translate_range(range);
-        self._splice(range, values);
+        let mut iter = values.into_iter();
+        self._splice(range, &mut iter);
     }
 
-    fn _splice(&mut self, range: Range<usize>, mut values: &mut dyn Iterator<Item = T>) {
+    fn _splice(&mut self, range: Range<usize>, mut values: &mut dyn Iterator<Item = T>)
+    where
+        T: core::fmt::Debug,
+    {
         let (start, end) = (range.start, range.end);
 
         if !self.raw.range_is_valid(start, end) {
@@ -275,7 +281,9 @@ where
         let len = self.raw.length;
         self.raw.length += remainder_len;
 
-        self.raw.copy_range(end..len, end + remainder_len);
+        if self.raw.copy_range(end..len, end + remainder_len) {
+            panic!("idk wth?");
+        }
 
         for value in remainder {
             let ptr = self.raw.ptr(current) as *mut T;
@@ -637,7 +645,7 @@ impl RawPod {
         let copy_len = end - start;
 
         // Shift everything down to fill in that spot.
-        unsafe { core::ptr::copy(src, dest, copy_len) };
+        unsafe { core::ptr::copy(src, dest, self.info.size * copy_len) };
 
         return false;
     }

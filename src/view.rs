@@ -12,7 +12,7 @@ pub struct View {
     cursor_blink_on: bool,
     cursor_pos: Point2<u32>,
 
-    visible_text: Vec<char>,
+    visible_text: Pod<char>,
     highlighter: Highlighter,
 }
 
@@ -32,7 +32,7 @@ enum FlowResult {
 impl View {
     pub fn new(dims: Rect, s: &str) -> Self {
         let size = (dims.x * dims.y) as usize;
-        let mut visible_text = Vec::with_capacity(size);
+        let mut visible_text = Pod::with_capacity(size);
 
         let mut config = FlowConfig::new(s.chars(), Some(dims.x), Some(dims.y));
         for (state, params) in &mut config {
