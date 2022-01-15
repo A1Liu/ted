@@ -5,6 +5,29 @@ use core::num::NonZeroUsize;
 use core::ops::*;
 use core::ptr::NonNull;
 
+#[macro_export]
+macro_rules! pod {
+    ($elem:expr; $n:expr) => {{
+        let n : usize = $n;
+        let elem = $elem;
+
+        let mut pod = $crate::util::Pod::with_capacity(n);
+        pod.push_repeat(elem, n);
+
+        pod
+    }};
+    ($($x:expr),* $(,)?) => {{
+        let data = [ $( $e ),+ ];
+        let mut pod = $crate::util::Pod::with_capacity(data.len());
+
+        for value in data.into_iter() {
+            pod.push(value);
+        }
+
+        pod
+    }};
+}
+
 struct DataInfo {
     size: usize,
     align: usize,

@@ -107,7 +107,7 @@ impl GlyphCache {
         // It's monospaced, so we can cheat a little bit
         let glyph_id = unwrap(face.glyph_index('_'));
         let rect = unwrap(face.glyph_bounding_box(glyph_id));
-        let (metrics, z) = metrics_and_affine(rect, scale);
+        let (metrics, _affine) = metrics_and_affine(rect, scale);
         let width = metrics.width + PAD_L + PAD_R;
 
         let descent = (descent as f32 * -scale) as i32;
@@ -270,9 +270,7 @@ impl Builder {
     pub fn new(w: u32, h: u32, affine: Affine) -> Builder {
         let w = w as usize;
         let h = h as usize;
-
-        let mut a = Pod::new();
-        a.push_repeat(0.0, w * h + 4);
+        let a = pod![0.0; w * h + 4];
 
         return Builder {
             current: Point { x: 0.0, y: 0.0 },

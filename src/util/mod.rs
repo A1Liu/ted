@@ -6,8 +6,10 @@ pub use winit::window::Window;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 
-mod alloc_api;
+#[macro_use]
 mod pod;
+
+mod alloc_api;
 
 #[cfg(target_arch = "wasm32")]
 pub use wasm::*;
