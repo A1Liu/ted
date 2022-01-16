@@ -18,17 +18,29 @@ pub const DEFAULT_FG: Color = NORMAL;
 pub const DEFAULT_BG: Color = TEXT_BG;
 
 #[derive(Clone, Copy)]
-#[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct CopyRange {
     start: usize,
     end: usize,
 }
 
 #[derive(Clone, Copy)]
-#[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct Style {
     pub fg_color: Color,
     pub bg_color: Option<Color>,
+}
+
+#[derive(Clone, Copy)]
+pub enum HighlightAction {
+    BeginScope { id: u32, end: Option<usize> },
+    EndScope,
+    Style(Style),
+}
+
+#[derive(Clone, Copy)]
+pub struct Scope {
+    id: u32,
+    index: usize,
+    end: usize,
 }
 
 pub struct Highlighter {
@@ -38,7 +50,6 @@ pub struct Highlighter {
 }
 
 #[derive(Clone, Copy)]
-#[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct RangeData {
     pub offset_from_last: usize,
     pub len: usize,
