@@ -18,6 +18,7 @@ mod util;
 mod commands;
 mod flow;
 mod highlighting;
+mod types;
 mod view;
 
 #[cfg(target_arch = "wasm32")]

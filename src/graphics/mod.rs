@@ -1,7 +1,7 @@
 mod fonts;
 mod webgl;
 
-use crate::highlighting::*;
+use crate::types::*;
 use crate::util::*;
 
 pub use fonts::*;

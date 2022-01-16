@@ -1,4 +1,4 @@
-use crate::highlighting::*;
+use crate::types::*;
 use crate::util::*;
 
 #[cfg_attr(debug_assertions, derive(PartialEq))]

@@ -1,11 +1,6 @@
+use crate::types::*;
 use crate::util::*;
 use mint::*;
-
-pub type Color = Vector3<f32>;
-
-pub const fn color(r: f32, g: f32, b: f32) -> Color {
-    return Color { x: r, y: g, z: b };
-}
 
 pub const NORMAL: Color = color(0.933, 0.91, 0.835);
 pub const TEXT_BG: Color = color(0.0, 0.169, 0.212);
@@ -16,18 +11,6 @@ pub const LINES_BG: Color = color(0.027, 0.212, 0.259);
 
 pub const DEFAULT_FG: Color = NORMAL;
 pub const DEFAULT_BG: Color = TEXT_BG;
-
-#[derive(Clone, Copy)]
-pub struct CopyRange {
-    start: usize,
-    end: usize,
-}
-
-#[derive(Clone, Copy)]
-pub struct Style {
-    pub fg_color: Color,
-    pub bg_color: Option<Color>,
-}
 
 #[derive(Clone, Copy)]
 pub enum HighlightAction {
@@ -41,19 +24,15 @@ pub struct Scope {
     id: u32,
     index: usize,
     end: usize,
+
+    seqs: CopyRange,
+    exact_seqs: CopyRange,
 }
 
 pub struct Highlighter {
     seq_data: Pod<char>,
     short_seq: Pod<Rule<char>>,
     exact_seq: Pod<Rule<CopyRange>>,
-}
-
-#[derive(Clone, Copy)]
-pub struct RangeData {
-    pub offset_from_last: usize,
-    pub len: usize,
-    pub style: Style,
 }
 
 impl Highlighter {
