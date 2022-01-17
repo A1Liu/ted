@@ -15,10 +15,10 @@ pub const DEFAULT_BG: Color = TEXT_BG;
 const DEFAULT_SCOPE: u32 = 0;
 
 #[derive(Clone, Copy)]
-pub enum HighlightAction {
+pub enum HLAction {
     BeginScope(u32),
     EndScope,
-    Style(Style),
+    None,
 }
 
 pub struct Highlighter {
@@ -46,6 +46,12 @@ struct HighlightState {
     data: Pod<RangeData>,
 }
 
+struct RuleAction {
+    len: usize,
+    style: Style,
+    action: HLAction,
+}
+
 impl Highlighter {
     pub fn new(rules: Vec<SyntaxRule>, scopes: Option<Pod<CopyRange>>) -> Self {
         let mut seq_data = Pod::new();
@@ -65,11 +71,15 @@ impl Highlighter {
             let exact_seqs_start = exact_seq.len();
 
             for rule in &rules[scope.start..scope.end] {
-                let action = rule.action;
+                let (action, style) = (rule.action, rule.style);
 
                 match &rule.pattern {
                     &Pattern::ExactShort(pattern) => {
-                        short_seq.push(Rule { pattern, action });
+                        short_seq.push(Rule {
+                            pattern,
+                            action,
+                            style,
+                        });
                     }
                     Pattern::Exact(pattern) => {
                         seq_data.reserve(pattern.len());
@@ -82,7 +92,11 @@ impl Highlighter {
                         let end = seq_data.len();
                         let pattern = CopyRange { start, end };
 
-                        exact_seq.push(Rule { pattern, action });
+                        exact_seq.push(Rule {
+                            pattern,
+                            action,
+                            style,
+                        });
                     }
                 }
             }
@@ -115,28 +129,26 @@ impl Highlighter {
     }
 
     // returns true if the scope should end
-    fn run_action(&self, state: &mut HighlightState, len: usize, action: HighlightAction) -> bool {
+    fn run_rule(&self, state: &mut HighlightState, action: RuleAction) -> bool {
+        let len = action.len;
+        let style = action.style;
+        let action = action.action;
+
         let start = state.scope.index;
-        let end = start + len;
+        let range = r(start, start + len);
+
+        state.data.push(RangeData { range, style });
 
         match action {
-            HighlightAction::BeginScope(id) => {
-                let index = end;
+            HLAction::None => state.scope.index = range.end,
+            HLAction::EndScope => return true,
+            HLAction::BeginScope(id) => {
+                let index = range.end;
                 let info = self.scope_info[id as usize];
                 let new_scope = Scope { index, info };
 
                 state.scope_stack.push(state.scope);
                 state.scope = new_scope;
-            }
-
-            HighlightAction::EndScope => return true,
-
-            HighlightAction::Style(style) => {
-                let range = r(start, end);
-
-                state.data.push(RangeData { range, style });
-
-                state.scope.index = end;
             }
         }
 
@@ -174,7 +186,13 @@ impl Highlighter {
                         continue;
                     }
 
-                    match self.run_action(&mut state, 1, rule.action) {
+                    let action = RuleAction {
+                        len: 1,
+                        action: rule.action,
+                        style: rule.style,
+                    };
+
+                    match self.run_rule(&mut state, action) {
                         true => break 'scope,
                         false => continue 'scope,
                     }
@@ -185,7 +203,13 @@ impl Highlighter {
                         continue;
                     }
 
-                    match self.run_action(&mut state, rule.pattern.len(), rule.action) {
+                    let action = RuleAction {
+                        len: rule.pattern.len(),
+                        action: rule.action,
+                        style: rule.style,
+                    };
+
+                    match self.run_rule(&mut state, action) {
                         true => break 'scope,
                         false => continue 'scope,
                     }
@@ -204,7 +228,8 @@ pub type SyntaxRule = Rule<Pattern>;
 #[derive(Clone, Copy)]
 pub struct Rule<P> {
     pub pattern: P,
-    pub action: HighlightAction,
+    pub style: Style,
+    pub action: HLAction,
 }
 
 pub enum Pattern {

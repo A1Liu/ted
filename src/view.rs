@@ -44,30 +44,29 @@ impl View {
 
         rules.push(SyntaxRule {
             pattern: Pattern::Exact("of".to_string()),
-            action: HighlightAction::Style(Style {
-                bg_color: None,
+            action: HLAction::None,
+            style: Style {
+                bg_color: DEFAULT_BG,
                 fg_color: KEYWORD,
-            }),
+            },
         });
 
         rules.push(SyntaxRule {
             pattern: Pattern::Exact("and".to_string()),
-            action: HighlightAction::Style(Style {
-                bg_color: None,
+            action: HLAction::None,
+            style: Style {
+                bg_color: DEFAULT_BG,
                 fg_color: KEYWORD,
-            }),
+            },
         });
 
         rules.push(SyntaxRule {
             pattern: Pattern::Exact("TODO".to_string()),
-            action: HighlightAction::Style(Style {
+            action: HLAction::None,
+            style: Style {
                 fg_color: NORMAL,
-                bg_color: Some(Color {
-                    x: 0.8,
-                    y: 0.3,
-                    z: 0.3,
-                }),
-            }),
+                bg_color: color(0.8, 0.3, 0.3),
+            },
         });
 
         let highlighter = Highlighter::new(rules, None);
@@ -105,9 +104,7 @@ impl View {
 
         for range in self.highlighter.ranges(&self.visible_text) {
             text_fg_colors[range.range].fill(range.style.fg_color);
-            if let Some(bg_color) = range.style.bg_color {
-                text_bg_colors[range.range].fill(bg_color);
-            }
+            text_bg_colors[range.range].fill(range.style.bg_color);
         }
 
         let mut config = FlowConfig::new(self.chars(), Some(self.dims.x), Some(self.dims.y));
