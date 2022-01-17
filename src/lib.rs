@@ -15,7 +15,6 @@ extern crate alloc;
 #[macro_use]
 mod util;
 
-mod commands;
 mod gon;
 mod highlighting;
 mod text;
