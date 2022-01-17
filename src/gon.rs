@@ -3,6 +3,7 @@ use std::collections::hash_map::HashMap;
 
 pub enum GonValue<'a> {
     Object(HashMap<&'a str, GonValue<'a>>),
+    Array(Vec<GonValue<'a>>),
     Str(&'a str),
     String(String),
 }
@@ -168,4 +169,10 @@ fn tokenize<'a>(data: &'a str) -> Vec<Token<'a>> {
     }
 
     return tokens;
+}
+
+pub fn parse_gon<'a>(text: &'a str) -> GonValue<'a> {
+    let tokens = tokenize(text);
+
+    return GonValue::Str("hello");
 }
