@@ -111,7 +111,7 @@ fn tokenize<'a>(data: &'a str) -> Vec<Token<'a>> {
     let mut index = 0;
 
     let mut current_token_begin = None;
-    let mut current_string: Pod<u8> = Pod::new();
+    let mut scratch = Pod::new();
 
     'outer: while let Some(&b) = bytes.get(index) {
         if b == b'#' {
@@ -140,7 +140,7 @@ fn tokenize<'a>(data: &'a str) -> Vec<Token<'a>> {
             }
 
             index += 1;
-            let (parsed_len, tok) = parse_string(&bytes[index..], &mut current_string);
+            let (parsed_len, tok) = parse_string(&bytes[index..], &mut scratch);
 
             tokens.push(tok);
             index += parsed_len;
