@@ -16,7 +16,7 @@ const DEFAULT_SCOPE: u32 = 0;
 
 #[derive(Clone, Copy)]
 pub enum HighlightAction {
-    BeginScope { id: u32, bounded: bool },
+    BeginScope(u32),
     EndScope,
     Style(Style),
 }
@@ -31,7 +31,6 @@ pub struct Highlighter {
 #[derive(Clone, Copy)]
 struct Scope {
     index: usize,
-    end: usize,
     info: ScopeInfo,
 }
 
@@ -115,25 +114,22 @@ impl Highlighter {
         };
     }
 
-    fn run_action(&self, state: &mut HighlightState, len: usize, action: HighlightAction) {
+    // returns true if the scope should end
+    fn run_action(&self, state: &mut HighlightState, len: usize, action: HighlightAction) -> bool {
         let start = state.scope.index;
         let end = start + len;
 
         match action {
-            HighlightAction::BeginScope { id, bounded } => {
-                let index = if bounded { start } else { end };
-                let end = if bounded { end } else { state.scope.end };
+            HighlightAction::BeginScope(id) => {
+                let index = end;
                 let info = self.scope_info[id as usize];
-                let new_scope = Scope { index, end, info };
+                let new_scope = Scope { index, info };
 
                 state.scope_stack.push(state.scope);
                 state.scope = new_scope;
             }
 
-            HighlightAction::EndScope => {
-                let prev_scope = unwrap(state.scope_stack.pop());
-                state.scope = prev_scope;
-            }
+            HighlightAction::EndScope => return true,
 
             HighlightAction::Style(style) => {
                 let range = r(start, end);
@@ -143,51 +139,59 @@ impl Highlighter {
                 state.scope.index = end;
             }
         }
+
+        return false;
     }
 
     pub fn ranges(&self, text: &[char]) -> Pod<RangeData> {
         let scope = Scope {
             index: 0,
-            end: text.len(),
             info: self.scope_info[0],
         };
 
         let mut state = HighlightState {
             scope,
-            scope_stack: Pod::new(),
+            scope_stack: pod![scope],
             data: Pod::new(),
         };
 
-        while state.scope.index < state.scope.end {
+        let end = text.len();
+
+        while state.scope.index < end {
+            state.scope = match state.scope_stack.pop() {
+                Some(scope) => scope,
+                None => break,
+            };
+
             let short_seq = &self.short_seq[state.scope.info.seqs];
             let exact_seq = &self.exact_seq[state.scope.info.exact_seqs];
 
-            while state.scope.index < state.scope.end {
+            'scope: while state.scope.index < end {
                 let index = state.scope.index;
 
-                if let Some(r) = short_seq.iter().find(|r| r.pattern == text[index]) {
-                    self.run_action(&mut state, 1, r.action);
-                    continue;
+                for rule in short_seq {
+                    if rule.pattern != text[index] {
+                        continue;
+                    }
+
+                    match self.run_action(&mut state, 1, rule.action) {
+                        true => break 'scope,
+                        false => continue 'scope,
+                    }
                 }
 
-                let mut exact_iter = exact_seq.iter();
-                let exact_match = exact_iter.find(|r| {
-                    let (start, end) = (r.pattern.start, r.pattern.end);
-                    return text[index..].starts_with(&self.seq_data[start..end]);
-                });
+                for rule in exact_seq {
+                    if !text[index..].starts_with(&self.seq_data[rule.pattern]) {
+                        continue;
+                    }
 
-                if let Some(r) = exact_match {
-                    let len = r.pattern.end - r.pattern.start;
-                    self.run_action(&mut state, len, r.action);
-                    continue;
+                    match self.run_action(&mut state, rule.pattern.len(), rule.action) {
+                        true => break 'scope,
+                        false => continue 'scope,
+                    }
                 }
 
                 state.scope.index += 1;
-            }
-
-            match state.scope_stack.pop() {
-                Some(scope) => state.scope = scope,
-                None => continue,
             }
         }
 

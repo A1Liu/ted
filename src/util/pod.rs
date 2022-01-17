@@ -171,9 +171,9 @@ where
         }
 
         let ptr = self.raw.ptr(self.raw.length - 1) as *const T;
-        let value = unsafe { *ptr };
+        self.raw.length -= 1;
 
-        return Some(value);
+        return Some(unsafe { *ptr });
     }
 
     pub fn remove(&mut self, i: usize) -> T {

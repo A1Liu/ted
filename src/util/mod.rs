@@ -60,6 +60,7 @@ pub const fn r(start: usize, end: usize) -> CopyRange {
 }
 
 impl CopyRange {
+    #[inline(always)]
     pub fn len(&self) -> usize {
         return self.end - self.start;
     }
