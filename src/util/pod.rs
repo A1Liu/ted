@@ -17,9 +17,22 @@ macro_rules! pod {
 
         pod
     }};
+
     ($($e:expr),* $(,)?) => {{
         let data = [ $( $e ),+ ];
         let mut pod = $crate::util::Pod::with_capacity(data.len());
+
+        for value in data.into_iter() {
+            pod.push(value);
+        }
+
+        pod
+    }};
+
+    ($($e:expr),* $(,)? ; $alloc:expr) => {{
+        let data = [ $( $e ),+ ];
+        let mut pod = $crate::util::Pod::with_allocator($alloc);
+        pod.reserve(data.len());
 
         for value in data.into_iter() {
             pod.push(value);
@@ -308,6 +321,23 @@ where
             pod: self,
             index: 0,
         };
+    }
+}
+
+impl<T, A> Clone for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator + Clone,
+{
+    fn clone(&self) -> Self {
+        let mut other = Pod::with_allocator(self.allocator.clone());
+        other.reserve(self.raw.length);
+
+        for value in self.iter() {
+            other.push(*value);
+        }
+
+        return other;
     }
 }
 
@@ -640,4 +670,23 @@ impl RawPod {
 
         return s;
     }
+}
+
+#[test]
+fn test_with_bucket_list() {
+    use crate::util::BucketList;
+
+    let bucket_list = &BucketList::new();
+
+    let pod = pod![12, 12, 31, 4123, 123, 5, 14, 5, 134, 5; bucket_list];
+    let pod = pod![12, 12, 31, 4123, 123, 5, 14, 5, 134, 5; bucket_list];
+    let pod = pod![12, 12, 31, 4123, 123, 5, 14, 5, 134, 5; bucket_list];
+    let pod = pod![12, 12, 31, 4123, 123, 5, 14, 5, 134, 5; bucket_list];
+    let pod = pod![12, 12, 31, 4123, 123, 5, 14, 5, 134, 5; bucket_list];
+    let pod = pod![12, 12, 31, 4123, 123, 5, 14, 5, 134, 5; bucket_list];
+    let pod = pod![12, 12, 31, 4123, 123, 5, 14, 5, 134, 5; bucket_list];
+    let pod = pod![12, 12, 31, 4123, 123, 5, 14, 5, 134, 5; bucket_list];
+    let mut pod = pod![12, 12, 31, 4123, 123, 5, 14, 5, 134, 5; bucket_list];
+
+    pod.push(1);
 }

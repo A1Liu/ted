@@ -1,6 +1,6 @@
 use crate::commands::*;
-use crate::flow::*;
 use crate::highlighting::*;
+use crate::text::*;
 use crate::types::*;
 use crate::util::*;
 use std::io::Write;

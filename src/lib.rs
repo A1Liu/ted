@@ -16,8 +16,9 @@ extern crate alloc;
 mod util;
 
 mod commands;
-mod flow;
+mod gon;
 mod highlighting;
+mod text;
 mod types;
 mod view;
 
