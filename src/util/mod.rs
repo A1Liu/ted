@@ -64,3 +64,9 @@ impl CopyRange {
         return self.end - self.start;
     }
 }
+
+impl core::fmt::Debug for CopyRange {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        return write!(f, "{}..{}", self.start, self.end);
+    }
+}

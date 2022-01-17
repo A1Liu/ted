@@ -1,3 +1,4 @@
+use crate::util::CopyRange;
 use mint::*;
 
 pub type Color = Vector3<f32>;
@@ -16,7 +17,6 @@ pub struct Style {
 #[derive(Clone, Copy)]
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub struct RangeData {
-    pub start: usize,
-    pub end: usize,
+    pub range: CopyRange,
     pub style: Style,
 }

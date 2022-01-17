@@ -136,7 +136,9 @@ impl Highlighter {
             }
 
             HighlightAction::Style(style) => {
-                state.data.push(RangeData { start, end, style });
+                let range = r(start, end);
+
+                state.data.push(RangeData { range, style });
 
                 state.scope.index = end;
             }

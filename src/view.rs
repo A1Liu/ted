@@ -104,11 +104,9 @@ impl View {
         let mut text_bg_colors = pod![DEFAULT_BG; self.visible_text.len()];
 
         for range in self.highlighter.ranges(&self.visible_text) {
-            let (start, end) = (range.start, range.end);
-
-            text_fg_colors[start..end].fill(range.style.fg_color);
+            text_fg_colors[range.range].fill(range.style.fg_color);
             if let Some(bg_color) = range.style.bg_color {
-                text_bg_colors[start..end].fill(bg_color);
+                text_bg_colors[range.range].fill(bg_color);
             }
         }
 
