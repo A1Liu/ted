@@ -65,7 +65,7 @@ fn parse_string<'a>(bytes: &'a [u8], temp_string: &mut Pod<u8>) -> (usize, Token
     }
 
     temp_string.clear();
-    temp_string.reserve(done_so_far.len());
+    temp_string.reserve(done_so_far.len() + 16);
 
     for &byte in done_so_far {
         temp_string.push(byte);
