@@ -4,14 +4,15 @@ use std::collections::hash_map::HashMap;
 #[derive(Clone)]
 pub enum GonValue<'a> {
     Object {
-        values: Vec<GonValue<'a>>,
-        fields: HashMap<&'a str, usize>,
+        ordered_names: Vec<&'a str>,
+        fields: HashMap<&'a str, GonValue<'a>>,
     },
     Array(Vec<GonValue<'a>>),
     Str(&'a str),
     String(String),
 }
 
+#[derive(Debug)]
 enum Token<'a> {
     Str(&'a str),
     String(String),
@@ -175,17 +176,71 @@ fn tokenize<'a>(data: &'a str) -> Vec<Token<'a>> {
     return tokens;
 }
 
+struct NoPrettyStr<'a>(&'a str);
+
+impl<'a> core::fmt::Debug for NoPrettyStr<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        return write!(f, "{}", self.0);
+    }
+}
+
+impl<'a> core::fmt::Debug for GonValue<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        return match self {
+            GonValue::Str(s) => write!(f, "{:?}", s),
+            GonValue::String(s) => write!(f, "{:?}", s),
+            GonValue::Array(values) => f.debug_list().entries(&*values).finish(),
+
+            GonValue::Object {
+                ordered_names,
+                fields,
+            } => {
+                let mut f = f.debug_map();
+
+                for name in ordered_names {
+                    f.entry(&NoPrettyStr(name), &fields[name]);
+                }
+
+                f.finish()
+            }
+        };
+    }
+}
+
 struct Parser<'a> {
     tokens: Vec<Token<'a>>,
     index: usize,
 }
 
-fn parse_gon_recursive<'a>(parser: &mut Parser<'a>) -> GonValue<'a> {
+fn parse_gon_recursive<'a>(parser: &mut Parser<'a>, at_root: bool) -> GonValue<'a> {
     while let Some(tok) = parser.tokens.get_mut(parser.index) {
-        parser.index += 1;
-
-        if let Token::OpenBrace = tok {
+        if let Token::OpenBracket = tok {
+            parser.index += 1;
             let mut values = Vec::new();
+
+            while let Some(tok) = parser.tokens.get(parser.index) {
+                if let Token::CloseBracket = tok {
+                    parser.index += 1;
+                    break;
+                }
+
+                let value = parse_gon_recursive(parser, false);
+                values.push(value);
+            }
+
+            return GonValue::Array(values);
+        }
+
+        let parse_as_object = if let Token::OpenBrace = tok {
+            parser.index += 1;
+
+            true
+        } else {
+            at_root
+        };
+
+        if parse_as_object {
+            let mut ordered_names = Vec::new();
             let mut fields = HashMap::new();
 
             while let Some(tok) = parser.tokens.get(parser.index) {
@@ -193,48 +248,43 @@ fn parse_gon_recursive<'a>(parser: &mut Parser<'a>) -> GonValue<'a> {
 
                 match tok {
                     &Token::Str(s) => {
-                        fields.insert(s, values.len());
+                        let value = parse_gon_recursive(parser, false);
+                        if fields.insert(s, value).is_some() {
+                            panic!("repeated field in GON object");
+                        }
 
-                        let value = parse_gon_recursive(parser);
-                        values.push(value);
+                        ordered_names.push(s);
                     }
 
                     Token::CloseBrace => break,
-                    _ => panic!("found unexpected token for field of GON object"),
+                    _ => panic!("found unexpected token '{:?}' for field of GON object", tok),
                 }
             }
 
-            return GonValue::Object { values, fields };
+            return GonValue::Object {
+                ordered_names,
+                fields,
+            };
         }
 
-        if let Token::OpenBracket = tok {
-            let mut values = Vec::new();
-
-            while let Some(tok) = parser.tokens.get(parser.index) {
-                if let Token::CloseBrace = tok {
-                    parser.index += 1;
-                    break;
-                }
-
-                let value = parse_gon_recursive(parser);
-                values.push(value);
-            }
-
-            return GonValue::Array(values);
-        }
+        parser.index += 1;
 
         if let Token::Str(s) = tok {
             return GonValue::Str(s);
         }
 
         if let Token::String(s) = tok {
+            // Since the token's already been "popped", we can just remove its
+            // data instead of copying.
+            //          - Albert Liu, Jan 17, 2022 Mon 14:40 EST
+
             let text = core::mem::replace(s, String::new());
             let value = GonValue::String(text);
 
             return value;
         }
 
-        panic!("found unexpected token for string GON object");
+        panic!("found unexpected token '{:?}' for string GON object", tok);
     }
 
     return GonValue::Str("");
@@ -246,5 +296,29 @@ pub fn parse_gon<'a>(text: &'a str) -> GonValue<'a> {
 
     let mut parser = Parser { tokens, index };
 
-    return parse_gon_recursive(&mut parser);
+    return parse_gon_recursive(&mut parser, true);
+}
+
+#[test]
+fn test_gon_parsing() {
+    const GON_TEXT: &'static str = r##"
+    Hello World
+    Goodbye [
+        Bruh
+        Mah,
+        asdf
+    ]
+    Doi { 
+            doi    doi
+    }
+
+    "##;
+
+    const GON_OUTPUT: &'static str =
+        r##"{Hello: "World", Goodbye: ["Bruh", "Mah", "asdf"], Doi: {doi: "doi"}}"##;
+
+    let gon = parse_gon(GON_TEXT);
+    let gon = format!("{:?}", gon);
+
+    assert_eq!(gon, GON_OUTPUT);
 }
