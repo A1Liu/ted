@@ -22,6 +22,33 @@ pub struct RangeData {
 }
 
 #[cfg_attr(debug_assertions, derive(PartialEq))]
+pub struct SetContents {
+    pub start: usize,
+    pub start_line: usize,
+    pub text: String,
+}
+
+#[cfg_attr(debug_assertions, derive(PartialEq))]
+pub enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+impl Direction {
+    pub fn from_arrow_key(key: winit::event::VirtualKeyCode) -> Option<Self> {
+        return match key {
+            winit::event::VirtualKeyCode::Up => Some(Self::Up),
+            winit::event::VirtualKeyCode::Down => Some(Self::Down),
+            winit::event::VirtualKeyCode::Left => Some(Self::Left),
+            winit::event::VirtualKeyCode::Right => Some(Self::Right),
+            _ => None,
+        };
+    }
+}
+
+#[cfg_attr(debug_assertions, derive(PartialEq))]
 pub enum TedCommand {
     DrawView {
         is_lines: bool,
@@ -53,33 +80,6 @@ pub enum ViewCommand {
     FlowCursor { index: usize },
     SetContents(SetContents),
     Draw,
-}
-
-#[cfg_attr(debug_assertions, derive(PartialEq))]
-pub struct SetContents {
-    pub start: usize,
-    pub start_line: usize,
-    pub text: String,
-}
-
-#[cfg_attr(debug_assertions, derive(PartialEq))]
-pub enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
-impl Direction {
-    pub fn from_arrow_key(key: winit::event::VirtualKeyCode) -> Option<Self> {
-        return match key {
-            winit::event::VirtualKeyCode::Up => Some(Self::Up),
-            winit::event::VirtualKeyCode::Down => Some(Self::Down),
-            winit::event::VirtualKeyCode::Left => Some(Self::Left),
-            winit::event::VirtualKeyCode::Right => Some(Self::Right),
-            _ => None,
-        };
-    }
 }
 
 pub struct Command<'a, Value> {
