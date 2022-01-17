@@ -97,13 +97,6 @@ fn parse_string<'a>(bytes: &'a [u8], temp_string: &mut Pod<u8>) -> (usize, Token
     return (index, Token::String(value));
 }
 
-// fn string_token<'a>(string: Cow<'a, [u8]>) -> Token<'a> {
-//     match string {
-//         Cow::Borrowed(s) => return,
-//         Cow::Owned(s) => return Token::String(unsafe { String::from_utf8_unchecked(s) }),
-//     }
-// }
-
 fn tokenize<'a>(data: &'a str) -> Vec<Token<'a>> {
     let mut tokens = Vec::new();
 
@@ -132,6 +125,10 @@ fn tokenize<'a>(data: &'a str) -> Vec<Token<'a>> {
             if let Some(begin) = current_token_begin.take() {
                 tokens.push(slice_token(&bytes[begin..index]));
             }
+
+            index += 1;
+
+            continue;
         }
 
         if b == b'"' {
@@ -140,10 +137,10 @@ fn tokenize<'a>(data: &'a str) -> Vec<Token<'a>> {
             }
 
             index += 1;
-            let (parsed_len, tok) = parse_string(&bytes[index..], &mut scratch);
 
-            tokens.push(tok);
+            let (parsed_len, tok) = parse_string(&bytes[index..], &mut scratch);
             index += parsed_len;
+            tokens.push(tok);
 
             continue;
         }
@@ -153,11 +150,12 @@ fn tokenize<'a>(data: &'a str) -> Vec<Token<'a>> {
                 tokens.push(slice_token(&bytes[begin..index]));
             }
 
+            index += 1;
+
             if !ignored {
                 tokens.push(tok);
             }
 
-            index += 1;
             continue;
         }
 
