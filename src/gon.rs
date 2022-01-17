@@ -1,8 +1,12 @@
 use crate::util::*;
 use std::collections::hash_map::HashMap;
 
+#[derive(Clone)]
 pub enum GonValue<'a> {
-    Object(HashMap<&'a str, GonValue<'a>>),
+    Object {
+        values: Vec<GonValue<'a>>,
+        fields: HashMap<&'a str, usize>,
+    },
     Array(Vec<GonValue<'a>>),
     Str(&'a str),
     String(String),
@@ -171,8 +175,76 @@ fn tokenize<'a>(data: &'a str) -> Vec<Token<'a>> {
     return tokens;
 }
 
+struct Parser<'a> {
+    tokens: Vec<Token<'a>>,
+    index: usize,
+}
+
+fn parse_gon_recursive<'a>(parser: &mut Parser<'a>) -> GonValue<'a> {
+    while let Some(tok) = parser.tokens.get_mut(parser.index) {
+        parser.index += 1;
+
+        if let Token::OpenBrace = tok {
+            let mut values = Vec::new();
+            let mut fields = HashMap::new();
+
+            while let Some(tok) = parser.tokens.get(parser.index) {
+                parser.index += 1;
+
+                match tok {
+                    &Token::Str(s) => {
+                        fields.insert(s, values.len());
+
+                        let value = parse_gon_recursive(parser);
+                        values.push(value);
+                    }
+
+                    Token::CloseBrace => break,
+                    _ => panic!("found unexpected token for field of GON object"),
+                }
+            }
+
+            return GonValue::Object { values, fields };
+        }
+
+        if let Token::OpenBracket = tok {
+            let mut values = Vec::new();
+
+            while let Some(tok) = parser.tokens.get(parser.index) {
+                if let Token::CloseBrace = tok {
+                    parser.index += 1;
+                    break;
+                }
+
+                let value = parse_gon_recursive(parser);
+                values.push(value);
+            }
+
+            return GonValue::Array(values);
+        }
+
+        if let Token::Str(s) = tok {
+            return GonValue::Str(s);
+        }
+
+        if let Token::String(s) = tok {
+            let text = core::mem::replace(s, String::new());
+            let value = GonValue::String(text);
+
+            return value;
+        }
+
+        panic!("found unexpected token for string GON object");
+    }
+
+    return GonValue::Str("");
+}
+
 pub fn parse_gon<'a>(text: &'a str) -> GonValue<'a> {
     let tokens = tokenize(text);
+    let index = 0;
 
-    return GonValue::Str("hello");
+    let mut parser = Parser { tokens, index };
+
+    return parse_gon_recursive(&mut parser);
 }
