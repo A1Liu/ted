@@ -48,3 +48,19 @@ pub type Rect = Vector2<u32>;
 pub const fn new_rect(x: u32, y: u32) -> Rect {
     return Vector2 { x, y };
 }
+
+#[derive(Clone, Copy)]
+pub struct CopyRange {
+    pub start: usize,
+    pub end: usize,
+}
+
+pub const fn r(start: usize, end: usize) -> CopyRange {
+    return CopyRange { start, end };
+}
+
+impl CopyRange {
+    pub fn len(&self) -> usize {
+        return self.end - self.start;
+    }
+}

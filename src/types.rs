@@ -7,20 +7,16 @@ pub const fn color(r: f32, g: f32, b: f32) -> Color {
 }
 
 #[derive(Clone, Copy)]
-pub struct CopyRange {
-    pub start: usize,
-    pub end: usize,
-}
-
-#[derive(Clone, Copy)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct Style {
     pub fg_color: Color,
     pub bg_color: Option<Color>,
 }
 
 #[derive(Clone, Copy)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct RangeData {
-    pub offset_from_last: usize,
-    pub len: usize,
+    pub start: usize,
+    pub end: usize,
     pub style: Style,
 }

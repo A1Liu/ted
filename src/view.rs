@@ -44,33 +44,33 @@ impl View {
 
         rules.push(SyntaxRule {
             pattern: Pattern::Exact("of".to_string()),
-            style: Style {
+            action: HighlightAction::Style(Style {
                 bg_color: None,
                 fg_color: KEYWORD,
-            },
+            }),
         });
 
         rules.push(SyntaxRule {
             pattern: Pattern::Exact("and".to_string()),
-            style: Style {
+            action: HighlightAction::Style(Style {
                 bg_color: None,
                 fg_color: KEYWORD,
-            },
+            }),
         });
 
         rules.push(SyntaxRule {
             pattern: Pattern::Exact("TODO".to_string()),
-            style: Style {
+            action: HighlightAction::Style(Style {
                 fg_color: NORMAL,
                 bg_color: Some(Color {
                     x: 0.8,
                     y: 0.3,
                     z: 0.3,
                 }),
-            },
+            }),
         });
 
-        let highlighter = Highlighter::new(rules);
+        let highlighter = Highlighter::new(rules, None);
 
         return Self {
             start: 0,
@@ -103,19 +103,12 @@ impl View {
         let mut text_fg_colors = pod![DEFAULT_FG; self.visible_text.len()];
         let mut text_bg_colors = pod![DEFAULT_BG; self.visible_text.len()];
 
-        {
-            let ranges = self.highlighter.ranges(&self.visible_text);
-            let mut index = 0;
-            for range in ranges {
-                let begin = index + range.offset_from_last;
-                let end = begin + range.len;
+        for range in self.highlighter.ranges(&self.visible_text) {
+            let (start, end) = (range.start, range.end);
 
-                text_fg_colors[begin..end].fill(range.style.fg_color);
-                if let Some(bg_color) = range.style.bg_color {
-                    text_bg_colors[begin..end].fill(bg_color);
-                }
-
-                index = end;
+            text_fg_colors[start..end].fill(range.style.fg_color);
+            if let Some(bg_color) = range.style.bg_color {
+                text_bg_colors[start..end].fill(bg_color);
             }
         }
 

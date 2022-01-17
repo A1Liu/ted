@@ -1,4 +1,5 @@
 use super::alloc_api::*;
+use super::CopyRange;
 use super::{expect, unwrap};
 use alloc::alloc::Layout;
 use core::num::NonZeroUsize;
@@ -16,7 +17,7 @@ macro_rules! pod {
 
         pod
     }};
-    ($($x:expr),* $(,)?) => {{
+    ($($e:expr),* $(,)?) => {{
         let data = [ $( $e ),+ ];
         let mut pod = $crate::util::Pod::with_capacity(data.len());
 
@@ -164,6 +165,17 @@ where
         }
     }
 
+    pub fn pop(&mut self) -> Option<T> {
+        if self.raw.length == 0 {
+            return None;
+        }
+
+        let ptr = self.raw.ptr(self.raw.length - 1) as *const T;
+        let value = unsafe { *ptr };
+
+        return Some(value);
+    }
+
     pub fn remove(&mut self, i: usize) -> T {
         let value = self[i];
 
@@ -299,6 +311,16 @@ where
     }
 }
 
+impl<T, A> core::fmt::Debug for Pod<T, A>
+where
+    T: Copy + core::fmt::Debug,
+    A: Allocator,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        return f.debug_list().entries(self.iter()).finish();
+    }
+}
+
 impl<T, E, A, B> core::cmp::PartialEq<Pod<E, B>> for Pod<T, A>
 where
     T: Copy + core::cmp::PartialEq<E>,
@@ -356,6 +378,30 @@ where
     #[inline(always)]
     fn index_mut(&mut self, i: usize) -> &mut T {
         return unwrap(self.get_mut(i));
+    }
+}
+
+impl<T, A> Index<CopyRange> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    type Output = [T];
+
+    #[inline(always)]
+    fn index(&self, i: CopyRange) -> &[T] {
+        return unwrap(self.get_slice(i.start..i.end));
+    }
+}
+
+impl<T, A> IndexMut<CopyRange> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    #[inline(always)]
+    fn index_mut(&mut self, i: CopyRange) -> &mut [T] {
+        return unwrap(self.get_mut_slice(i.start..i.end));
     }
 }
 
