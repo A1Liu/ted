@@ -88,6 +88,7 @@ pub unsafe trait Allocator {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Global;
 
 unsafe impl Allocator for Global {

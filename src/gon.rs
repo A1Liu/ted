@@ -4,7 +4,7 @@ use std::collections::hash_map::HashMap;
 #[derive(Clone)]
 pub enum GonValue<'a> {
     Object {
-        ordered_names: Vec<&'a str>,
+        ordered_names: Pod<&'a str>,
         fields: HashMap<&'a str, GonValue<'a>>,
     },
     Array(Vec<GonValue<'a>>),
@@ -197,7 +197,7 @@ impl<'a> core::fmt::Debug for GonValue<'a> {
             } => {
                 let mut f = f.debug_map();
 
-                for name in ordered_names {
+                for name in ordered_names.iter() {
                     f.entry(&NoPrettyStr(name), &fields[name]);
                 }
 
@@ -240,7 +240,7 @@ fn parse_gon_recursive<'a>(parser: &mut Parser<'a>, at_root: bool) -> GonValue<'
         };
 
         if parse_as_object {
-            let mut ordered_names = Vec::new();
+            let mut ordered_names = Pod::new();
             let mut fields = HashMap::new();
 
             while let Some(tok) = parser.tokens.get(parser.index) {

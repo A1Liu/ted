@@ -1,6 +1,7 @@
 use crate::types::*;
 use crate::util::*;
 use mint::*;
+use std::collections::hash_map::HashMap;
 
 pub const NORMAL: Color = color(0.933, 0.91, 0.835);
 pub const TEXT_BG: Color = color(0.0, 0.169, 0.212);
@@ -53,6 +54,15 @@ struct RuleAction {
 }
 
 impl Highlighter {
+    pub fn from_gon(gon: &str) -> Self {
+        let mut scopes = HashMap::new();
+
+        let mut rules = Vec::new();
+        let mut scopes = Pod::new();
+
+        return Self::new(rules, Some(scopes));
+    }
+
     pub fn new(rules: Vec<SyntaxRule>, scopes: Option<Pod<CopyRange>>) -> Self {
         let mut seq_data = Pod::new();
         let mut short_seq = Pod::new();
