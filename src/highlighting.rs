@@ -55,7 +55,7 @@ struct RuleAction {
 
 impl Highlighter {
     pub fn from_gon(gon: &str) -> Self {
-        let mut scopes = HashMap::new();
+        // let mut scopes = HashMap::new();
 
         let mut rules = Vec::new();
         let mut scopes = Pod::new();

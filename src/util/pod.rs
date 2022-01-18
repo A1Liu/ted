@@ -324,6 +324,16 @@ where
     }
 }
 
+impl<T, A> Drop for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    fn drop(&mut self) {
+        self.raw.realloc(&self.allocator, 0)
+    }
+}
+
 impl<T, A> Clone for Pod<T, A>
 where
     T: Copy,
