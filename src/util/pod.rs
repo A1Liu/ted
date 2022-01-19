@@ -295,10 +295,9 @@ where
     fn clone(&self) -> Self {
         let mut other = Pod::with_allocator(self.allocator.clone());
         other.reserve(self.raw.length);
+        other.raw.length = self.raw.length;
 
-        for value in self.iter() {
-            other.push(*value);
-        }
+        other.copy_from_slice(&*self);
 
         return other;
     }
