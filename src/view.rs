@@ -258,7 +258,7 @@ impl View {
 
         let count = chars.len();
 
-        self.visible_text.splice(index..index, chars.into_iter());
+        self.visible_text.splice(index..index, &chars);
 
         self.flow_cursor(index + count);
 

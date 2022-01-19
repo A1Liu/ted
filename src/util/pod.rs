@@ -95,7 +95,7 @@ where
     }
 
     pub fn push(&mut self, t: T) {
-        self.raw.reserve(&self.allocator, 1);
+        self.raw.reserve_additional(&self.allocator, 1);
 
         let ptr = self.raw.ptr(self.raw.length) as *mut T;
         self.raw.length += 1;
@@ -108,7 +108,7 @@ where
     }
 
     pub fn insert(&mut self, i: usize, value: T) {
-        self.raw.reserve(&self.allocator, 1);
+        self.raw.reserve_additional(&self.allocator, 1);
         self.raw.length += 1;
 
         if self.raw.copy_range(i..self.raw.length, i + 1) {
@@ -119,63 +119,14 @@ where
         unsafe { *ptr = value };
     }
 
-    pub fn splice<R, I>(&mut self, range: R, mut values: I)
-    where
-        R: RangeBounds<usize>,
-        I: IntoIterator<Item = T>,
-    {
+    pub fn splice(&mut self, range: impl RangeBounds<usize>, values: &[T]) {
         let range = self.raw.translate_range(range);
-        let mut iter = values.into_iter();
-        self._splice(range, &mut iter);
-    }
+        let len = values.len();
 
-    fn _splice(&mut self, range: Range<usize>, mut values: &mut dyn Iterator<Item = T>) {
-        let (start, end) = (range.start, range.end);
+        let ptr = self.raw.splice_ptr(&self.allocator, range, len) as *mut T;
+        let slice = unsafe { core::slice::from_raw_parts_mut(ptr, len) };
 
-        if !self.raw.range_is_valid(start, end) {
-            panic!("invalid range");
-        }
-
-        let mut current = start;
-        while current < end {
-            let value = match values.next() {
-                Some(value) => value,
-                None => {
-                    self.raw.copy_range(end..self.raw.length, current);
-                    self.raw.length = self.raw.length - end + current;
-
-                    return;
-                }
-            };
-
-            let ptr = self.raw.ptr(current) as *mut T;
-            unsafe { *ptr = value };
-            current += 1;
-        }
-
-        let (lower_bound, upper_bound) = values.size_hint();
-        let bound = upper_bound.unwrap_or(lower_bound);
-
-        let mut remainder = Pod::with_capacity(bound);
-        for value in values {
-            remainder.push(value);
-        }
-
-        let remainder_len = remainder.len();
-        self.raw.reserve(&self.allocator, remainder_len);
-
-        let len = self.raw.length;
-        self.raw.length += remainder_len;
-
-        if self.raw.copy_range(end..len, end + remainder_len) {
-            panic!("idk wth?");
-        }
-
-        for value in remainder {
-            let ptr = self.raw.ptr(current) as *mut T;
-            unsafe { *ptr = value };
-            current += 1;
-        }
+        slice.copy_from_slice(values);
     }
 
     pub fn pop(&mut self) -> Option<T> {
@@ -199,7 +150,7 @@ where
     }
 
     pub fn push_repeat(&mut self, t: T, repeat: usize) {
-        self.raw.reserve(&self.allocator, repeat);
+        self.raw.reserve_additional(&self.allocator, repeat);
 
         let ptr = self.raw.ptr(self.raw.length) as *mut T;
         let data = unsafe { core::slice::from_raw_parts_mut(ptr, repeat) };
@@ -215,7 +166,7 @@ where
 
     #[inline(always)]
     pub fn reserve(&mut self, additional: usize) {
-        self.raw.reserve(&self.allocator, additional);
+        self.raw.reserve_additional(&self.allocator, additional);
     }
 
     #[inline(always)]
@@ -231,14 +182,14 @@ where
         return Some(data as *mut T);
     }
 
-    fn ptr(&self, i: usize) -> Option<*mut T> {
+    fn ptr(&self, i: usize) -> Option<NonNull<T>> {
         if i >= self.raw.length {
             return None;
         }
 
         let data = self.raw.ptr(i);
 
-        return Some(data as *mut T);
+        return Some(unsafe { NonNull::new_unchecked(data as *mut T) });
     }
 
     fn slice(&self, r: Range<usize>) -> Option<(*mut T, usize)> {
@@ -257,14 +208,14 @@ where
     pub fn get(&self, i: usize) -> Option<&T> {
         let ptr = self.ptr(i)?;
 
-        return Some(unsafe { &*ptr });
+        return Some(unsafe { &*ptr.as_ptr() });
     }
 
     #[inline(always)]
     pub fn get_mut(&mut self, i: usize) -> Option<&mut T> {
         let ptr = self.ptr(i)?;
 
-        return Some(unsafe { &mut *ptr });
+        return Some(unsafe { &mut *ptr.as_ptr() });
     }
 
     #[inline(always)]
@@ -316,6 +267,7 @@ where
     type IntoIter = PodIter<T, A>;
     type Item = T;
 
+    #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
         return PodIter {
             pod: self,
@@ -329,6 +281,7 @@ where
     T: Copy,
     A: Allocator,
 {
+    #[inline(always)]
     fn drop(&mut self) {
         self.raw.realloc(&self.allocator, 0)
     }
@@ -368,6 +321,7 @@ where
     E: Copy,
     B: Allocator,
 {
+    #[inline(always)]
     fn eq(&self, other: &Pod<E, B>) -> bool {
         return self.deref() == other.deref();
     }
@@ -608,14 +562,36 @@ impl RawPod {
         return false;
     }
 
-    fn reserve(&mut self, alloc: &dyn Allocator, additional: usize) {
-        let needed = self.length + additional;
+    #[inline(always)]
+    fn reserve_additional(&mut self, alloc: &dyn Allocator, additional: usize) {
+        return self.reserve_total(alloc, self.length + additional);
+    }
+
+    fn reserve_total(&mut self, alloc: &dyn Allocator, needed: usize) {
         if needed <= self.capacity {
             return;
         }
 
         let new_capacity = core::cmp::max(needed, self.capacity * 3 / 2);
         self.realloc(alloc, new_capacity);
+    }
+
+    fn splice_ptr(&mut self, alloc: &dyn Allocator, range: Range<usize>, len: usize) -> *mut u8 {
+        let (start, end) = (range.start, range.end);
+
+        if !self.range_is_valid(start, end) {
+            panic!("invalid range");
+        }
+
+        let copy_target = start + len;
+        let range_to_copy = end..self.length;
+        let final_len = copy_target + range_to_copy.len();
+        self.reserve_total(alloc, final_len);
+
+        self.copy_range(range_to_copy, copy_target);
+        self.length = final_len;
+
+        return self.ptr(start);
     }
 
     fn realloc(&mut self, alloc: &dyn Allocator, capacity: usize) {
