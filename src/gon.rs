@@ -1,11 +1,12 @@
 use crate::util::*;
 use std::collections::hash_map::HashMap;
 
+// TODO make this Copy and use an allocator
 #[derive(Clone)]
 pub enum GonValue<'a> {
     Object {
-        ordered_names: Pod<&'a str>,
-        fields: HashMap<&'a str, GonValue<'a>>,
+        values: Vec<(&'a str, GonValue<'a>)>,
+        fields: HashMap<&'a str, usize>,
     },
     Array(Vec<GonValue<'a>>),
     Str(&'a str),
@@ -191,14 +192,11 @@ impl<'a> core::fmt::Debug for GonValue<'a> {
             GonValue::String(s) => write!(f, "{:?}", s),
             GonValue::Array(values) => f.debug_list().entries(&*values).finish(),
 
-            GonValue::Object {
-                ordered_names,
-                fields,
-            } => {
+            GonValue::Object { values, fields } => {
                 let mut f = f.debug_map();
 
-                for name in ordered_names.iter() {
-                    f.entry(&NoPrettyStr(name), &fields[name]);
+                for (name, value) in values.iter() {
+                    f.entry(&NoPrettyStr(name), value);
                 }
 
                 f.finish()
@@ -240,7 +238,7 @@ fn parse_gon_recursive<'a>(parser: &mut Parser<'a>, at_root: bool) -> GonValue<'
         };
 
         if parse_as_object {
-            let mut ordered_names = Pod::new();
+            let mut values = Vec::new();
             let mut fields = HashMap::new();
 
             while let Some(tok) = parser.tokens.get(parser.index) {
@@ -248,12 +246,10 @@ fn parse_gon_recursive<'a>(parser: &mut Parser<'a>, at_root: bool) -> GonValue<'
 
                 match tok {
                     &Token::Str(s) => {
-                        let value = parse_gon_recursive(parser, false);
-                        if fields.insert(s, value).is_some() {
-                            panic!("repeated field in GON object");
-                        }
+                        fields.insert(s, values.len());
 
-                        ordered_names.push(s);
+                        let value = parse_gon_recursive(parser, false);
+                        values.push((s, value));
                     }
 
                     Token::CloseBrace => break,
@@ -261,10 +257,7 @@ fn parse_gon_recursive<'a>(parser: &mut Parser<'a>, at_root: bool) -> GonValue<'
                 }
             }
 
-            return GonValue::Object {
-                ordered_names,
-                fields,
-            };
+            return GonValue::Object { values, fields };
         }
 
         parser.index += 1;
