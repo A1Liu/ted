@@ -37,7 +37,6 @@ struct HighlightState {
 }
 
 struct RuleAction {
-    len: usize,
     style: Style,
     action: HLAction,
 }
@@ -87,29 +86,6 @@ fn get_field<'a, 'b>(
     return Some(value);
 }
 
-// Builtins:
-// default scope # the default scope
-//
-// default {
-//   # default rule for scope; for the default scope, it is required, and
-//   # all its fields are also required.
-//   # Non-default scopes fallback to default scope rule if none is provided
-//
-//   color [254 254 254] # RBG color for text
-//   background [0 0 0] # RBG color for background
-//
-//   # Cannot contain a "match" or "scope"
-// }
-//
-// hello {
-//   match >a
-//   scope end # end the scope
-//
-//   color [254 254 254] # optional
-//   background [0 0 0] # optional
-// }
-//
-
 impl Highlighter {
     pub fn from_gon<'a>(gon: &'a str) {
         let gon = parse_gon(gon);
@@ -124,24 +100,24 @@ impl Highlighter {
         }
 
         #[derive(Clone, Copy)]
-        struct Rule<'a> {
+        struct IRule<'a> {
             pattern: &'a str,
             color: Option<Color>,
             background: Option<Color>,
             scope: HLAction,
         }
 
-        struct Scope<'a> {
+        struct IScope<'a> {
             id: usize,
             default: Option<DefaultRule>,
-            rules: Pod<Rule<'a>>,
+            rules: Pod<IRule<'a>>,
         }
 
-        let mut scopes: HashMap<&'a str, Scope<'a>> = HashMap::new();
+        let mut scopes: HashMap<&'a str, IScope<'a>> = HashMap::new();
 
         scopes.insert(
             "default",
-            Scope {
+            IScope {
                 id: 0,
                 default: None,
                 rules: Pod::new(),
@@ -159,7 +135,7 @@ impl Highlighter {
             if text == "scope" {
                 let id = scopes.len();
 
-                scopes.entry(name).or_insert(Scope {
+                scopes.entry(name).or_insert(IScope {
                     id,
                     default: None,
                     rules: Pod::new(),
@@ -222,7 +198,7 @@ impl Highlighter {
                     };
 
                     let scope = unwrap(scopes.get_mut(scope_name));
-                    scope.rules.push(Rule {
+                    scope.rules.push(IRule {
                         pattern,
                         color,
                         background,
@@ -235,7 +211,6 @@ impl Highlighter {
                 // Parse as color variable
                 GonValue::Array(values) => {
                     let color = expect_color(&variables, &GonValue::Array(values));
-
                     if let Some(prev) = variables.insert(name, color) {
                         panic!("variable redefined");
                     }
@@ -256,10 +231,34 @@ impl Highlighter {
             }
 
             let color = expect_color(&variables, &GonValue::Str(text));
-
             if let Some(prev) = variables.insert(name, color) {
                 panic!("variable redefined");
             }
         }
+
+        // TODO idk man
     }
 }
+
+// Builtins:
+// default scope # the default scope
+//
+// default {
+//   # default rule for scope; for the default scope, it is required, and
+//   # all its fields are also required.
+//   # Non-default scopes fallback to default scope rule if none is provided
+//
+//   color [254 254 254] # RBG color for text
+//   background [0 0 0] # RBG color for background
+//
+//   # Cannot contain a "match" or "scope"
+// }
+//
+// hello {
+//   match >a
+//   scope end # end the scope
+//
+//   color [254 254 254] # optional
+//   background [0 0 0] # optional
+// }
+//
