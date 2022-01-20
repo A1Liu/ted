@@ -47,7 +47,8 @@ fn slice_token<'a>(string: &'a [u8]) -> Token<'a> {
     return Token::Str(unsafe { core::str::from_utf8_unchecked(string) });
 }
 
-fn parse_string<'a>(bytes: &'a [u8], end: u8, temp_string: &mut Pod<u8>) -> (usize, Token<'a>) {
+fn parse_string<'a>(bytes: &'a [u8], temp_string: &mut Pod<u8>) -> (usize, Token<'a>) {
+    let end = b'"';
     let mut index = 0;
     let mut is_escape = false;
 
@@ -145,20 +146,38 @@ fn tokenize<'a>(data: &'a str) -> Vec<Token<'a>> {
             continue;
         }
 
-        'parse_string: loop {
-            let string_end = match b {
-                b'>' => b'\n',
-                b'"' => b'"',
-                _ => break 'parse_string,
-            };
-
+        if b == b'>' {
             if let Some(begin) = current_token_begin.take() {
                 tokens.push(slice_token(&bytes[begin..index]));
             }
 
             index += 1;
 
-            let (parsed_len, tok) = parse_string(&bytes[index..], string_end, &mut scratch);
+            let begin = index;
+            while let Some(&b) = bytes.get(index) {
+                if b == b'\n' {
+                    tokens.push(slice_token(&bytes[begin..index]));
+                    index += 1;
+
+                    continue 'outer;
+                }
+
+                index += 1;
+            }
+
+            tokens.push(slice_token(&bytes[begin..index]));
+
+            continue 'outer;
+        }
+
+        if b == b'"' {
+            if let Some(begin) = current_token_begin.take() {
+                tokens.push(slice_token(&bytes[begin..index]));
+            }
+
+            index += 1;
+
+            let (parsed_len, tok) = parse_string(&bytes[index..], &mut scratch);
             index += parsed_len;
             tokens.push(tok);
 

@@ -2,20 +2,38 @@ normal [238 232 213] #eee8d5
 constant [42 161 152] #2aa198
 text_bg [0 43 54] #002b36
 keyword [133 153 0] #859900
+escaped [203 75 22] #cb4b16
 
 lines_fg [101 122 131] #657A83
 lines_bg [7 54 66] #073642
 
+default {
+  color normal
+  background text_bg
+}
+
 string_begin {
-  match "\""
+  match >"
   color constant
   scope string
 }
 
 string scope
 
+escape_char {
+  match >\\.
+  color constant
+  scope end
+}
+
 string_end {
-  match "\""
+  match >"
+  color constant
+  scope end
+}
+
+string_char {
+  match >.
   color constant
   scope end
 }

@@ -1,3 +1,4 @@
+use crate::gon::*;
 use crate::types::*;
 use crate::util::*;
 use mint::*;
@@ -54,13 +55,234 @@ struct RuleAction {
 }
 
 impl Highlighter {
-    pub fn from_gon(gon: &str) -> Self {
-        // let mut scopes = HashMap::new();
+    // Builtins:
+    // default scope # the default scope
+    //
+    // default {
+    //   # default rule for scope; for the default scope, it is required, and
+    //   # all its fields are also required.
+    //   # Non-default scopes fallback to default scope rule if none is provided
+    //
+    //   color [254 254 254] # RBG color for text
+    //   background [0 0 0] # RBG color for background
+    //
+    //   # Cannot contain a "match" or "scope"
+    // }
+    //
+    // hello {
+    //   match >a
+    //   scope end # end the scope
+    //
+    //   color [254 254 254] # optional
+    //   background [0 0 0] # optional
+    // }
+    //
+    pub fn from_gon<'a>(gon: &'a str) -> Self {
+        let gon = parse_gon(gon);
+        let (values, fields) = match gon {
+            GonValue::Object { values, fields } => (values, fields),
+            _ => panic!("Expected a GON object"),
+        };
+
+        #[derive(Clone, Copy)]
+        enum ScopeAction<'a> {
+            None,
+            Scope(&'a str),
+            End,
+        }
+
+        struct DefaultRule {
+            color: Option<Color>,
+            background: Option<Color>,
+        }
+
+        #[derive(Clone, Copy)]
+        struct Rule<'a> {
+            pattern: &'a str,
+            color: Option<Color>,
+            background: Option<Color>,
+            scope: ScopeAction<'a>,
+        }
+
+        #[derive(Clone, Copy)]
+        enum Variable<'a> {
+            Rule(Rule<'a>),
+            Color(Color),
+        }
+
+        struct Scope<'a> {
+            default: Option<DefaultRule>,
+            rules: Pod<Rule<'a>>,
+        }
+
+        fn expect_color_value(g: Option<&GonValue>) -> f32 {
+            let g = unwrap(g);
+
+            if let GonValue::Str(s) = g {
+                let value = expect(s.parse::<u8>());
+
+                return value as f32;
+            }
+
+            panic!("what the hell");
+        }
+
+        fn expect_color(g: &GonValue) -> Color {
+            if let GonValue::Array(values) = g {
+                if values.len() != 3 {
+                    panic!("colors have 3 fields (RGB)");
+                }
+
+                let r = expect_color_value(values.get(0));
+                let g = expect_color_value(values.get(1));
+                let b = expect_color_value(values.get(2));
+
+                return color(r, g, b);
+            }
+
+            panic!("what the hell");
+        }
+
+        fn get_field<'a, 'b>(
+            values: &'b Vec<(&'a str, GonValue<'a>)>,
+            fields: &HashMap<&'a str, usize>,
+            name: &str,
+        ) -> Option<&'b GonValue<'a>> {
+            let index = fields.get(name)?;
+            let (_, value) = unwrap(values.get(*index));
+            return Some(value);
+        }
+
+        let mut scopes: HashMap<&'a str, Scope<'a>> = HashMap::new();
+        let mut variables = HashMap::new();
+
+        let mut scope_name = "default";
+        let mut default_rule: Option<DefaultRule> = None;
+        let mut rules = Pod::new();
+        for (name, value) in values {
+            // used to extend the lifetime of GonValue::String values
+            let temp;
+
+            let text = match value {
+                // Parse as scope's default rule
+                GonValue::Object { values, fields } if name == "default" => {
+                    if default_rule.is_some() {
+                        panic!("already defined default rule for current scope");
+                    }
+
+                    let color = get_field(&values, &fields, "color").map(expect_color);
+                    let background = get_field(&values, &fields, "background").map(expect_color);
+
+                    default_rule = Some(DefaultRule { color, background });
+                    continue;
+                }
+
+                // Parse as rule
+                GonValue::Object { values, fields } => {
+                    let pattern = unwrap(get_field(&values, &fields, "match"));
+                    let pattern = match pattern {
+                        GonValue::Str(s) => *s,
+                        _ => panic!("shoulda been a string"),
+                    };
+
+                    let color = get_field(&values, &fields, "color").map(expect_color);
+                    let background = get_field(&values, &fields, "background").map(expect_color);
+
+                    let scope = get_field(&values, &fields, "pattern").map(|v| {
+                        if let GonValue::Str(s) = v {
+                            return *s;
+                        }
+
+                        panic!("shoulda been a string");
+                    });
+
+                    let scope = match scope {
+                        None => ScopeAction::None,
+                        Some("end") => ScopeAction::End,
+                        Some(name) => ScopeAction::Scope(name),
+                    };
+
+                    rules.push(Rule {
+                        pattern,
+                        color,
+                        background,
+                        scope,
+                    });
+
+                    continue;
+                }
+
+                // Parse as color variable
+                GonValue::Array(values) => {
+                    let color = expect_color(&GonValue::Array(values));
+
+                    if let Some(prev) = variables.insert(name, color) {
+                        panic!("variable redefined");
+                    }
+
+                    continue;
+                }
+
+                GonValue::Str(s) => s,
+                GonValue::String(s) => {
+                    temp = s;
+                    &temp
+                }
+            };
+
+            if text == "scope" {
+                let scope = scopes.entry(scope_name).or_insert(Scope {
+                    default: None,
+                    rules: Pod::new(),
+                });
+
+                if let Some(rule) = default_rule.take() {
+                    if scope.default.is_some() {
+                        panic!("default rule already defined for scope");
+                    }
+
+                    scope.default = Some(rule);
+                }
+
+                scope.rules.reserve(rules.len());
+                for &rule in rules.iter() {
+                    scope.rules.push(rule);
+                }
+
+                rules.clear();
+
+                scope_name = name;
+                continue;
+            }
+
+            // TODO other stuffs, idk
+            panic!("expected 'scope' declaration");
+        }
+
+        let scope = scopes.entry(scope_name).or_insert(Scope {
+            default: None,
+            rules: Pod::new(),
+        });
+
+        if let Some(rule) = default_rule.take() {
+            if scope.default.is_some() {
+                panic!("default rule already defined for scope");
+            }
+
+            scope.default = Some(rule);
+        }
+
+        scope.rules.reserve(rules.len());
+        for &rule in rules.iter() {
+            scope.rules.push(rule);
+        }
+
+        rules.clear();
 
         let mut rules = Vec::new();
-        let mut scopes = Pod::new();
+        let mut scope_ranges = Pod::new();
 
-        return Self::new(rules, Some(scopes));
+        return Self::new(rules, Some(scope_ranges));
     }
 
     pub fn new(rules: Vec<SyntaxRule>, scopes: Option<Pod<CopyRange>>) -> Self {
@@ -80,7 +302,7 @@ impl Highlighter {
             let seqs_start = short_seq.len();
             let exact_seqs_start = exact_seq.len();
 
-            for rule in &rules[scope.start..scope.end] {
+            for rule in unwrap(rules.get(scope.start..scope.end)) {
                 let (action, style) = (rule.action, rule.style);
 
                 match &rule.pattern {
