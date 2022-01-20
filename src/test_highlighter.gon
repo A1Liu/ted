@@ -1,12 +1,21 @@
-normal [0.933 0.91 0.835]
-text_bg [0.0, 0.169, 0.212]
-keyword [0.522, 0.6, 0.0]
+normal [238 232 213] #eee8d5
+constant [42 161 152] #2aa198
+text_bg [0 43 54] #002b36
+keyword [133 153 0] #859900
 
-lines_fg [0.396, 0.482, 0.514]
-lines_bg [0.027, 0.212, 0.259]
+lines_fg [101 122 131] #657A83
+lines_bg [7 54 66] #073642
 
-
+string_begin {
+  match "\""
+  color constant
+  scope string
+}
 
 string scope
 
-
+string_end {
+  match "\""
+  color constant
+  scope end
+}

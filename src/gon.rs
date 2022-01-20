@@ -47,7 +47,7 @@ fn slice_token<'a>(string: &'a [u8]) -> Token<'a> {
     return Token::Str(unsafe { core::str::from_utf8_unchecked(string) });
 }
 
-fn parse_string<'a>(bytes: &'a [u8], temp_string: &mut Pod<u8>) -> (usize, Token<'a>) {
+fn parse_string<'a>(bytes: &'a [u8], end: u8, temp_string: &mut Pod<u8>) -> (usize, Token<'a>) {
     let mut index = 0;
     let mut is_escape = false;
 
@@ -57,19 +57,20 @@ fn parse_string<'a>(bytes: &'a [u8], temp_string: &mut Pod<u8>) -> (usize, Token
             break;
         }
 
-        if b == b'"' {
-            break;
+        if b == end {
+            let done_so_far = &bytes[0..index];
+            return (index + 1, slice_token(done_so_far));
         }
 
         index += 1;
     }
 
     let done_so_far = &bytes[0..index];
-    index += 1;
-
     if !is_escape {
         return (index, slice_token(done_so_far));
     }
+
+    index += 1;
 
     temp_string.clear();
     temp_string.reserve(done_so_far.len() + 16);
@@ -90,10 +91,16 @@ fn parse_string<'a>(bytes: &'a [u8], temp_string: &mut Pod<u8>) -> (usize, Token
 
                 _ => temp_string.push(b),
             }
+
+            is_escape = false;
+            continue;
+        }
+
+        if b == end {
+            break;
         }
 
         match b {
-            b'"' => break,
             b'\\' => is_escape = true,
             _ => temp_string.push(b),
         }
@@ -138,18 +145,24 @@ fn tokenize<'a>(data: &'a str) -> Vec<Token<'a>> {
             continue;
         }
 
-        if b == b'"' {
+        'parse_string: loop {
+            let string_end = match b {
+                b'>' => b'\n',
+                b'"' => b'"',
+                _ => break 'parse_string,
+            };
+
             if let Some(begin) = current_token_begin.take() {
                 tokens.push(slice_token(&bytes[begin..index]));
             }
 
             index += 1;
 
-            let (parsed_len, tok) = parse_string(&bytes[index..], &mut scratch);
+            let (parsed_len, tok) = parse_string(&bytes[index..], string_end, &mut scratch);
             index += parsed_len;
             tokens.push(tok);
 
-            continue;
+            continue 'outer;
         }
 
         if let Some((tok, ignored)) = symbol_token(b) {
@@ -295,7 +308,8 @@ pub fn parse_gon<'a>(text: &'a str) -> GonValue<'a> {
 #[test]
 fn test_gon_parsing() {
     const GON_TEXT: &'static str = r##"
-    Hello World
+    Hello >World""
+    Hello "World\"\""
     Goodbye [
         Bruh
         Mah,
@@ -307,11 +321,15 @@ fn test_gon_parsing() {
 
     "##;
 
-    const GON_OUTPUT: &'static str =
-        r##"{Hello: "World", Goodbye: ["Bruh", "Mah", "asdf"], Doi: {doi: "doi"}}"##;
+    const GON_OUTPUT: &'static str = r##"{Hello: "World\"\"", Hello: "World\"\"", Goodbye: ["Bruh", "Mah", "asdf"], Doi: {doi: "doi"}}"##;
 
     let gon = parse_gon(GON_TEXT);
     let gon = format!("{:?}", gon);
 
-    assert_eq!(gon, GON_OUTPUT);
+    if &gon != GON_OUTPUT {
+        println!(" left: {}", gon);
+        println!("right: {}", GON_OUTPUT);
+
+        panic!("not equal");
+    }
 }
