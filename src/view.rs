@@ -13,7 +13,6 @@ pub struct View {
     cursor_pos: Point2<u32>,
 
     visible_text: Pod<char>,
-    highlighter: Highlighter,
 }
 
 enum FlowResult {
@@ -39,37 +38,6 @@ impl View {
             visible_text.push(params.c);
         }
 
-        let mut rules = Vec::new();
-
-        rules.push(SyntaxRule {
-            pattern: Pattern::Exact("of".to_string()),
-            action: HLAction::None,
-            style: Style {
-                bg_color: DEFAULT_BG,
-                fg_color: KEYWORD,
-            },
-        });
-
-        rules.push(SyntaxRule {
-            pattern: Pattern::Exact("and".to_string()),
-            action: HLAction::None,
-            style: Style {
-                bg_color: DEFAULT_BG,
-                fg_color: KEYWORD,
-            },
-        });
-
-        rules.push(SyntaxRule {
-            pattern: Pattern::Exact("TODO".to_string()),
-            action: HLAction::None,
-            style: Style {
-                fg_color: NORMAL,
-                bg_color: color(0.8, 0.3, 0.3),
-            },
-        });
-
-        let highlighter = Highlighter::new(rules, None);
-
         return Self {
             start: 0,
             start_line: 0,
@@ -78,7 +46,6 @@ impl View {
             cursor_blink_on: true,
             cursor_pos: Point2 { x: 0, y: 0 },
 
-            highlighter,
             visible_text,
         };
     }
@@ -101,10 +68,10 @@ impl View {
         let mut text_fg_colors = pod![DEFAULT_FG; self.visible_text.len()];
         let mut text_bg_colors = pod![DEFAULT_BG; self.visible_text.len()];
 
-        for range in self.highlighter.ranges(&self.visible_text) {
-            text_fg_colors[range.range].fill(range.style.fg_color);
-            text_bg_colors[range.range].fill(range.style.bg_color);
-        }
+        // for range in self.highlighter.ranges(&self.visible_text) {
+        //     text_fg_colors[range.range].fill(range.style.fg_color);
+        //     text_bg_colors[range.range].fill(range.style.bg_color);
+        // }
 
         let mut config = FlowConfig::new(self.chars(), Some(self.dims.x), Some(self.dims.y));
 
