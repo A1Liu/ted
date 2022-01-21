@@ -23,67 +23,35 @@ pub enum HLAction {
     None,
 }
 
-pub struct Highlighter {}
-
 #[derive(Clone, Copy)]
 struct Scope {
     index: usize,
+    rules: CopyRange,
+    default: Style,
 }
 
 struct HighlightState {
-    scope_stack: Pod<Scope>,
-    scope: Scope,
+    scope_stack: Pod<usize>,
+    default: Style,
     data: Pod<RangeData>,
 }
 
+#[derive(Clone, Copy)]
+struct Rule {
+    pattern: CopyRange,
+    action: RuleAction,
+}
+
+#[derive(Clone, Copy)]
 struct RuleAction {
     style: Style,
     action: HLAction,
 }
 
-fn expect_color_value(g: Option<&GonValue>) -> f32 {
-    let g = unwrap(g);
-
-    if let GonValue::Str(s) = g {
-        let value = expect(s.parse::<u8>());
-
-        return value as f32;
-    }
-
-    panic!("what the hell");
-}
-
-fn expect_color<'a>(variables: &HashMap<&'a str, Color>, g: &GonValue<'a>) -> Color {
-    match g {
-        GonValue::Array(values) => {
-            if values.len() != 3 {
-                panic!("colors have 3 fields (RGB)");
-            }
-
-            let r = expect_color_value(values.get(0));
-            let g = expect_color_value(values.get(1));
-            let b = expect_color_value(values.get(2));
-
-            return color(r, g, b);
-        }
-
-        GonValue::Str(s) => return *unwrap(variables.get(*s)),
-        GonValue::String(s) => return *unwrap(variables.get(s.as_str())),
-
-        _ => {}
-    }
-
-    panic!("what the hell");
-}
-
-fn get_field<'a, 'b>(
-    values: &'b Vec<(&'a str, GonValue<'a>)>,
-    fields: &HashMap<&'a str, usize>,
-    name: &str,
-) -> Option<&'b GonValue<'a>> {
-    let index = fields.get(name)?;
-    let (_, value) = unwrap(values.get(*index));
-    return Some(value);
+pub struct Highlighter {
+    regexes: Pod<u8>,
+    rules: Pod<Rule>,
+    scopes: Pod<Scope>,
 }
 
 impl Highlighter {
@@ -100,20 +68,20 @@ impl Highlighter {
         }
 
         #[derive(Clone, Copy)]
-        struct IRule<'a> {
-            pattern: &'a str,
+        struct IRule {
+            pattern: CopyRange,
             color: Option<Color>,
             background: Option<Color>,
             scope: HLAction,
         }
 
-        struct IScope<'a> {
+        struct IScope {
             id: usize,
             default: Option<DefaultRule>,
-            rules: Pod<IRule<'a>>,
+            rules: Pod<IRule>,
         }
 
-        let mut scopes: HashMap<&'a str, IScope<'a>> = HashMap::new();
+        let mut scopes: HashMap<&'a str, IScope> = HashMap::new();
 
         scopes.insert(
             "default",
@@ -144,6 +112,7 @@ impl Highlighter {
         }
 
         let mut variables = HashMap::new();
+        let mut regexes = Pod::new();
         let mut scope_name = "default";
 
         for (name, value) in values {
@@ -174,6 +143,13 @@ impl Highlighter {
                         GonValue::Str(s) => *s,
                         _ => panic!("shoulda been a string"),
                     };
+
+                    let begin = pattern.len();
+                    for &p in pattern.as_bytes() {
+                        regexes.push(p);
+                    }
+
+                    let pattern = r(begin, regexes.len());
 
                     let color =
                         get_field(&values, &fields, "color").map(|g| expect_color(&variables, g));
@@ -238,6 +214,51 @@ impl Highlighter {
 
         // TODO idk man
     }
+}
+
+fn expect_color_value(g: Option<&GonValue>) -> f32 {
+    let g = unwrap(g);
+
+    if let GonValue::Str(s) = g {
+        let value = expect(s.parse::<u8>());
+
+        return value as f32;
+    }
+
+    panic!("what the hell");
+}
+
+fn expect_color<'a>(variables: &HashMap<&'a str, Color>, g: &GonValue<'a>) -> Color {
+    match g {
+        GonValue::Array(values) => {
+            if values.len() != 3 {
+                panic!("colors have 3 fields (RGB)");
+            }
+
+            let r = expect_color_value(values.get(0));
+            let g = expect_color_value(values.get(1));
+            let b = expect_color_value(values.get(2));
+
+            return color(r, g, b);
+        }
+
+        GonValue::Str(s) => return *unwrap(variables.get(*s)),
+        GonValue::String(s) => return *unwrap(variables.get(s.as_str())),
+
+        _ => {}
+    }
+
+    panic!("what the hell");
+}
+
+fn get_field<'a, 'b>(
+    values: &'b Vec<(&'a str, GonValue<'a>)>,
+    fields: &HashMap<&'a str, usize>,
+    name: &str,
+) -> Option<&'b GonValue<'a>> {
+    let index = fields.get(name)?;
+    let (_, value) = unwrap(values.get(*index));
+    return Some(value);
 }
 
 // Builtins:
