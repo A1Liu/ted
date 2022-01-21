@@ -212,6 +212,16 @@ impl Highlighter {
             }
         }
 
+        // let default_scope = unwrap(scopes.get("default"));
+        // let mut rules = Pod::new();
+        // let mut scope_values = pod![scopes.len()];
+
+        // for scope in scopes.values() {
+        //     for rule in scope.rules {
+        //         rules.push(rule);
+        //     }
+        // }
+
         // TODO idk man
     }
 }
