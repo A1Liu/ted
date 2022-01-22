@@ -14,13 +14,6 @@ pub struct Style {
     pub background: Color,
 }
 
-#[derive(Clone, Copy)]
-#[cfg_attr(debug_assertions, derive(Debug))]
-pub struct RangeData {
-    pub range: CopyRange,
-    pub style: Style,
-}
-
 #[cfg_attr(debug_assertions, derive(PartialEq))]
 pub struct SetContents {
     pub start: usize,

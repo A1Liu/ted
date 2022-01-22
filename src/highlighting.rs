@@ -14,8 +14,6 @@ pub const LINES_BG: Color = color(0.027, 0.212, 0.259);
 pub const DEFAULT_FG: Color = NORMAL;
 pub const DEFAULT_BG: Color = TEXT_BG;
 
-const DEFAULT_SCOPE: u32 = 0;
-
 #[derive(Clone, Copy)]
 pub enum HLAction {
     BeginScope(usize),
@@ -26,13 +24,7 @@ pub enum HLAction {
 #[derive(Clone, Copy)]
 struct Scope {
     rules: CopyRange,
-    default: Style,
-}
-
-struct HighlightState {
-    scope_stack: Pod<usize>,
-    default: Style,
-    data: Pod<RangeData>,
+    style: Style,
 }
 
 #[derive(Clone, Copy)]
@@ -219,7 +211,7 @@ impl Highlighter {
         let default_scope = unwrap(scopes.get("default"));
         let scope = Scope {
             rules: r(0, 0),
-            default: Style {
+            style: Style {
                 color: unwrap(default_scope.color),
                 background: unwrap(default_scope.background),
             },
@@ -233,11 +225,11 @@ impl Highlighter {
             let scope_value = &mut scope_values[scope.id];
 
             if let Some(color) = scope.color {
-                scope_value.default.color = color;
+                scope_value.style.color = color;
             }
 
             if let Some(background) = scope.background {
-                scope_value.default.background = background;
+                scope_value.style.background = background;
             }
 
             for &rule in scope.rules.iter() {
@@ -245,8 +237,8 @@ impl Highlighter {
                     pattern: rule.pattern,
                     action: rule.action,
                     style: Style {
-                        color: rule.color.unwrap_or(scope_value.default.color),
-                        background: rule.background.unwrap_or(scope_value.default.background),
+                        color: rule.color.unwrap_or(scope_value.style.color),
+                        background: rule.background.unwrap_or(scope_value.style.background),
                     },
                 });
             }
