@@ -15,13 +15,6 @@ pub const DEFAULT_FG: Color = NORMAL;
 pub const DEFAULT_BG: Color = TEXT_BG;
 
 #[derive(Clone, Copy)]
-pub enum HLAction {
-    BeginScope(usize),
-    EndScope,
-    None,
-}
-
-#[derive(Clone, Copy)]
 struct Scope {
     rules: CopyRange,
     style: Style,
@@ -43,16 +36,10 @@ pub struct Highlighter {
 impl Highlighter {
     pub fn from_gon<'a>(gon: &'a str) -> Self {
         let gon = parse_gon(gon);
-        let (values, fields) = match gon {
+        let (mut values, fields) = match gon {
             GonValue::Object { values, fields } => (values, fields),
             _ => panic!("Expected a GON object"),
         };
-
-        #[derive(Copy, Clone)]
-        struct DefaultRule {
-            color: Option<Color>,
-            background: Option<Color>,
-        }
 
         #[derive(Clone, Copy)]
         struct IRule {
@@ -71,16 +58,7 @@ impl Highlighter {
 
         let mut scopes: HashMap<&'a str, IScope> = HashMap::new();
 
-        scopes.insert(
-            "default",
-            IScope {
-                id: 0,
-                color: None,
-                background: None,
-                rules: Pod::new(),
-            },
-        );
-
+        values.push(("default", GonValue::Str("scope")));
         for (name, value) in &values {
             let text = match value {
                 GonValue::Str(s) => *s,
@@ -138,11 +116,8 @@ impl Highlighter {
                         _ => panic!("shoulda been a string"),
                     };
 
-                    let begin = pattern.len();
-                    for &p in pattern.as_bytes() {
-                        regexes.push(p);
-                    }
-
+                    let begin = regexes.len();
+                    regexes.extend_from_slice(pattern.as_bytes());
                     let pattern = r(begin, regexes.len());
 
                     let color =
@@ -219,9 +194,6 @@ impl Highlighter {
         let mut scope_values = pod![scope; scopes.len()];
 
         for scope in scopes.values() {
-            let start = rules.len();
-            rules.reserve(scope.rules.len());
-
             let scope_value = &mut scope_values[scope.id];
 
             if let Some(color) = scope.color {
@@ -231,6 +203,9 @@ impl Highlighter {
             if let Some(background) = scope.background {
                 scope_value.style.background = background;
             }
+
+            let start = rules.len();
+            rules.reserve(scope.rules.len());
 
             for &rule in scope.rules.iter() {
                 rules.push(Rule {

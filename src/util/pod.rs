@@ -94,6 +94,18 @@ where
         };
     }
 
+    #[inline(always)]
+    pub fn extend_from_slice(&mut self, data: &[T]) {
+        let len = data.len();
+        self.reserve(len);
+
+        let ptr = self.raw.ptr(self.raw.length) as *mut T;
+        let to_space = unsafe { core::slice::from_raw_parts_mut(ptr, len) };
+        to_space.copy_from_slice(data);
+
+        self.raw.length += len;
+    }
+
     pub fn push(&mut self, t: T) {
         self.raw.reserve_additional(&self.allocator, 1);
 
