@@ -25,7 +25,6 @@ pub enum HLAction {
 
 #[derive(Clone, Copy)]
 struct Scope {
-    index: usize,
     rules: CopyRange,
     default: Style,
 }
@@ -39,11 +38,6 @@ struct HighlightState {
 #[derive(Clone, Copy)]
 struct Rule {
     pattern: CopyRange,
-    action: RuleAction,
-}
-
-#[derive(Clone, Copy)]
-struct RuleAction {
     style: Style,
     action: HLAction,
 }
@@ -55,13 +49,14 @@ pub struct Highlighter {
 }
 
 impl Highlighter {
-    pub fn from_gon<'a>(gon: &'a str) {
+    pub fn from_gon<'a>(gon: &'a str) -> Self {
         let gon = parse_gon(gon);
         let (values, fields) = match gon {
             GonValue::Object { values, fields } => (values, fields),
             _ => panic!("Expected a GON object"),
         };
 
+        #[derive(Copy, Clone)]
         struct DefaultRule {
             color: Option<Color>,
             background: Option<Color>,
@@ -72,12 +67,13 @@ impl Highlighter {
             pattern: CopyRange,
             color: Option<Color>,
             background: Option<Color>,
-            scope: HLAction,
+            action: HLAction,
         }
 
         struct IScope {
             id: usize,
-            default: Option<DefaultRule>,
+            color: Option<Color>,
+            background: Option<Color>,
             rules: Pod<IRule>,
         }
 
@@ -87,7 +83,8 @@ impl Highlighter {
             "default",
             IScope {
                 id: 0,
-                default: None,
+                color: None,
+                background: None,
                 rules: Pod::new(),
             },
         );
@@ -105,7 +102,8 @@ impl Highlighter {
 
                 scopes.entry(name).or_insert(IScope {
                     id,
-                    default: None,
+                    color: None,
+                    background: None,
                     rules: Pod::new(),
                 });
             }
@@ -123,16 +121,20 @@ impl Highlighter {
                 // Parse as scope's default rule
                 GonValue::Object { values, fields } if name == "default" => {
                     let scope = unwrap(scopes.get_mut(scope_name));
-                    if scope.default.is_some() {
-                        panic!("already defined default rule for current scope");
-                    }
 
                     let color =
                         get_field(&values, &fields, "color").map(|g| expect_color(&variables, g));
                     let background = get_field(&values, &fields, "background")
                         .map(|g| expect_color(&variables, g));
 
-                    scope.default = Some(DefaultRule { color, background });
+                    if let Some(prev) = core::mem::replace(&mut scope.color, color) {
+                        panic!("already defined default rule's color for current scope");
+                    }
+
+                    if let Some(prev) = core::mem::replace(&mut scope.background, background) {
+                        panic!("already defined default rule's background for current scope");
+                    }
+
                     continue;
                 }
 
@@ -178,7 +180,7 @@ impl Highlighter {
                         pattern,
                         color,
                         background,
-                        scope: scope_action,
+                        action: scope_action,
                     });
 
                     continue;
@@ -212,17 +214,51 @@ impl Highlighter {
             }
         }
 
-        // let default_scope = unwrap(scopes.get("default"));
-        // let mut rules = Pod::new();
-        // let mut scope_values = pod![scopes.len()];
+        let mut rules = Pod::new();
 
-        // for scope in scopes.values() {
-        //     for rule in scope.rules {
-        //         rules.push(rule);
-        //     }
-        // }
+        let default_scope = unwrap(scopes.get("default"));
+        let scope = Scope {
+            rules: r(0, 0),
+            default: Style {
+                color: unwrap(default_scope.color),
+                background: unwrap(default_scope.background),
+            },
+        };
+        let mut scope_values = pod![scope; scopes.len()];
 
-        // TODO idk man
+        for scope in scopes.values() {
+            let start = rules.len();
+            rules.reserve(scope.rules.len());
+
+            let scope_value = &mut scope_values[scope.id];
+
+            if let Some(color) = scope.color {
+                scope_value.default.color = color;
+            }
+
+            if let Some(background) = scope.background {
+                scope_value.default.background = background;
+            }
+
+            for &rule in scope.rules.iter() {
+                rules.push(Rule {
+                    pattern: rule.pattern,
+                    action: rule.action,
+                    style: Style {
+                        color: rule.color.unwrap_or(scope_value.default.color),
+                        background: rule.background.unwrap_or(scope_value.default.background),
+                    },
+                });
+            }
+
+            scope_value.rules = r(start, rules.len());
+        }
+
+        return Self {
+            regexes,
+            rules,
+            scopes: scope_values,
+        };
     }
 }
 

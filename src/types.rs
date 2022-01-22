@@ -10,8 +10,8 @@ pub const fn color(r: f32, g: f32, b: f32) -> Color {
 #[derive(Clone, Copy)]
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub struct Style {
-    pub fg_color: Color,
-    pub bg_color: Color,
+    pub color: Color,
+    pub background: Color,
 }
 
 #[derive(Clone, Copy)]
