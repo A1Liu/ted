@@ -362,6 +362,30 @@ where
     }
 }
 
+impl<T, A> Index<u32> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    type Output = T;
+
+    #[inline(always)]
+    fn index(&self, i: u32) -> &T {
+        return unwrap(self.get(i as usize));
+    }
+}
+
+impl<T, A> IndexMut<u32> for Pod<T, A>
+where
+    T: Copy,
+    A: Allocator,
+{
+    #[inline(always)]
+    fn index_mut(&mut self, i: u32) -> &mut T {
+        return unwrap(self.get_mut(i as usize));
+    }
+}
+
 impl<T, A> Index<usize> for Pod<T, A>
 where
     T: Copy,

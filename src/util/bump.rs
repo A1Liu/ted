@@ -23,7 +23,8 @@ struct Bump {
 }
 
 pub struct BucketList {
-    inner: Cell<*const BucketListInner>,
+    begin: Cell<*const BucketListInner>,
+    current: Cell<*const BucketListInner>,
 }
 
 impl BucketListInner {
@@ -102,13 +103,16 @@ impl BucketList {
         inner.next = Cell::new(ptr::null_mut());
         inner.end = Cell::new(&inner.array_begin as *const () as *const u8);
 
-        let inner = Cell::new(inner as *const BucketListInner);
+        let inner = inner as *const BucketListInner;
+        let begin = Cell::new(inner);
+        let current = Cell::new(inner);
 
-        return Self { inner };
+        return Self { begin, current };
     }
 
     pub fn clear(&mut self) {
-        let mut bucket = self.inner.get();
+        let begin = self.begin.get();
+        let mut bucket = begin;
 
         while !bucket.is_null() {
             let current = unsafe { &*bucket };
@@ -116,12 +120,14 @@ impl BucketList {
             current.end.set(end);
             bucket = current.next.get();
         }
+
+        self.current.set(begin);
     }
 }
 
 impl Drop for BucketList {
     fn drop(&mut self) {
-        let mut bucket = self.inner.get();
+        let mut bucket = self.begin.get();
 
         while !bucket.is_null() {
             let current = unsafe { &*bucket };
@@ -146,9 +152,14 @@ impl Drop for BucketList {
 
 unsafe impl Allocator for BucketList {
     fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
-        let inner = unsafe { &*self.inner.get() };
+        let inner = unsafe { &*self.current.get() };
 
         let ptr = unsafe { inner.alloc(layout) };
+
+        let next = inner.next.get();
+        if !next.is_null() {
+            self.current.set(inner.next.get());
+        }
 
         let slice = unsafe { core::slice::from_raw_parts_mut(ptr, layout.size()) };
         let ptr = NonNull::new(slice).ok_or(AllocError)?;
