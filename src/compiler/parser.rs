@@ -4,6 +4,8 @@ use std::collections::hash_map::HashMap;
 #[repr(u8)]
 #[derive(Clone, Copy)]
 pub enum TokenKind {
+    Skip = 0,
+
     LParen = b'(',
     RParen = b')',
     LBracket = b'[',
@@ -14,6 +16,7 @@ pub enum TokenKind {
     Dot = b'.',
     Comma = b',',
     Colon = b':',
+    Semicolon = b';',
 
     Bang = b'!',
     Tilde = b'~',
@@ -28,9 +31,9 @@ pub enum TokenKind {
     Lt = b'<',
     Gt = b'>',
 
-    Equal2, // ==
-    LtEq,   // <=
-    GtEq,   // >=
+    Equal2 = 129, // ==
+    LtEq,         // <=
+    GtEq,         // >=
 
     And, // &&
     Or,  // ||
@@ -41,141 +44,7 @@ pub enum TokenKind {
     Char,
     Integer,
     Float,
-
-    Skip,
 }
-
-//
-const SINGLE_CHAR_TOKENS: [TokenKind; 128] = [
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-    TokenKind::Skip,
-];
 
 #[derive(Clone, Copy)]
 pub struct Token {
@@ -211,6 +80,47 @@ fn lex(table: &mut StringTable, s: &str) -> Pod<Token> {
     let bytes = s.as_bytes();
 
     let mut index = 0;
+    'outer: while let Some(b) = bytes.get(index) {
+        index += 1;
+
+        'simple: loop {
+            let kind = match b {
+                b'(' => TokenKind::LParen,
+                b')' => TokenKind::RParen,
+                b'[' => TokenKind::LBracket,
+                b']' => TokenKind::RBracket,
+                b'{' => TokenKind::LBrace,
+                b'}' => TokenKind::RBrace,
+                b'.' => TokenKind::Dot,
+                b',' => TokenKind::Comma,
+                b':' => TokenKind::Colon,
+                b';' => TokenKind::Semicolon,
+                b'!' => TokenKind::Bang,
+                b'~' => TokenKind::Tilde,
+                b'&' => TokenKind::Amp,
+                b'^' => TokenKind::Caret,
+                b'%' => TokenKind::Mod,
+                b'*' => TokenKind::Star,
+                b'+' => TokenKind::Plus,
+                b'-' => TokenKind::Dash,
+                b'=' => TokenKind::Equal,
+                b'<' => TokenKind::Lt,
+                b'>' => TokenKind::Gt,
+
+                _ => break 'simple,
+            };
+
+            tokens.push(Token { kind, data: 0 });
+
+            continue 'outer;
+        }
+
+        if b == b'"' {}
+
+        if b == b'/' {}
+
+        if b == b'"' {}
+    }
 
     return tokens;
 }
