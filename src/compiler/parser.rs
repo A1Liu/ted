@@ -80,7 +80,7 @@ fn lex(table: &mut StringTable, s: &str) -> Pod<Token> {
     let bytes = s.as_bytes();
 
     let mut index = 0;
-    'outer: while let Some(b) = bytes.get(index) {
+    'outer: while let Some(&b) = bytes.get(index) {
         index += 1;
 
         'simple: loop {
@@ -119,7 +119,7 @@ fn lex(table: &mut StringTable, s: &str) -> Pod<Token> {
 
         if b == b'/' {}
 
-        if b == b'"' {}
+        if (b >= b'a' && b <= b'z') || b == b'_' {}
     }
 
     return tokens;
