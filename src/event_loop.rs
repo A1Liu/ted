@@ -1,9 +1,25 @@
-use crate::command_handler::*;
+use crate::editor::command_handler::*;
 use crate::editor::types::*;
+use crate::graphics::*;
+use crate::util::*;
 use winit::event;
 use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::ControlFlow;
 use winit::window::{Window, WindowId};
+
+pub struct WebPlatform {}
+
+impl Platform for WebPlatform {
+    fn render_text(&mut self, input: TextShaderInput) {
+        let result = TEXT_SHADER.with(|shader| -> Result<(), JsValue> {
+            shader.render(input)?;
+
+            return Ok(());
+        });
+
+        expect(result);
+    }
+}
 
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub enum TedEvent {
@@ -11,14 +27,14 @@ pub enum TedEvent {
 }
 
 pub struct Handler {
-    command_handler: CommandHandler,
+    command_handler: CommandHandler<WebPlatform>,
     window: Window,
 }
 
 impl Handler {
     pub fn new(window: Window, text: String) -> Self {
         return Self {
-            command_handler: CommandHandler::new(text),
+            command_handler: CommandHandler::new(WebPlatform {}, text),
             window,
         };
     }

@@ -22,9 +22,6 @@ mod editor;
 mod graphics;
 
 #[cfg(target_arch = "wasm32")]
-mod command_handler;
-
-#[cfg(target_arch = "wasm32")]
 mod event_loop;
 
 #[cfg(target_arch = "wasm32")]

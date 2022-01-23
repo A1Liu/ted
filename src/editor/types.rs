@@ -7,6 +7,32 @@ pub const fn color(r: f32, g: f32, b: f32) -> Color {
     return Color { x: r, y: g, z: b };
 }
 
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct Glyph {
+    // TODO translate these to f32's maybe? Then we wouldn't need to save atlas
+    // dims in a uniform either.
+    //                          - Albert Liu, Jan 11, 2022 Tue 21:46 EST
+
+    // each glyph is 2 trianges of 3 points each
+    pub top_left_1: Point2<u32>,
+    pub top_right_1: Point2<u32>,
+    pub bot_left_1: Point2<u32>,
+    pub top_right_2: Point2<u32>,
+    pub bot_left_2: Point2<u32>,
+    pub bot_right_2: Point2<u32>,
+}
+
+pub struct TextShaderInput<'a> {
+    pub is_lines: bool,
+    pub atlas: Option<&'a [u8]>,
+    pub fg_colors: Pod<Color>,
+    pub bg_colors: Pod<Color>,
+    pub glyphs: Pod<Glyph>,
+    pub atlas_dims: Rect,
+    pub dims: Rect,
+}
+
 pub struct HLData {
     pub color: Pod<Color>,
     pub background: Pod<Color>,

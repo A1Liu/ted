@@ -1,4 +1,4 @@
-use super::fonts::*;
+use crate::editor::types::*;
 use crate::util::*;
 use js_sys::Object;
 pub use web_sys::WebGl2RenderingContext as Context;

@@ -1,3 +1,5 @@
+pub mod command_handler;
+pub mod fonts;
 pub mod gon;
 pub mod highlighting;
 pub mod text;

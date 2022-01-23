@@ -1,10 +1,9 @@
-mod fonts;
 mod webgl;
 
+use crate::editor::fonts::*;
 use crate::editor::types::*;
 use crate::util::*;
 
-pub use fonts::*;
 pub use webgl::*;
 
 pub struct TextShader {
@@ -25,16 +24,6 @@ pub struct TextShader {
     in_fg_color: Buffer<Color>,
     in_bg_color: Buffer<Color>,
     in_glyph_pos: Buffer<Glyph>,
-}
-
-pub struct TextShaderInput<'a> {
-    pub is_lines: bool,
-    pub atlas: Option<&'a [u8]>,
-    pub fg_colors: Pod<Color>,
-    pub bg_colors: Pod<Color>,
-    pub glyphs: Pod<Glyph>,
-    pub atlas_dims: Rect,
-    pub dims: Rect,
 }
 
 impl TextShader {
