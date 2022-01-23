@@ -1,5 +1,5 @@
 use crate::command_handler::*;
-use crate::types::*;
+use crate::editor::types::*;
 use winit::event;
 use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::ControlFlow;

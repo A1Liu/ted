@@ -1,5 +1,5 @@
+use crate::editor::types::*;
 use crate::gon::*;
-use crate::types::*;
 use crate::util::*;
 use mint::*;
 use std::collections::hash_map::HashMap;

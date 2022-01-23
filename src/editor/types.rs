@@ -8,8 +8,8 @@ pub const fn color(r: f32, g: f32, b: f32) -> Color {
 }
 
 pub struct HLData {
-    color: Pod<Color>,
-    background: Pod<Color>,
+    pub color: Pod<Color>,
+    pub background: Pod<Color>,
 }
 
 #[derive(Clone, Copy)]

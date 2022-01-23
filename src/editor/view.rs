@@ -1,6 +1,6 @@
-use crate::highlighting::*;
-use crate::text::*;
-use crate::types::*;
+use crate::editor::highlighting::*;
+use crate::editor::text::*;
+use crate::editor::types::*;
 use crate::util::*;
 use std::io::Write;
 

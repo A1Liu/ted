@@ -1,7 +1,7 @@
+use crate::editor::types::*;
+use crate::editor::view::*;
 use crate::graphics::*;
-use crate::types::*;
 use crate::util::*;
-use crate::view::*;
 use winit::event_loop::ControlFlow;
 use winit::window::Window;
 
