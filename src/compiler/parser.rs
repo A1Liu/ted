@@ -2,17 +2,218 @@ use crate::util::*;
 use std::collections::hash_map::HashMap;
 
 #[repr(u8)]
-enum TokenKind {
-    Equal,
-    Equal2,
+#[derive(Clone, Copy)]
+pub enum TokenKind {
+    LParen = b'(',
+    RParen = b')',
+    LBracket = b'[',
+    RBracket = b']',
+    LBrace = b'{',
+    RBrace = b'}',
+
+    Dot = b'.',
+    Comma = b',',
+    Colon = b':',
+
+    Bang = b'!',
+    Tilde = b'~',
+    Amp = b'&',
+    Caret = b'^',
+    Mod = b'%',
+    Star = b'*',
+    Div = b'/',
+    Plus = b'+',
+    Dash = b'-',
+    Equal = b'=',
+    Lt = b'<',
+    Gt = b'>',
+
+    Equal2, // ==
+    LtEq,   // <=
+    GtEq,   // >=
+
+    And, // &&
+    Or,  // ||
+
+    Directive,
+    Word,
+    String,
+    Char,
+    Integer,
+    Float,
+
+    Skip,
 }
 
-struct Token {
-    kind: TokenKind,
-    string: u32,
+//
+const SINGLE_CHAR_TOKENS: [TokenKind; 128] = [
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+    TokenKind::Skip,
+];
+
+#[derive(Clone, Copy)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub data: u32,
 }
 
-// fn lex(table: &mut StringTable, s: &str) -> Pod<Token> {}
+impl Token {
+    fn len(&self, table: &StringTable) -> usize {
+        match self.kind {
+            TokenKind::Skip => return self.data as usize,
+
+            TokenKind::Word => return table.names[self.data].len(),
+            TokenKind::Directive => return table.names[self.data].len() + 1,
+            TokenKind::String => return table.names[self.data].len() + 2,
+            TokenKind::Char => return table.names[self.data].len() + 2,
+            TokenKind::Integer => return table.names[self.data].len(),
+            TokenKind::Float => return table.names[self.data].len(),
+
+            TokenKind::Equal2 => return 2,
+            TokenKind::LtEq => return 2,
+            TokenKind::GtEq => return 2,
+            TokenKind::And => return 2,
+            TokenKind::Or => return 2,
+
+            _ => return 1,
+        }
+    }
+}
+
+fn lex(table: &mut StringTable, s: &str) -> Pod<Token> {
+    let mut tokens = Pod::new();
+    let bytes = s.as_bytes();
+
+    let mut index = 0;
+
+    return tokens;
+}
 
 struct StringTable {
     allocator: BucketList,

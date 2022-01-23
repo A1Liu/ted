@@ -5,15 +5,16 @@ use std::ptr::NonNull;
 use std::{cmp, mem, ptr, slice, str};
 
 #[cfg(test)]
-const BUCKET_SIZE: usize = 128;
+const DEFAULT_BUCKET_SIZE: usize = 128;
 
 #[cfg(not(test))]
-const BUCKET_SIZE: usize = 2 * 1024 * 1024;
+const DEFAULT_BUCKET_SIZE: usize = 2 * 1024 * 1024;
 
 #[repr(C)]
 pub struct BucketListInner {
     pub next: Cell<*const BucketListInner>,
-    pub end: Cell<*const u8>,
+    pub current: Cell<*const u8>,
+    pub end: *const u8,
     pub array_begin: (),
 }
 
@@ -28,37 +29,32 @@ pub struct BucketList {
 }
 
 impl BucketListInner {
-    unsafe fn bump_size_align(bump: *const u8, end: *const u8, layout: Layout) -> Option<Bump> {
-        let required_offset = bump.align_offset(layout.align());
-        if required_offset == usize::MAX {
-            return None;
-        }
-
-        let bump = bump.add(required_offset);
-        let end_alloc = bump.add(layout.size());
-        if end_alloc as usize > end as usize {
-            return None;
-        }
-
-        let bump = Bump {
-            ptr: NonNull::new_unchecked(bump as *mut u8),
-            next_bump: NonNull::new_unchecked(end_alloc as *mut u8),
-        };
-
-        return Some(bump);
-    }
-
     pub unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        if layout.align() > 8 {
+            panic!("Not handled");
+        }
+
         let mut list = self;
 
         loop {
-            let array_begin = (&list.array_begin) as *const () as *const u8;
-            let bucket_end = array_begin.add(BUCKET_SIZE);
-            let mut bump = list.end.get();
+            let current = list.current.get();
+            let required_offset = current.align_offset(layout.align());
+            if required_offset == usize::MAX {
+                let next = list.next.get();
+                if next.is_null() {
+                    break;
+                }
 
-            if let Some(Bump { ptr, next_bump }) = Self::bump_size_align(bump, bucket_end, layout) {
-                list.end.set(next_bump.as_ptr());
-                return ptr.as_ptr();
+                list = &*next;
+                continue;
+            }
+
+            let bump = current.add(required_offset);
+            let end_alloc = bump.add(layout.size());
+            if end_alloc as usize <= list.end as usize {
+                list.current.set(end_alloc);
+
+                return bump as *mut u8;
             }
 
             let next = list.next.get();
@@ -71,17 +67,25 @@ impl BucketListInner {
 
         let bucket_align = cmp::max(layout.align(), mem::align_of::<BucketListInner>());
         let inner_size = cmp::max(bucket_align, mem::size_of::<BucketListInner>());
-        let bucket_size = inner_size + cmp::max(BUCKET_SIZE, layout.size());
+
+        let current_end = list.end as usize;
+        let current_begin = (&list.array_begin) as *const () as *const u8;
+        let current_size = current_end - current_begin as usize;
+
+        let bucket_size = inner_size + cmp::max(current_size * 3 / 2, layout.size());
 
         let next_layout = match Layout::from_size_align(bucket_size, bucket_align) {
-            Ok(x) => x,
             Err(_) => return ptr::null_mut(),
+            Ok(x) => x,
         };
 
-        let new_buffer = &mut *(alloc(next_layout) as *mut BucketListInner);
-        let next_array_begin = &mut new_buffer.array_begin as *mut () as *mut u8;
+        let new_buffer_ptr = alloc(next_layout);
+        let new_buffer = &mut *(new_buffer_ptr as *mut BucketListInner);
+        let next_array_begin = (&mut new_buffer.array_begin) as *mut () as *mut u8;
+
         new_buffer.next = Cell::new(ptr::null_mut());
-        new_buffer.end = Cell::new(next_array_begin.add(layout.size()));
+        new_buffer.current = Cell::new(next_array_begin.add(layout.size()));
+        new_buffer.end = new_buffer_ptr.add(next_layout.size());
 
         list.next.set(new_buffer);
 
@@ -90,9 +94,15 @@ impl BucketListInner {
 }
 
 impl BucketList {
+    #[inline(always)]
     pub fn new() -> Self {
+        return Self::with_capacity(DEFAULT_BUCKET_SIZE);
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
         let bucket_align = mem::align_of::<BucketListInner>();
-        let bucket_size = mem::size_of::<BucketListInner>() + BUCKET_SIZE;
+        let capacity = ((capacity - 1) / bucket_align + 1) * bucket_align;
+        let bucket_size = mem::size_of::<BucketListInner>() + capacity;
 
         let inner = unsafe {
             let next_layout = Layout::from_size_align_unchecked(bucket_size, bucket_align);
@@ -100,8 +110,11 @@ impl BucketList {
             &mut *(alloc(next_layout) as *mut BucketListInner)
         };
 
+        let inner_ptr = (inner) as *mut BucketListInner as *mut u8 as *const u8;
+
         inner.next = Cell::new(ptr::null_mut());
-        inner.end = Cell::new(&inner.array_begin as *const () as *const u8);
+        inner.current = Cell::new((&inner.array_begin) as *const () as *const u8);
+        inner.end = unsafe { inner_ptr.add(bucket_size) };
 
         let inner = inner as *const BucketListInner;
         let begin = Cell::new(inner);
@@ -116,8 +129,8 @@ impl BucketList {
 
         while !bucket.is_null() {
             let current = unsafe { &*bucket };
-            let end = (&current.array_begin) as *const () as *const u8;
-            current.end.set(end);
+            let begin = (&current.array_begin) as *const () as *const u8;
+            current.current.set(begin);
             bucket = current.next.get();
         }
 
@@ -132,11 +145,10 @@ impl Drop for BucketList {
         while !bucket.is_null() {
             let current = unsafe { &*bucket };
 
-            let end = current.end.get() as usize;
-            let begin = (&current.array_begin) as *const () as usize;
+            let end = current.end as usize;
+            let begin = bucket as usize;
             let allocated_size = end - begin;
 
-            let allocated_size = cmp::max(allocated_size, BUCKET_SIZE);
             let allocated_size = allocated_size + mem::size_of::<BucketListInner>();
             let next_bucket = current.next.get();
             unsafe {
