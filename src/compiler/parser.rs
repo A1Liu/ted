@@ -32,6 +32,7 @@ pub enum TokenKind {
     Gt = b'>',
 
     Equal2 = 129, // ==
+    NotEqual,     // !=
     LtEq,         // <=
     GtEq,         // >=
 
@@ -84,6 +85,17 @@ fn lex(table: &mut StringTable, s: &str) -> Pod<Token> {
         index += 1;
 
         'simple: loop {
+            macro_rules! trailing_eq {
+                ($e1:expr, $e2:expr) => {{
+                    if let Some(b'=') = bytes.get(index) {
+                        index += 1;
+                        $e2
+                    } else {
+                        $e1
+                    }
+                }};
+            }
+
             let kind = match b {
                 b'(' => TokenKind::LParen,
                 b')' => TokenKind::RParen,
@@ -95,17 +107,19 @@ fn lex(table: &mut StringTable, s: &str) -> Pod<Token> {
                 b',' => TokenKind::Comma,
                 b':' => TokenKind::Colon,
                 b';' => TokenKind::Semicolon,
-                b'!' => TokenKind::Bang,
                 b'~' => TokenKind::Tilde,
                 b'&' => TokenKind::Amp,
                 b'^' => TokenKind::Caret,
+
+                b'!' => trailing_eq!(TokenKind::Bang, TokenKind::NotEqual),
+                b'=' => trailing_eq!(TokenKind::Equal, TokenKind::Equal2),
+                b'<' => trailing_eq!(TokenKind::Lt, TokenKind::LtEq),
+                b'>' => trailing_eq!(TokenKind::Gt, TokenKind::GtEq),
+
                 b'%' => TokenKind::Mod,
                 b'*' => TokenKind::Star,
                 b'+' => TokenKind::Plus,
                 b'-' => TokenKind::Dash,
-                b'=' => TokenKind::Equal,
-                b'<' => TokenKind::Lt,
-                b'>' => TokenKind::Gt,
 
                 _ => break 'simple,
             };
