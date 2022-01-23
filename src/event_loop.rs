@@ -7,7 +7,7 @@ use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::ControlFlow;
 use winit::window::{Window, WindowId};
 
-pub struct WebPlatform {}
+struct WebPlatform;
 
 impl Platform for WebPlatform {
     fn render_text(&mut self, input: TextShaderInput) {
@@ -34,7 +34,7 @@ pub struct Handler {
 impl Handler {
     pub fn new(window: Window, text: String) -> Self {
         return Self {
-            command_handler: CommandHandler::new(WebPlatform {}, text),
+            command_handler: CommandHandler::new(WebPlatform, text),
             window,
         };
     }
