@@ -1,4 +1,5 @@
 use crate::util::*;
+use core::ops::Range;
 
 // TODO Placeholder system. Eventually we'll flesh this out maybe. For now, 'tis
 // a simple thing with a bit of needless complexity
@@ -11,11 +12,11 @@ pub enum Error {
 pub struct ErrorMessage {
     message: String,
     file: u32,
-    range: CopyRange,
+    range: Range<usize>,
 }
 
 impl Error {
-    pub fn new(s: impl Into<String>, range: CopyRange) -> Self {
+    pub fn new(s: impl Into<String>, range: Range<usize>) -> Self {
         return Self::Message(ErrorMessage {
             message: s.into(),
             file: 0,

@@ -83,6 +83,7 @@ fn lex(table: &mut StringTable, s: &str) -> Result<Pod<Token>, Error> {
 
     let mut index = 0;
     'outer: while let Some(&b) = bytes.get(index) {
+        let begin = index;
         index += 1;
 
         'simple: loop {
@@ -128,34 +129,121 @@ fn lex(table: &mut StringTable, s: &str) -> Result<Pod<Token>, Error> {
             };
 
             tokens.push(Token { kind, data: 0 });
-
             continue 'outer;
         }
 
         if b == b'"' {
-            let len = parse_string(&bytes[index..], b'"')?;
-            let s = unsafe { core::str::from_utf8_unchecked(&bytes[index..(index + len - 1)]) };
+            let end = parse_string(bytes, index, b'"')?;
+            let s = unsafe { core::str::from_utf8_unchecked(&bytes[index..(end - 1)]) };
             let data = table.add(s);
 
-            index += len;
+            index = end;
 
             let kind = TokenKind::String;
             tokens.push(Token { kind, data });
             continue 'outer;
         }
 
-        if b == b'\'' {}
+        if b == b'\'' {
+            let end = parse_string(bytes, index, b'\'')?;
+            let s = unsafe { core::str::from_utf8_unchecked(&bytes[index..(end - 1)]) };
+            let data = table.add(s);
 
-        if b == b'/' {}
+            index = end;
 
-        if (b >= b'a' && b <= b'z') || b == b'_' {}
+            let kind = TokenKind::Char;
+            tokens.push(Token { kind, data });
+            continue 'outer;
+        }
+
+        if b == b'/' {
+            if let Some(b'/') = bytes.get(index) {
+                index += 1;
+
+                while let Some(&b) = bytes.get(index) {
+                    index += 1;
+
+                    if b == b'\n' {
+                        break;
+                    }
+                }
+
+                let kind = TokenKind::Skip;
+                let data: u32 = expect((index - begin).try_into());
+                tokens.push(Token { kind, data });
+                continue 'outer;
+            }
+
+            let kind = TokenKind::Div;
+            tokens.push(Token { kind, data: 0 });
+            continue 'outer;
+        }
+
+        let is_alpha = (b >= b'a' && b <= b'z') || (b >= b'A' && b <= b'Z');
+        if is_alpha || b == b'_' {
+            while let Some(&b) = bytes.get(index) {
+                let is_alpha = (b >= b'a' && b <= b'z') || (b >= b'A' && b <= b'Z');
+                let is_num = b >= b'0' && b <= b'9';
+
+                if is_alpha || b == b'_' || is_num {
+                    index += 1;
+                    continue;
+                }
+
+                break;
+            }
+
+            let s = unsafe { core::str::from_utf8_unchecked(&bytes[begin..index]) };
+            let data = table.add(s);
+
+            let kind = TokenKind::Word;
+            tokens.push(Token { kind, data });
+            continue 'outer;
+        }
+
+        if b == b' ' || b == b'\t' || b == b'\r' || b == b'\n' {
+            while let Some(&b) = bytes.get(index) {
+                if b == b' ' || b == b'\t' || b == b'\r' || b == b'\n' {
+                    index += 1;
+                    continue;
+                }
+
+                break;
+            }
+
+            let kind = TokenKind::Skip;
+            let data: u32 = expect((index - begin).try_into());
+            tokens.push(Token { kind, data });
+            continue 'outer;
+        }
+
+        let error = Error::new("unrecognized token", begin..index);
+        return Err(error);
     }
 
     return Ok(tokens);
 }
 
-fn parse_string(bytes: &[u8], terminator: u8) -> Result<usize, Error> {
-    return Ok(0);
+fn parse_string(bytes: &[u8], mut index: usize, terminator: u8) -> Result<usize, Error> {
+    let begin = index;
+
+    let mut escaped = false;
+    while let Some(&b) = bytes.get(index) {
+        index += 1;
+
+        if b == b'\\' {
+            escaped = true;
+            continue;
+        }
+
+        if b == b'"' && !escaped {
+            return Ok(index);
+        }
+
+        escaped = false;
+    }
+
+    return Err(Error::new("failed to parse char or string", begin..index));
 }
 
 struct StringTable {
