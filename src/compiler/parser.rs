@@ -1,3 +1,4 @@
+use crate::compiler::types::*;
 use crate::util::*;
 use std::collections::hash_map::HashMap;
 
@@ -76,7 +77,7 @@ impl Token {
     }
 }
 
-fn lex(table: &mut StringTable, s: &str) -> Pod<Token> {
+fn lex(table: &mut StringTable, s: &str) -> Result<Pod<Token>, Error> {
     let mut tokens = Pod::new();
     let bytes = s.as_bytes();
 
@@ -116,6 +117,8 @@ fn lex(table: &mut StringTable, s: &str) -> Pod<Token> {
                 b'<' => trailing_eq!(TokenKind::Lt, TokenKind::LtEq),
                 b'>' => trailing_eq!(TokenKind::Gt, TokenKind::GtEq),
 
+                // b'/' is handled separately because comments have more complex
+                // syntax checking
                 b'%' => TokenKind::Mod,
                 b'*' => TokenKind::Star,
                 b'+' => TokenKind::Plus,
@@ -129,14 +132,30 @@ fn lex(table: &mut StringTable, s: &str) -> Pod<Token> {
             continue 'outer;
         }
 
-        if b == b'"' {}
+        if b == b'"' {
+            let len = parse_string(&bytes[index..], b'"')?;
+            let s = unsafe { core::str::from_utf8_unchecked(&bytes[index..(index + len - 1)]) };
+            let data = table.add(s);
+
+            index += len;
+
+            let kind = TokenKind::String;
+            tokens.push(Token { kind, data });
+            continue 'outer;
+        }
+
+        if b == b'\'' {}
 
         if b == b'/' {}
 
         if (b >= b'a' && b <= b'z') || b == b'_' {}
     }
 
-    return tokens;
+    return Ok(tokens);
+}
+
+fn parse_string(bytes: &[u8], terminator: u8) -> Result<usize, Error> {
+    return Ok(0);
 }
 
 struct StringTable {
