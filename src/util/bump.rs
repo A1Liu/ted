@@ -138,6 +138,9 @@ impl BucketList {
     }
 }
 
+unsafe impl Send for BucketList {}
+unsafe impl Sync for BucketList {}
+
 impl Drop for BucketList {
     fn drop(&mut self) {
         let mut bucket = self.begin.get();

@@ -2,6 +2,28 @@ use crate::compiler::types::*;
 use crate::util::*;
 use std::collections::hash_map::HashMap;
 
+#[repr(u32)]
+#[derive(Clone, Copy)]
+pub enum Keyword {
+    Let = 0,
+    Proc,
+    Type,
+    Defer,
+    Context,
+
+    If,
+    Else,
+    Match,
+
+    Continue,
+    Break,
+    For,
+    While,
+
+    Spawn,
+    Wait,
+}
+
 #[repr(u8)]
 #[derive(Clone, Copy)]
 pub enum TokenKind {
@@ -77,7 +99,7 @@ impl Token {
     }
 }
 
-fn lex(table: &mut StringTable, s: &str) -> Result<Pod<Token>, Error> {
+fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error> {
     let mut tokens = Pod::new();
     let bytes = s.as_bytes();
 
@@ -91,6 +113,7 @@ fn lex(table: &mut StringTable, s: &str) -> Result<Pod<Token>, Error> {
                 ($e1:expr, $e2:expr) => {{
                     if let Some(b'=') = bytes.get(index) {
                         index += 1;
+
                         $e2
                     } else {
                         $e1
@@ -133,7 +156,7 @@ fn lex(table: &mut StringTable, s: &str) -> Result<Pod<Token>, Error> {
         }
 
         if b == b'"' {
-            let end = parse_string(bytes, index, b'"')?;
+            let end = parse_string(file, bytes, index, b'"')?;
             let s = unsafe { core::str::from_utf8_unchecked(&bytes[index..(end - 1)]) };
             let data = table.add(s);
 
@@ -145,7 +168,7 @@ fn lex(table: &mut StringTable, s: &str) -> Result<Pod<Token>, Error> {
         }
 
         if b == b'\'' {
-            let end = parse_string(bytes, index, b'\'')?;
+            let end = parse_string(file, bytes, index, b'\'')?;
             let s = unsafe { core::str::from_utf8_unchecked(&bytes[index..(end - 1)]) };
             let data = table.add(s);
 
@@ -201,6 +224,26 @@ fn lex(table: &mut StringTable, s: &str) -> Result<Pod<Token>, Error> {
             continue 'outer;
         }
 
+        let is_num = b >= b'0' && b <= b'9';
+        if is_num {
+            while let Some(&b) = bytes.get(index) {
+                let is_num = b >= b'0' && b <= b'9';
+                if b == b'_' || is_num {
+                    index += 1;
+                    continue;
+                }
+
+                break;
+            }
+
+            let s = unsafe { core::str::from_utf8_unchecked(&bytes[begin..index]) };
+            let data = table.add(s);
+
+            let kind = TokenKind::Integer;
+            tokens.push(Token { kind, data });
+            continue 'outer;
+        }
+
         if b == b' ' || b == b'\t' || b == b'\r' || b == b'\n' {
             while let Some(&b) = bytes.get(index) {
                 if b == b' ' || b == b'\t' || b == b'\r' || b == b'\n' {
@@ -217,14 +260,14 @@ fn lex(table: &mut StringTable, s: &str) -> Result<Pod<Token>, Error> {
             continue 'outer;
         }
 
-        let error = Error::new("unrecognized token", begin..index);
+        let error = Error::new("unrecognized token", file, begin..index);
         return Err(error);
     }
 
     return Ok(tokens);
 }
 
-fn parse_string(bytes: &[u8], mut index: usize, terminator: u8) -> Result<usize, Error> {
+fn parse_string(file: u32, bytes: &[u8], mut index: usize, terminator: u8) -> Result<usize, Error> {
     let begin = index;
 
     let mut escaped = false;
@@ -243,7 +286,11 @@ fn parse_string(bytes: &[u8], mut index: usize, terminator: u8) -> Result<usize,
         escaped = false;
     }
 
-    return Err(Error::new("failed to parse char or string", begin..index));
+    return Err(Error::new(
+        "failed to parse char or string",
+        file,
+        begin..index,
+    ));
 }
 
 struct StringTable {
@@ -254,11 +301,36 @@ struct StringTable {
 
 impl StringTable {
     pub fn new() -> Self {
-        return Self {
+        let mut table = Self {
             allocator: BucketList::new(),
             names: Pod::new(),
             translate: HashMap::new(),
         };
+
+        let mut success = true;
+        success = success && table.add("let") == Keyword::Let as u32;
+        success = success && table.add("proc") == Keyword::Proc as u32;
+        success = success && table.add("type") == Keyword::Type as u32;
+        success = success && table.add("defer") == Keyword::Defer as u32;
+        success = success && table.add("context") == Keyword::Context as u32;
+
+        success = success && table.add("if") == Keyword::If as u32;
+        success = success && table.add("else") == Keyword::Else as u32;
+        success = success && table.add("match") == Keyword::Match as u32;
+
+        success = success && table.add("continue") == Keyword::Continue as u32;
+        success = success && table.add("break") == Keyword::Break as u32;
+        success = success && table.add("for") == Keyword::For as u32;
+        success = success && table.add("while") == Keyword::While as u32;
+
+        success = success && table.add("spawn") == Keyword::Spawn as u32;
+        success = success && table.add("wait") == Keyword::Wait as u32;
+
+        if !success {
+            panic!("Rippo");
+        }
+
+        table
     }
 
     pub fn add(&mut self, s: &str) -> u32 {
@@ -273,5 +345,41 @@ impl StringTable {
         self.names.push(s);
 
         return id;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::util::*;
+    use core::fmt::Write;
+
+    #[test]
+    fn test_parser() {
+        let mut table = StringTable::new();
+        let mut files = FileDb::new();
+
+        let text = r#"
+        let hello = wait slow()
+        let a = 12
+
+        print(hello, a)
+        "#;
+
+        if let Err(e) = files.add("data.liu", text) {
+            panic!("{}", e);
+        }
+
+        let data = match lex(&mut table, 0, text) {
+            Ok(data) => data,
+            Err(e) => {
+                let mut out = String::new();
+
+                expect(e.render(&files, &mut out));
+
+                eprintln!("{}\n", out);
+                panic!("{:?}", e);
+            }
+        };
     }
 }

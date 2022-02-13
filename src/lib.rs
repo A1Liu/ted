@@ -10,6 +10,9 @@
 #![allow(unused_mut)]
 /* */
 
+#[macro_use]
+extern crate lazy_static;
+
 extern crate alloc;
 
 #[macro_use]

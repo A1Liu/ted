@@ -272,8 +272,10 @@ dependencies = [
  "console_error_panic_hook",
  "glutin",
  "js-sys",
+ "lazy_static",
  "mint",
  "ttf-parser",
+ "unicode-width",
  "wasm-bindgen",
  "web-sys",
  "wee_alloc",
@@ -848,6 +850,12 @@ name = "ttf-parser"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76dacc724328b3d5e2ed67f9e30cdb56893a34ab239032502cc8f19f8dae4bbc"
+
+[[package]]
+name = "unicode-width"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ed742d4ea2bd1176e236172c8429aaf54486e7ac098db29ffe6529e0ce50973"
 
 [[package]]
 name = "unicode-xid"

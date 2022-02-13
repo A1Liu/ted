@@ -59,6 +59,20 @@ where
     phantom: core::marker::PhantomData<T>,
 }
 
+unsafe impl<T, A> Sync for Pod<T, A>
+where
+    T: Copy + Sync,
+    A: Allocator + Sync,
+{
+}
+
+unsafe impl<T, A> Send for Pod<T, A>
+where
+    T: Copy + Send,
+    A: Allocator + Send,
+{
+}
+
 impl<T> Pod<T, Global>
 where
     T: Copy,
