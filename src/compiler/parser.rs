@@ -81,6 +81,7 @@ impl Token {
     fn len(&self, table: &StringTable) -> usize {
         match self.kind {
             TokenKind::Skip => return self.data as usize,
+            TokenKind::NewlineSkip => return self.data as usize,
 
             TokenKind::Word => return table.names[self.data].len(),
             TokenKind::Directive => return table.names[self.data].len() + 1,
@@ -99,6 +100,8 @@ impl Token {
         }
     }
 }
+
+pub struct Parser {}
 
 fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error> {
     let mut tokens = Pod::new();
