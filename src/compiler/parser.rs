@@ -324,6 +324,7 @@ impl StringTable {
         };
 
         let mut success = true;
+
         success = success && table.add("let") == Keyword::Let as u32;
         success = success && table.add("proc") == Keyword::Proc as u32;
         success = success && table.add("type") == Keyword::Type as u32;
