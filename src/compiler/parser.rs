@@ -27,8 +27,6 @@ pub enum Keyword {
 #[repr(u8)]
 #[derive(Clone, Copy)]
 pub enum TokenKind {
-    Skip = 0,
-
     LParen = b'(',
     RParen = b')',
     LBracket = b'[',
@@ -68,6 +66,9 @@ pub enum TokenKind {
     Char,
     Integer,
     Float,
+
+    Skip,
+    NewlineSkip,
 }
 
 #[derive(Clone, Copy)]
@@ -245,16 +246,31 @@ fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error>
         }
 
         if b == b' ' || b == b'\t' || b == b'\r' || b == b'\n' {
+            let mut has_newline = false;
+
             while let Some(&b) = bytes.get(index) {
-                if b == b' ' || b == b'\t' || b == b'\r' || b == b'\n' {
+                let is_newline = b == b'\r' || b == b'\n';
+                if is_newline {
+                    has_newline = true;
                     index += 1;
+
+                    continue;
+                }
+
+                if b == b' ' || b == b'\t' {
+                    index += 1;
+
                     continue;
                 }
 
                 break;
             }
 
-            let kind = TokenKind::Skip;
+            let kind = match has_newline {
+                true => TokenKind::NewlineSkip,
+                false => TokenKind::Skip,
+            };
+
             let data: u32 = expect((index - begin).try_into());
             tokens.push(Token { kind, data });
             continue 'outer;
