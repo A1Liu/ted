@@ -1,3 +1,4 @@
+use crate::compiler::ast::*;
 use crate::compiler::types::*;
 use crate::util::*;
 use std::collections::hash_map::HashMap;
@@ -21,6 +22,7 @@ pub enum Keyword {
 
     Spawn,
     Wait,
+    Crash,
 }
 
 #[repr(u8)]
@@ -100,7 +102,59 @@ impl Token {
     }
 }
 
-pub struct Parser {}
+pub fn parse(table: &mut StringTable, file: u32, s: &str) -> Result<Ast, Error> {
+    let data = lex(table, file, s)?;
+
+    let allocator = BucketList::new();
+    let mut parser = Parser {
+        allocator,
+        data,
+        index: 0,
+    };
+
+    let block = parser.parse_expressions()?;
+
+    return Ok(Ast {
+        allocator: parser.allocator,
+        block,
+    });
+}
+
+struct Parser {
+    allocator: BucketList,
+    data: Pod<Token>,
+    index: usize,
+}
+
+impl Parser {
+    pub fn peek(&self) -> Option<Token> {
+        let tok = self.data.get(self.index)?;
+
+        return Some(*tok);
+    }
+
+    pub fn parse_expressions<'b>(&mut self) -> Result<Block, Error> {
+        let mut stmts = Pod::with_allocator(&self.allocator);
+        let mut identifiers = HashMap::new();
+
+        while let Some(tok) = self.peek() {
+            if let TokenKind::Skip | TokenKind::NewlineSkip = tok.kind {
+                self.index += 1;
+                continue;
+            }
+
+            // let stmt = parser.parse_statement(&mut identifiers)?;
+            // stmts.push(stmt);
+        }
+
+        let stmts = stmts.leak();
+        let scope = HashRef::new(&self.allocator, &identifiers);
+
+        let block = Block { scope, stmts };
+
+        return Ok(block);
+    }
+}
 
 fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error> {
     let mut tokens = Pod::new();
@@ -311,7 +365,7 @@ fn parse_string(file: u32, bytes: &[u8], mut index: usize, terminator: u8) -> Re
     ));
 }
 
-struct StringTable {
+pub struct StringTable {
     allocator: BucketList,
     pub names: Pod<&'static str>,
     pub translate: HashMap<&'static str, u32>,
@@ -343,6 +397,7 @@ impl StringTable {
 
         success = success && table.add("spawn") == Keyword::Spawn as u32;
         success = success && table.add("wait") == Keyword::Wait as u32;
+        success = success && table.add("crash") == Keyword::Crash as u32;
 
         if !success {
             panic!("Rippo");

@@ -72,7 +72,7 @@ where
 unsafe impl<T, A> Sync for Pod<T, A>
 where
     T: Copy + Sync,
-    A: Allocator + Sync,
+    A: Allocator,
 {
 }
 

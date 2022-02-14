@@ -4,6 +4,11 @@ use core::cell::Cell;
 use std::ptr::NonNull;
 use std::{cmp, mem, ptr, slice, str};
 
+// TODO: Rewrite this stuff to use a normal Pod of bump pointers. There's no
+// reason to do weird stuff with linked lists when a simple Pod and an inline
+// bump pointer for the currently active allocation would do.
+//                              - Albert Liu, Feb 13, 2022 Sun 21:24 EST
+
 #[cfg(test)]
 const DEFAULT_BUCKET_SIZE: usize = 128;
 
@@ -29,6 +34,28 @@ pub struct BucketList {
 }
 
 impl BucketListInner {
+    pub fn new(capacity: usize) -> *const Self {
+        let bucket_align = mem::align_of::<BucketListInner>();
+        let capacity = ((capacity - 1) / bucket_align + 1) * bucket_align;
+        let bucket_size = mem::size_of::<BucketListInner>() + capacity;
+
+        let inner = unsafe {
+            let next_layout = Layout::from_size_align_unchecked(bucket_size, bucket_align);
+
+            &mut *(alloc(next_layout) as *mut BucketListInner)
+        };
+
+        let inner_ptr = (inner) as *mut BucketListInner as *mut u8 as *const u8;
+
+        inner.next = Cell::new(ptr::null_mut());
+        inner.current = Cell::new((&inner.array_begin) as *const () as *const u8);
+        inner.end = unsafe { inner_ptr.add(bucket_size) };
+
+        let inner = inner as *const BucketListInner;
+
+        return inner;
+    }
+
     pub unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         if layout.align() > 8 {
             panic!("Not handled");
@@ -96,27 +123,15 @@ impl BucketListInner {
 impl BucketList {
     #[inline(always)]
     pub fn new() -> Self {
-        return Self::with_capacity(DEFAULT_BUCKET_SIZE);
+        return Self {
+            begin: Cell::new(ptr::null_mut()),
+            current: Cell::new(ptr::null_mut()),
+        };
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        let bucket_align = mem::align_of::<BucketListInner>();
-        let capacity = ((capacity - 1) / bucket_align + 1) * bucket_align;
-        let bucket_size = mem::size_of::<BucketListInner>() + capacity;
+        let inner = BucketListInner::new(capacity);
 
-        let inner = unsafe {
-            let next_layout = Layout::from_size_align_unchecked(bucket_size, bucket_align);
-
-            &mut *(alloc(next_layout) as *mut BucketListInner)
-        };
-
-        let inner_ptr = (inner) as *mut BucketListInner as *mut u8 as *const u8;
-
-        inner.next = Cell::new(ptr::null_mut());
-        inner.current = Cell::new((&inner.array_begin) as *const () as *const u8);
-        inner.end = unsafe { inner_ptr.add(bucket_size) };
-
-        let inner = inner as *const BucketListInner;
         let begin = Cell::new(inner);
         let current = Cell::new(inner);
 
@@ -139,7 +154,6 @@ impl BucketList {
 }
 
 unsafe impl Send for BucketList {}
-unsafe impl Sync for BucketList {}
 
 impl Drop for BucketList {
     fn drop(&mut self) {
@@ -167,6 +181,14 @@ impl Drop for BucketList {
 
 unsafe impl Allocator for BucketList {
     fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+        if self.begin.get().is_null() {
+            let size = std::cmp::max(layout.size(), DEFAULT_BUCKET_SIZE);
+            let inner = BucketListInner::new(size);
+
+            self.begin.set(inner);
+            self.current.set(inner);
+        }
+
         let inner = unsafe { &*self.current.get() };
 
         let ptr = unsafe { inner.alloc(layout) };
