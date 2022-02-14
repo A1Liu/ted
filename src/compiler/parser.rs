@@ -64,8 +64,7 @@ pub enum TokenKind {
     Word,
     String,
     Char,
-    Integer,
-    Float,
+    Number,
 
     Skip,
     NewlineSkip,
@@ -87,8 +86,7 @@ impl Token {
             TokenKind::Directive => return table.names[self.data].len() + 1,
             TokenKind::String => return table.names[self.data].len() + 2,
             TokenKind::Char => return table.names[self.data].len() + 2,
-            TokenKind::Integer => return table.names[self.data].len(),
-            TokenKind::Float => return table.names[self.data].len(),
+            TokenKind::Number => return table.names[self.data].len(),
 
             TokenKind::Equal2 => return 2,
             TokenKind::LtEq => return 2,
@@ -259,12 +257,13 @@ fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error>
         }
 
         let is_alpha = (b >= b'a' && b <= b'z') || (b >= b'A' && b <= b'Z');
-        if is_alpha || b == b'_' {
+        let is_num = b >= b'0' && b <= b'9';
+        if is_alpha || is_num || b == b'_' {
             while let Some(&b) = bytes.get(index) {
                 let is_alpha = (b >= b'a' && b <= b'z') || (b >= b'A' && b <= b'Z');
                 let is_num = b >= b'0' && b <= b'9';
 
-                if is_alpha || b == b'_' || is_num {
+                if is_alpha || is_num || b == b'_' {
                     index += 1;
                     continue;
                 }
@@ -272,30 +271,33 @@ fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error>
                 break;
             }
 
-            let s = unsafe { core::str::from_utf8_unchecked(&bytes[begin..index]) };
-            let data = table.add(s);
+            let kind = match is_num {
+                false => TokenKind::Word,
 
-            let kind = TokenKind::Word;
-            tokens.push(Token { kind, data });
-            continue 'outer;
-        }
+                true => {
+                    if let Some(b'.') = bytes.get(index).map(|b| *b) {
+                        index += 1;
 
-        let is_num = b >= b'0' && b <= b'9';
-        if is_num {
-            while let Some(&b) = bytes.get(index) {
-                let is_num = b >= b'0' && b <= b'9';
-                if is_num || b == b'_' {
-                    index += 1;
-                    continue;
+                        while let Some(&b) = bytes.get(index) {
+                            let is_alpha = (b >= b'a' && b <= b'z') || (b >= b'A' && b <= b'Z');
+                            let is_num = b >= b'0' && b <= b'9';
+
+                            if is_alpha || is_num || b == b'_' {
+                                index += 1;
+                                continue;
+                            }
+
+                            break;
+                        }
+                    }
+
+                    TokenKind::Number
                 }
-
-                break;
-            }
+            };
 
             let s = unsafe { core::str::from_utf8_unchecked(&bytes[begin..index]) };
             let data = table.add(s);
 
-            let kind = TokenKind::Integer;
             tokens.push(Token { kind, data });
             continue 'outer;
         }
