@@ -22,7 +22,6 @@ pub enum Keyword {
 
     Spawn,
     Wait,
-    Crash,
 }
 
 #[repr(u8)]
@@ -285,7 +284,7 @@ fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error>
         if is_num {
             while let Some(&b) = bytes.get(index) {
                 let is_num = b >= b'0' && b <= b'9';
-                if b == b'_' || is_num {
+                if is_num || b == b'_' {
                     index += 1;
                     continue;
                 }
@@ -397,7 +396,6 @@ impl StringTable {
 
         success = success && table.add("spawn") == Keyword::Spawn as u32;
         success = success && table.add("wait") == Keyword::Wait as u32;
-        success = success && table.add("crash") == Keyword::Crash as u32;
 
         if !success {
             panic!("Rippo");
