@@ -3,6 +3,7 @@ use crate::util::*;
 use core::fmt::{self, Error as FmtError, Result as FmtResult, Write};
 use core::ops::Range;
 use core::str;
+use core::sync::atomic::{AtomicU32, Ordering};
 use std::collections::hash_map::HashMap;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
@@ -382,4 +383,10 @@ pub fn column_index(source: &str, line_range: core::ops::Range<usize>, byte_inde
 
 pub fn line_starts<'source>(source: &'source str) -> impl 'source + Iterator<Item = usize> {
     core::iter::once(0).chain(source.match_indices('\n').map(|(i, _)| i + 1))
+}
+
+static VALUE_ORDERING: AtomicU32 = AtomicU32::new(0);
+
+pub fn uuid() -> u32 {
+    return VALUE_ORDERING.fetch_add(1, Ordering::Relaxed);
 }

@@ -8,21 +8,21 @@ pub struct Ast {
 
 #[derive(Clone, Copy)]
 pub struct Block {
-    // translation from identifier to memory numbering
+    // translation from identifier to global memory numbering
     pub scope: HashRef<'static, u32, u32>,
     pub stmts: &'static [Stmt],
 }
 
 #[derive(Clone, Copy)]
 pub struct Stmt {
-    kind: StmtKind,
-    loc: CodeLoc,
+    pub kind: StmtKind,
+    pub loc: CodeLoc,
 }
 
 #[derive(Clone, Copy)]
 pub struct Expr {
-    kind: ExprKind,
-    loc: CodeLoc,
+    pub kind: ExprKind,
+    pub loc: CodeLoc,
 }
 
 #[derive(Clone, Copy)]
