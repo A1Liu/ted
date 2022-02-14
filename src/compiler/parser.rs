@@ -18,7 +18,6 @@ pub enum Keyword {
     Continue,
     Break,
     For,
-    While,
 
     Spawn,
     Wait,
@@ -341,7 +340,6 @@ impl StringTable {
         success = success && table.add("continue") == Keyword::Continue as u32;
         success = success && table.add("break") == Keyword::Break as u32;
         success = success && table.add("for") == Keyword::For as u32;
-        success = success && table.add("while") == Keyword::While as u32;
 
         success = success && table.add("spawn") == Keyword::Spawn as u32;
         success = success && table.add("wait") == Keyword::Wait as u32;

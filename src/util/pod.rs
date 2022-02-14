@@ -18,6 +18,16 @@ macro_rules! pod {
         pod
     }};
 
+    ($elem:expr ; $n:expr ; $alloc:expr) => {{
+        let n : usize = $n;
+        let elem = $elem;
+
+        let mut pod = $crate::util::Pod::with_allocator($alloc);
+        pod.push_repeat(elem, n);
+
+        pod
+    }};
+
     ($($e:expr),* $(,)?) => {{
         let data = [ $( $e ),+ ];
         let mut pod = $crate::util::Pod::with_capacity(data.len());
@@ -111,7 +121,7 @@ where
     #[inline(always)]
     pub fn extend_from_slice(&mut self, data: &[T]) {
         let len = data.len();
-        self.reserve(len);
+        self.raw.reserve_additional(&self.allocator, len);
 
         let ptr = self.raw.ptr(self.raw.length) as *mut T;
         let to_space = unsafe { core::slice::from_raw_parts_mut(ptr, len) };
@@ -127,6 +137,12 @@ where
         self.raw.length += 1;
 
         unsafe { *ptr = t };
+    }
+
+    pub fn leak<'b>(self) -> &'b mut [T] {
+        let len = self.raw.length;
+        let ptr = self.raw.ptr(0) as *mut T;
+        return unsafe { core::slice::from_raw_parts_mut(ptr, len) };
     }
 
     pub fn clear(&mut self) {

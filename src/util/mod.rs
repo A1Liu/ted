@@ -12,11 +12,14 @@ mod bump;
 #[macro_use]
 mod pod;
 
+mod hashref;
+
 #[cfg(target_arch = "wasm32")]
 pub use wasm::*;
 
 pub use alloc_api::*;
 pub use bump::*;
+pub use hashref::*;
 pub use pod::*;
 
 pub trait AllocExt: Allocator {
