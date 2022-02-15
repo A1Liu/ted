@@ -24,5 +24,9 @@ pub enum ExprKind {
     Unsigned(u64),
     Signed(i64),
     Ident { symbol: u32 },
+
+    Let { symbol: u32, value: &'static Expr },
     Assign { symbol: u32, value: &'static Expr },
+
+    ForInfinite { block: Block },
 }

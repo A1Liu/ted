@@ -4,7 +4,7 @@ use crate::util::*;
 use std::collections::hash_map::HashMap;
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Keyword {
     Let = 0,
     Proc,
@@ -22,10 +22,12 @@ pub enum Keyword {
 
     Spawn,
     Wait,
+
+    FirstNonKeywordValue,
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum TokenKind {
     LParen = b'(',
     RParen = b')',
@@ -104,39 +106,94 @@ pub fn parse(table: &mut StringTable, file: u32, s: &str) -> Result<Ast, Error> 
 
     let allocator = BucketList::new();
     let mut parser = Parser {
-        allocator,
+        allocator: &allocator,
+        table,
+        file,
         data,
         index: 0,
+        text_begin: 0,
+        text_end: 0,
     };
+
+    if let Some(tok) = parser.peek() {
+        parser.text_end = tok.len(table);
+    }
 
     let block = parser.parse_expressions()?;
 
-    return Ok(Ast {
-        allocator: parser.allocator,
-        block,
-    });
+    return Ok(Ast { allocator, block });
 }
 
-struct Parser {
-    allocator: BucketList,
+struct Parser<'a> {
+    allocator: &'a BucketList,
+    table: &'a StringTable,
     data: Pod<Token>,
+    file: u32,
     index: usize,
+    text_begin: usize,
+    text_end: usize,
 }
 
-impl Parser {
+impl<'a> Parser<'a> {
     pub fn peek(&self) -> Option<Token> {
         let tok = self.data.get(self.index)?;
 
         return Some(*tok);
     }
 
+    pub fn adv(&mut self) {
+        if let Some(tok) = self.peek() {
+            self.text_begin = self.text_end;
+            self.text_end += tok.len(self.table);
+            self.index += 1;
+        }
+    }
+
+    pub fn pop(&mut self) -> Option<Token> {
+        let tok = self.peek()?;
+
+        self.text_begin = self.text_end;
+        self.text_end += tok.len(self.table);
+        self.index += 1;
+
+        return Some(tok);
+    }
+
+    pub fn pop_kind(&mut self, kind: TokenKind) -> Option<Token> {
+        let tok = self.peek()?;
+
+        if tok.kind != kind {
+            return None;
+        }
+
+        self.text_begin = self.text_end;
+        self.text_end += tok.len(self.table);
+        self.index += 1;
+
+        return Some(tok);
+    }
+
+    pub fn pop_tok(&mut self, kind: TokenKind, data: u32) -> Option<Token> {
+        let tok = self.peek()?;
+
+        if tok.kind != kind || tok.data != data {
+            return None;
+        }
+
+        self.text_begin = self.text_end;
+        self.text_end += tok.len(self.table);
+        self.index += 1;
+
+        return Some(tok);
+    }
+
     pub fn parse_expressions(&mut self) -> Result<Block, Error> {
-        let mut stmts = Pod::with_allocator(&self.allocator);
+        let mut stmts = Pod::with_allocator(self.allocator);
         // let mut identifiers = HashMap::new();
 
         while let Some(tok) = self.peek() {
             if let TokenKind::Skip | TokenKind::NewlineSkip = tok.kind {
-                self.index += 1;
+                self.adv();
                 continue;
             }
 
@@ -156,7 +213,41 @@ impl Parser {
     }
 
     pub fn parse_stmt_expr(&mut self) -> Result<Expr, Error> {
-        unimplemented!()
+        return self.parse_let();
+    }
+
+    pub fn parse_let(&mut self) -> Result<Expr, Error> {
+        let tok = match self.pop_tok(TokenKind::Word, Keyword::Let as u32) {
+            Some(tok) => tok,
+            None => return self.parse_atom(),
+        };
+
+        let begin = self.text_begin;
+
+        let ident = match self.pop_kind(TokenKind::Word) {
+            Some(tok) => tok,
+            None => {
+                return Err(Error::new(
+                    "expected an identifer",
+                    self.file,
+                    begin..self.text_end,
+                ));
+            }
+        };
+
+        if ident.data < Keyword::FirstNonKeywordValue as u32 {
+            return Err(Error::new(
+                "expected an identifer",
+                self.file,
+                begin..self.text_end,
+            ));
+        }
+
+        unimplemented!();
+    }
+
+    pub fn parse_atom(&mut self) -> Result<Expr, Error> {
+        unimplemented!();
     }
 }
 
