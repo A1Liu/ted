@@ -130,9 +130,9 @@ impl Parser {
         return Some(*tok);
     }
 
-    pub fn parse_expressions<'b>(&mut self) -> Result<Block, Error> {
+    pub fn parse_expressions(&mut self) -> Result<Block, Error> {
         let mut stmts = Pod::with_allocator(&self.allocator);
-        let mut identifiers = HashMap::new();
+        // let mut identifiers = HashMap::new();
 
         while let Some(tok) = self.peek() {
             if let TokenKind::Skip | TokenKind::NewlineSkip = tok.kind {
@@ -145,11 +145,18 @@ impl Parser {
         }
 
         let stmts = stmts.leak();
-        let scope = HashRef::new(&self.allocator, &identifiers);
+        // let scope = HashRef::new(&self.allocator, &identifiers);
 
-        let block = Block { scope, stmts };
+        let block = Block {
+            // scope,
+            stmts,
+        };
 
         return Ok(block);
+    }
+
+    pub fn parse_stmt_expr(&mut self) -> Result<Expr, Error> {
+        unimplemented!()
     }
 }
 
