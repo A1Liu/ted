@@ -1,13 +1,10 @@
+use super::pod::*;
+use super::unwrap;
 use crate::util::alloc_api::*;
 use alloc::alloc::{alloc, dealloc, Layout};
 use core::cell::Cell;
 use std::ptr::NonNull;
 use std::{cmp, mem, ptr, slice, str};
-
-// TODO: Rewrite this stuff to use a normal Pod of bump pointers. There's no
-// reason to do weird stuff with linked lists when a simple Pod and an inline
-// bump pointer for the currently active allocation would do.
-//                              - Albert Liu, Feb 13, 2022 Sun 21:24 EST
 
 #[cfg(test)]
 const DEFAULT_BUCKET_SIZE: usize = 128;
@@ -15,141 +12,83 @@ const DEFAULT_BUCKET_SIZE: usize = 128;
 #[cfg(not(test))]
 const DEFAULT_BUCKET_SIZE: usize = 2 * 1024 * 1024;
 
-#[repr(C)]
-pub struct BucketListInner {
-    pub next: Cell<*const BucketListInner>,
-    pub current: Cell<*const u8>,
-    pub end: *const u8,
-    pub array_begin: (),
-}
-
+#[derive(Clone, Copy)]
 struct Bump {
     ptr: NonNull<u8>,
-    next_bump: NonNull<u8>,
+    layout: Layout,
+}
+
+const DANGLING: NonNull<u8> = NonNull::dangling();
+
+const EMPTY_BUMP: Bump = Bump {
+    ptr: DANGLING,
+    layout: unsafe { Layout::from_size_align_unchecked(0, 1) },
+};
+
+fn make_bump(layout: Layout) -> Bump {
+    let ptr = unsafe { alloc(layout) };
+    let ptr = unwrap(NonNull::new(ptr));
+
+    return Bump { ptr, layout };
+}
+
+fn bump_alloc(bump: Bump, current: &mut NonNull<u8>, layout: Layout) -> Option<*mut u8> {
+    if layout.align() > 8 {
+        panic!("Not handled");
+    }
+
+    let required_offset = current.as_ptr().align_offset(layout.align());
+    if required_offset == usize::MAX {
+        return None;
+    }
+
+    unsafe {
+        let alloc_begin = current.as_ptr().add(required_offset);
+        let alloc_end = alloc_begin.add(layout.size());
+        let bump_end = bump.ptr.as_ptr() as usize + bump.layout.size();
+
+        if alloc_end as usize <= bump_end {
+            *current = NonNull::new_unchecked(alloc_end);
+
+            return Some(alloc_begin as *mut u8);
+        }
+
+        return None;
+    }
 }
 
 pub struct BucketList {
-    begin: Cell<*const BucketListInner>,
-    current: Cell<*const BucketListInner>,
-}
-
-impl BucketListInner {
-    pub fn new(capacity: usize) -> *const Self {
-        let bucket_align = mem::align_of::<BucketListInner>();
-        let capacity = ((capacity - 1) / bucket_align + 1) * bucket_align;
-        let bucket_size = mem::size_of::<BucketListInner>() + capacity;
-
-        let inner = unsafe {
-            let next_layout = Layout::from_size_align_unchecked(bucket_size, bucket_align);
-
-            &mut *(alloc(next_layout) as *mut BucketListInner)
-        };
-
-        let inner_ptr = (inner) as *mut BucketListInner as *mut u8 as *const u8;
-
-        inner.next = Cell::new(ptr::null_mut());
-        inner.current = Cell::new((&inner.array_begin) as *const () as *const u8);
-        inner.end = unsafe { inner_ptr.add(bucket_size) };
-
-        let inner = inner as *const BucketListInner;
-
-        return inner;
-    }
-
-    pub unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        if layout.align() > 8 {
-            panic!("Not handled");
-        }
-
-        let mut list = self;
-
-        loop {
-            let current = list.current.get();
-            let required_offset = current.align_offset(layout.align());
-            if required_offset == usize::MAX {
-                let next = list.next.get();
-                if next.is_null() {
-                    break;
-                }
-
-                list = &*next;
-                continue;
-            }
-
-            let bump = current.add(required_offset);
-            let end_alloc = bump.add(layout.size());
-            if end_alloc as usize <= list.end as usize {
-                list.current.set(end_alloc);
-
-                return bump as *mut u8;
-            }
-
-            let next = list.next.get();
-            if next.is_null() {
-                break;
-            }
-
-            list = &*next;
-        }
-
-        let bucket_align = cmp::max(layout.align(), mem::align_of::<BucketListInner>());
-        let inner_size = cmp::max(bucket_align, mem::size_of::<BucketListInner>());
-
-        let current_end = list.end as usize;
-        let current_begin = (&list.array_begin) as *const () as *const u8;
-        let current_size = current_end - current_begin as usize;
-
-        let bucket_size = inner_size + cmp::max(current_size * 3 / 2, layout.size());
-
-        let next_layout = match Layout::from_size_align(bucket_size, bucket_align) {
-            Err(_) => return ptr::null_mut(),
-            Ok(x) => x,
-        };
-
-        let new_buffer_ptr = alloc(next_layout);
-        let new_buffer = &mut *(new_buffer_ptr as *mut BucketListInner);
-        let next_array_begin = (&mut new_buffer.array_begin) as *mut () as *mut u8;
-
-        new_buffer.next = Cell::new(ptr::null_mut());
-        new_buffer.current = Cell::new(next_array_begin.add(layout.size()));
-        new_buffer.end = new_buffer_ptr.add(next_layout.size());
-
-        list.next.set(new_buffer);
-
-        return next_array_begin;
-    }
+    allocations: Cell<Pod<Bump>>,
+    bump: Cell<Bump>,
+    current: Cell<NonNull<u8>>,
 }
 
 impl BucketList {
     #[inline(always)]
     pub fn new() -> Self {
         return Self {
-            begin: Cell::new(ptr::null_mut()),
-            current: Cell::new(ptr::null_mut()),
+            allocations: Cell::new(Pod::new()),
+            bump: Cell::new(EMPTY_BUMP),
+            current: Cell::new(DANGLING),
         };
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        let inner = BucketListInner::new(capacity);
+        let layout = match Layout::from_size_align(capacity, 8) {
+            Ok(layout) => layout,
+            Err(e) => panic!("failed to make Layout"),
+        };
 
-        let begin = Cell::new(inner);
-        let current = Cell::new(inner);
+        let mut allocations = Pod::new();
 
-        return Self { begin, current };
-    }
+        let bump = make_bump(layout);
+        allocations.push(bump);
 
-    pub fn clear(&mut self) {
-        let begin = self.begin.get();
-        let mut bucket = begin;
-
-        while !bucket.is_null() {
-            let current = unsafe { &*bucket };
-            let begin = (&current.array_begin) as *const () as *const u8;
-            current.current.set(begin);
-            bucket = current.next.get();
-        }
-
-        self.current.set(begin);
+        return Self {
+            allocations: Cell::new(allocations),
+            bump: Cell::new(bump),
+            current: Cell::new(bump.ptr),
+        };
     }
 }
 
@@ -157,49 +96,42 @@ unsafe impl Send for BucketList {}
 
 impl Drop for BucketList {
     fn drop(&mut self) {
-        let mut bucket = self.begin.get();
+        let allocations = self.allocations.replace(Pod::new());
 
-        while !bucket.is_null() {
-            let current = unsafe { &*bucket };
-
-            let end = current.end as usize;
-            let begin = bucket as usize;
-            let allocated_size = end - begin;
-
-            let allocated_size = allocated_size + mem::size_of::<BucketListInner>();
-            let next_bucket = current.next.get();
+        for bump in allocations {
             unsafe {
-                dealloc(
-                    bucket as *mut u8,
-                    Layout::from_size_align_unchecked(allocated_size, 1),
-                );
+                dealloc(bump.ptr.as_ptr(), bump.layout);
             }
-            bucket = next_bucket;
         }
     }
 }
 
 unsafe impl Allocator for BucketList {
     fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
-        if self.begin.get().is_null() {
+        let mut current = self.current.get();
+        let bump = self.bump.get();
+
+        let ptr = bump_alloc(bump, &mut current, layout).unwrap_or_else(|| unsafe {
+            let mut allocations = self.allocations.replace(Pod::new());
+
             let size = std::cmp::max(layout.size(), DEFAULT_BUCKET_SIZE);
-            let inner = BucketListInner::new(size);
+            let layout = Layout::from_size_align_unchecked(size, layout.align());
 
-            self.begin.set(inner);
-            self.current.set(inner);
-        }
+            let bump = make_bump(layout);
+            self.bump.set(bump);
 
-        let inner = unsafe { &*self.current.get() };
+            allocations.push(bump);
+            self.allocations.replace(allocations);
 
-        let ptr = unsafe { inner.alloc(layout) };
+            current = bump.ptr;
 
-        let next = inner.next.get();
-        if !next.is_null() {
-            self.current.set(inner.next.get());
-        }
+            return unwrap(bump_alloc(bump, &mut current, layout));
+        });
 
         let slice = unsafe { core::slice::from_raw_parts_mut(ptr, layout.size()) };
         let ptr = NonNull::new(slice).ok_or(AllocError)?;
+
+        self.current.set(current);
 
         return Ok(ptr);
     }

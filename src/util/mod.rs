@@ -7,11 +7,11 @@ pub use winit::window::Window;
 pub mod wasm;
 
 mod alloc_api;
-mod bump;
 
 #[macro_use]
 mod pod;
 
+mod bump;
 mod hashref;
 
 #[cfg(target_arch = "wasm32")]
