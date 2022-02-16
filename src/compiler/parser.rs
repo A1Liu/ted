@@ -233,7 +233,7 @@ impl<'a> Parser<'a> {
 
         let tok = match self.pop_tok(Word, Key::Let as u32) {
             Some(tok) => tok,
-            None => return self.parse_atom(),
+            None => return self.parse_assign(),
         };
 
         self.pop_kinds_loop(&[Skip, NewlineSkip]);
@@ -301,12 +301,24 @@ impl<'a> Parser<'a> {
         return Ok(Expr { kind, loc });
     }
 
-    pub fn parse_rvalue(&mut self) -> Result<Expr, Error> {
-        unimplemented!();
+    pub fn parse_assign(&mut self) -> Result<Expr, Error> {
+        return self.parse_control();
     }
 
     pub fn parse_control(&mut self) -> Result<Expr, Error> {
-        unimplemented!();
+        return self.parse_binary_op();
+    }
+
+    pub fn parse_binary_op(&mut self) -> Result<Expr, Error> {
+        return self.parse_prefix();
+    }
+
+    pub fn parse_prefix(&mut self) -> Result<Expr, Error> {
+        return self.parse_postfix();
+    }
+
+    pub fn parse_postfix(&mut self) -> Result<Expr, Error> {
+        return self.parse_atom();
     }
 
     pub fn parse_atom(&mut self) -> Result<Expr, Error> {

@@ -28,5 +28,7 @@ pub enum ExprKind {
     Let { symbol: u32, value: &'static Expr },
     Assign { symbol: u32, value: &'static Expr },
 
+    Block(Block),
+
     ForInfinite { block: Block },
 }
