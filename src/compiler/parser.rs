@@ -164,21 +164,24 @@ impl<'a> Parser<'a> {
         return Some(tok);
     }
 
-    fn pop_tok(&mut self, kind: TokenKind, data: u32) -> Option<Token> {
-        let tok = self.peek()?;
+    fn pop_tok(&mut self, kind: TokenKind, data: u32) -> bool {
+        let tok = match self.peek() {
+            None => return false,
+            Some(tok) => tok,
+        };
 
         if tok.kind != kind || tok.data != data {
-            return None;
+            return false;
         }
 
         self.text_cursor += tok.len(self.table);
         self.index += 1;
 
-        return Some(tok);
+        return true;
     }
 
     fn pop_kinds_loop(&mut self, kinds: &[TokenKind]) -> CopyRange {
-        let begin = self.text_cursor;
+        let start = self.text_cursor;
 
         'outer: while let Some(tok) = self.peek() {
             for &kind in kinds {
@@ -191,7 +194,7 @@ impl<'a> Parser<'a> {
             break;
         }
 
-        return r(begin, self.text_cursor);
+        return r(start, self.text_cursor);
     }
 
     pub fn parse_expressions(&mut self) -> Result<Block, Error> {
@@ -227,13 +230,14 @@ impl<'a> Parser<'a> {
     pub fn parse_let(&mut self) -> Result<Expr, Error> {
         use TokenKind::*;
 
-        let begin = self.text_cursor;
+        let mut loc = CodeLoc {
+            start: self.text_cursor,
+            end: self.text_cursor,
+            file: self.file,
+        };
 
-        self.pop_kinds_loop(&[Skip]);
-
-        let tok = match self.pop_tok(Word, Key::Let as u32) {
-            Some(tok) => tok,
-            None => return self.parse_assign(),
+        if !self.pop_tok(Word, Key::Let as u32) {
+            return self.parse_assign();
         };
 
         self.pop_kinds_loop(&[Skip, NewlineSkip]);
@@ -244,7 +248,7 @@ impl<'a> Parser<'a> {
                 return Err(Error::new(
                     "expected an identifer",
                     self.file,
-                    begin..self.text_cursor,
+                    loc.start..self.text_cursor,
                 ));
             }
         };
@@ -253,15 +257,13 @@ impl<'a> Parser<'a> {
             return Err(Error::new(
                 "expected an identifer",
                 self.file,
-                begin..self.text_cursor,
+                loc.start..self.text_cursor,
             ));
         }
 
         self.pop_kinds_loop(&[Skip, NewlineSkip]);
 
-        // TODO parse with optional `let a : int = b` syntax
-
-        let equal_begin = self.text_cursor;
+        let equal_start = self.text_cursor;
         match self.pop() {
             Some(Token { kind: Equal, .. }) => {}
 
@@ -269,7 +271,7 @@ impl<'a> Parser<'a> {
                 return Err(Error::new(
                     "expected an equal sign",
                     self.file,
-                    equal_begin..self.text_cursor,
+                    equal_start..self.text_cursor,
                 ));
             }
 
@@ -277,7 +279,7 @@ impl<'a> Parser<'a> {
                 return Err(Error::new(
                     "expected an equal sign",
                     self.file,
-                    equal_begin..self.text_cursor,
+                    equal_start..self.text_cursor,
                 ));
             }
         }
@@ -287,15 +289,10 @@ impl<'a> Parser<'a> {
         let value = self.parse_control()?;
         let value = self.allocator.new(value);
 
+        loc.end = self.text_cursor;
         let kind = ExprKind::Let {
             symbol: ident.data,
             value,
-        };
-
-        let loc = CodeLoc {
-            start: begin,
-            end: self.text_cursor,
-            file: self.file,
         };
 
         return Ok(Expr { kind, loc });
@@ -306,11 +303,130 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_control(&mut self) -> Result<Expr, Error> {
+        if let Some(e) = self.parse_control_only()? {
+            return Ok(e);
+        }
+
         return self.parse_binary_op();
     }
 
+    pub fn parse_control_only(&mut self) -> Result<Option<Expr>, Error> {
+        use TokenKind::*;
+
+        let mut loc = CodeLoc {
+            start: self.text_cursor,
+            end: self.text_cursor,
+            file: self.file,
+        };
+
+        let file = self.file;
+        let control_expected = move |start: usize, text_cursor: usize| {
+            return Error::new(
+                "expected block or control structure here",
+                file,
+                start..text_cursor,
+            );
+        };
+
+        // if, else
+        if self.pop_tok(Word, Key::If as u32) {
+            self.pop_kinds_loop(&[TokenKind::Skip, TokenKind::NewlineSkip]);
+
+            let cond = self.parse_binary_op()?;
+            let cond = self.allocator.new(cond);
+
+            let control_start = self.text_cursor;
+            let if_true = match self.parse_control_only()? {
+                Some(e) => self.allocator.new(e),
+                None => return Err(control_expected(control_start, self.text_cursor)),
+            };
+
+            let if_true = self.allocator.new(if_true);
+
+            if !self.pop_tok(Word, Key::Else as u32) {
+                loc.end = self.text_cursor;
+                let kind = ExprKind::If { cond, if_true };
+
+                return Ok(Some(Expr { kind, loc }));
+            }
+
+            let control_start = self.text_cursor;
+            let if_false = match self.parse_control_only()? {
+                Some(e) => self.allocator.new(e),
+                None => return Err(control_expected(control_start, self.text_cursor)),
+            };
+
+            loc.end = self.text_cursor;
+            let kind = ExprKind::IfElse {
+                cond,
+                if_true,
+                if_false,
+            };
+
+            return Ok(Some(Expr { kind, loc }));
+        }
+
+        // case
+
+        // for
+
+        return Ok(None);
+    }
+
     pub fn parse_binary_op(&mut self) -> Result<Expr, Error> {
-        return self.parse_prefix();
+        return self.parse_binary_precedence_op(0);
+    }
+
+    pub fn parse_binary_precedence_op(&mut self, min_level: u8) -> Result<Expr, Error> {
+        let mut loc = CodeLoc {
+            start: self.text_cursor,
+            end: self.text_cursor,
+            file: self.file,
+        };
+
+        let mut expr = self.parse_prefix()?;
+        self.pop_kinds_loop(&[TokenKind::Skip]);
+
+        // https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
+        // This algorithm is supposed to be efficient. No idea if that's actually true,
+        // but it is incredibly concise.
+        while let Some(tok) = self.peek() {
+            let info = OPERATORS[tok.kind as usize];
+            if info.precedence < min_level {
+                break;
+            }
+
+            let op = match info.op_kind {
+                Some(kind) => kind,
+                None => break,
+            };
+
+            self.adv();
+
+            let mut next_min_level = info.precedence;
+            if info.is_left_to_right {
+                next_min_level += 1;
+            }
+
+            self.pop_kinds_loop(&[TokenKind::Skip, TokenKind::NewlineSkip]);
+
+            let right = self.parse_binary_precedence_op(next_min_level)?;
+            if let Some(check) = info.check_operands {
+                check(&expr, &right)?;
+            }
+
+            let left = self.allocator.new(expr);
+            let right = self.allocator.new(right);
+
+            loc.end = self.text_cursor;
+            let kind = ExprKind::BinaryOp { op, left, right };
+
+            expr = Expr { kind, loc };
+
+            self.pop_kinds_loop(&[TokenKind::Skip]);
+        }
+
+        return Ok(expr);
     }
 
     pub fn parse_prefix(&mut self) -> Result<Expr, Error> {
@@ -325,6 +441,43 @@ impl<'a> Parser<'a> {
         unimplemented!();
     }
 }
+
+#[derive(Clone, Copy)]
+struct OperatorInfo {
+    op_kind: Option<BinaryOpKind>,
+    precedence: u8,
+    is_left_to_right: bool,
+
+    // @Todo this should be something like make_expr : (left, right) -> Result(*Expr)
+    // So that we can make assignment expressions a lil nicer right off the bat
+    check_operands: Option<fn(left: &Expr, right: &Expr) -> Result<(), Error>>,
+}
+
+const OPERATORS: [OperatorInfo; 256] = {
+    let default_info = OperatorInfo {
+        op_kind: None,
+        precedence: 0,
+        is_left_to_right: true,
+        check_operands: None,
+    };
+
+    let mut info = [default_info; 256];
+    let mut idx;
+
+    idx = TokenKind::Equal2 as usize;
+    info[idx].op_kind = Some(BinaryOpKind::Equal);
+    info[idx].precedence = 10;
+
+    idx = TokenKind::Plus as usize;
+    info[idx].op_kind = Some(BinaryOpKind::Add);
+    info[idx].precedence = 50;
+
+    idx = TokenKind::Star as usize;
+    info[idx].op_kind = Some(BinaryOpKind::Multiply);
+    info[idx].precedence = 60;
+
+    info
+};
 
 fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error> {
     let mut tokens = Pod::new();

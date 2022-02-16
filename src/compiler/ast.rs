@@ -6,29 +6,69 @@ pub struct Ast {
     pub block: Block,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Block {
     // translation from identifier to global memory numbering
     // pub scope: HashRef<'static, u32, u32>,
     pub stmts: &'static [Expr],
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Expr {
     pub kind: ExprKind,
     pub loc: CodeLoc,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum ExprKind {
     Unsigned(u64),
     Signed(i64),
-    Ident { symbol: u32 },
+    Ident {
+        symbol: u32,
+    },
 
-    Let { symbol: u32, value: &'static Expr },
-    Assign { symbol: u32, value: &'static Expr },
+    BinaryOp {
+        op: BinaryOpKind,
+        left: &'static Expr,
+        right: &'static Expr,
+    },
+
+    // TODO Eventually support:
+    //
+    // let a : int = 1
+    // let a = 1
+    // let a : int
+    // let a
+    Let {
+        symbol: u32,
+        value: &'static Expr,
+    },
+
+    Assign {
+        symbol: u32,
+        value: &'static Expr,
+    },
 
     Block(Block),
 
-    ForInfinite { block: Block },
+    If {
+        cond: &'static Expr,
+        if_true: &'static Expr,
+    },
+    IfElse {
+        cond: &'static Expr,
+        if_true: &'static Expr,
+        if_false: &'static Expr,
+    },
+
+    ForInfinite {
+        block: Block,
+    },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum BinaryOpKind {
+    Add,
+    Multiply,
+    Equal,
 }
