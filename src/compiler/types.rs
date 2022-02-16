@@ -82,11 +82,13 @@ impl Error {
         };
     }
 
-    pub fn expected_control(loc: CodeLoc) -> Self {
-        return Self::StaticSimple {
-            message: "expected block or control structure here",
-            loc,
-        };
+    pub fn expected(s: &'static str, loc: CodeLoc) -> Self {
+        let mut message = String::new();
+        message += "expected ";
+        message += s;
+        message += " here";
+
+        return Self::Simple { message, loc };
     }
 }
 

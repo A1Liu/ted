@@ -245,20 +245,16 @@ impl<'a> Parser<'a> {
         let ident = match self.pop_kind(Word) {
             Some(tok) => tok,
             None => {
-                return Err(Error::new(
-                    "expected an identifer",
-                    self.file,
-                    loc.start..self.text_cursor,
-                ));
+                loc.end = self.text_cursor;
+
+                return Err(Error::expected("an identifer", loc));
             }
         };
 
         if ident.data < Key::FirstNonKeywordValue as u32 {
-            return Err(Error::new(
-                "expected an identifer",
-                self.file,
-                loc.start..self.text_cursor,
-            ));
+            loc.end = self.text_cursor;
+
+            return Err(Error::expected("an identifer", loc));
         }
 
         self.pop_kinds_loop(&[Skip, NewlineSkip]);
@@ -267,20 +263,11 @@ impl<'a> Parser<'a> {
         match self.pop() {
             Some(Token { kind: Equal, .. }) => {}
 
-            Some(tok) => {
-                return Err(Error::new(
-                    "expected an equal sign",
-                    self.file,
-                    equal_start..self.text_cursor,
-                ));
-            }
+            Some(_) | None => {
+                loc.start = equal_start;
+                loc.end = self.text_cursor;
 
-            None => {
-                return Err(Error::new(
-                    "expected an equal sign",
-                    self.file,
-                    equal_start..self.text_cursor,
-                ));
+                return Err(Error::expected("an equal sign", loc));
             }
         }
 
@@ -333,7 +320,7 @@ impl<'a> Parser<'a> {
                     loc.start = control_start;
                     loc.end = self.text_cursor;
 
-                    return Err(Error::expected_control(loc));
+                    return Err(Error::expected("control flow or block", loc));
                 }
             };
 
@@ -353,7 +340,7 @@ impl<'a> Parser<'a> {
                     loc.start = control_start;
                     loc.end = self.text_cursor;
 
-                    return Err(Error::expected_control(loc));
+                    return Err(Error::expected("control flow or block", loc));
                 }
             };
 
