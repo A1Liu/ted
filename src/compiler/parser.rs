@@ -5,7 +5,7 @@ use std::collections::hash_map::HashMap;
 
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq)]
-enum Key {
+pub enum Key {
     Let = 0,
     Proc,
     Type,
@@ -28,7 +28,7 @@ enum Key {
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq)]
-enum TokenKind {
+pub enum TokenKind {
     LParen = b'(',
     RParen = b')',
     LBracket = b'[',
@@ -73,13 +73,13 @@ enum TokenKind {
 }
 
 #[derive(Clone, Copy)]
-struct Token {
+pub struct Token {
     pub kind: TokenKind,
     pub data: u32,
 }
 
 impl Token {
-    fn len(&self, table: &StringTable) -> usize {
+    pub fn len(&self, table: &StringTable) -> usize {
         match self.kind {
             TokenKind::Skip => return self.data as usize,
             TokenKind::NewlineSkip => return self.data as usize,
@@ -101,9 +101,7 @@ impl Token {
     }
 }
 
-pub fn parse(table: &mut StringTable, file: u32, s: &str) -> Result<Ast, Error> {
-    let data = lex(table, file, s)?;
-
+pub fn parse(table: &StringTable, file: u32, data: Pod<Token>) -> Result<Ast, Error> {
     let allocator = BucketList::new();
     let mut parser = Parser {
         allocator: &allocator,
@@ -761,6 +759,18 @@ mod tests {
         }
 
         let data = match lex(&mut table, 0, text) {
+            Ok(data) => data,
+            Err(e) => {
+                let mut out = String::new();
+
+                expect(e.render(&files, &mut out));
+
+                eprintln!("{}\n", out);
+                panic!("{:?}", e);
+            }
+        };
+
+        let ast = match parse(&table, 0, data) {
             Ok(data) => data,
             Err(e) => {
                 let mut out = String::new();
