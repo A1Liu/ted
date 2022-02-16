@@ -308,7 +308,7 @@ impl<'a> Parser<'a> {
 
         // if, else
         if self.pop_tok(Word, Key::If as u32) {
-            self.pop_kinds_loop(&[TokenKind::Skip, TokenKind::NewlineSkip]);
+            self.pop_kinds_loop(&[Skip, NewlineSkip]);
 
             let cond = self.parse_binary_op()?;
             let cond = self.allocator.new(cond);
@@ -366,6 +366,8 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_binary_precedence_op(&mut self, min_level: u8) -> Result<Expr, Error> {
+        use TokenKind::*;
+
         let mut loc = CodeLoc {
             start: self.text_cursor,
             end: self.text_cursor,
@@ -374,7 +376,7 @@ impl<'a> Parser<'a> {
 
         let mut expr = self.parse_prefix()?;
 
-        self.pop_kinds_loop(&[TokenKind::Skip]);
+        self.pop_kinds_loop(&[Skip]);
 
         // https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
         // This algorithm is supposed to be efficient. No idea if that's actually true,
@@ -397,7 +399,7 @@ impl<'a> Parser<'a> {
                 next_min_level += 1;
             }
 
-            self.pop_kinds_loop(&[TokenKind::Skip, TokenKind::NewlineSkip]);
+            self.pop_kinds_loop(&[Skip, NewlineSkip]);
 
             let right = self.parse_binary_precedence_op(next_min_level)?;
             if let Some(check) = info.check_operands {
@@ -412,7 +414,7 @@ impl<'a> Parser<'a> {
 
             expr = Expr { kind, loc };
 
-            self.pop_kinds_loop(&[TokenKind::Skip]);
+            self.pop_kinds_loop(&[Skip]);
         }
 
         return Ok(expr);
