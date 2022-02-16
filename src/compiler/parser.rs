@@ -5,7 +5,7 @@ use std::collections::hash_map::HashMap;
 
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq)]
-pub enum Keyword {
+enum Key {
     Let = 0,
     Proc,
     Type,
@@ -28,7 +28,7 @@ pub enum Keyword {
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq)]
-pub enum TokenKind {
+enum TokenKind {
     LParen = b'(',
     RParen = b')',
     LBracket = b'[',
@@ -73,7 +73,7 @@ pub enum TokenKind {
 }
 
 #[derive(Clone, Copy)]
-pub struct Token {
+struct Token {
     pub kind: TokenKind,
     pub data: u32,
 }
@@ -111,13 +111,8 @@ pub fn parse(table: &mut StringTable, file: u32, s: &str) -> Result<Ast, Error> 
         file,
         data,
         index: 0,
-        text_begin: 0,
-        text_end: 0,
+        text_cursor: 0,
     };
-
-    if let Some(tok) = parser.peek() {
-        parser.text_end = tok.len(table);
-    }
 
     let block = parser.parse_expressions()?;
 
@@ -130,75 +125,88 @@ struct Parser<'a> {
     data: Pod<Token>,
     file: u32,
     index: usize,
-    text_begin: usize,
-    text_end: usize,
+    text_cursor: usize,
 }
 
 impl<'a> Parser<'a> {
-    pub fn peek(&self) -> Option<Token> {
+    fn peek(&self) -> Option<Token> {
         let tok = self.data.get(self.index)?;
 
         return Some(*tok);
     }
 
-    pub fn adv(&mut self) {
+    fn adv(&mut self) {
         if let Some(tok) = self.peek() {
-            self.text_begin = self.text_end;
-            self.text_end += tok.len(self.table);
+            self.text_cursor += tok.len(self.table);
             self.index += 1;
         }
     }
 
-    pub fn pop(&mut self) -> Option<Token> {
+    fn pop(&mut self) -> Option<Token> {
         let tok = self.peek()?;
 
-        self.text_begin = self.text_end;
-        self.text_end += tok.len(self.table);
+        self.text_cursor += tok.len(self.table);
         self.index += 1;
 
         return Some(tok);
     }
 
-    pub fn pop_kind(&mut self, kind: TokenKind) -> Option<Token> {
+    fn pop_kind(&mut self, kind: TokenKind) -> Option<Token> {
         let tok = self.peek()?;
 
         if tok.kind != kind {
             return None;
         }
 
-        self.text_begin = self.text_end;
-        self.text_end += tok.len(self.table);
+        self.text_cursor += tok.len(self.table);
         self.index += 1;
 
         return Some(tok);
     }
 
-    pub fn pop_tok(&mut self, kind: TokenKind, data: u32) -> Option<Token> {
+    fn pop_tok(&mut self, kind: TokenKind, data: u32) -> Option<Token> {
         let tok = self.peek()?;
 
         if tok.kind != kind || tok.data != data {
             return None;
         }
 
-        self.text_begin = self.text_end;
-        self.text_end += tok.len(self.table);
+        self.text_cursor += tok.len(self.table);
         self.index += 1;
 
         return Some(tok);
     }
 
+    fn pop_kinds(&mut self, kinds: &[TokenKind]) -> CopyRange {
+        let begin = self.text_cursor;
+
+        'outer: while let Some(tok) = self.peek() {
+            for &kind in kinds {
+                if tok.kind == kind {
+                    self.adv();
+                    continue 'outer;
+                }
+            }
+
+            break;
+        }
+
+        return r(begin, self.text_cursor);
+    }
+
     pub fn parse_expressions(&mut self) -> Result<Block, Error> {
+        use TokenKind::*;
+
         let mut stmts = Pod::with_allocator(self.allocator);
         // let mut identifiers = HashMap::new();
 
-        while let Some(tok) = self.peek() {
-            if let TokenKind::Skip | TokenKind::NewlineSkip = tok.kind {
-                self.adv();
-                continue;
-            }
+        self.pop_kinds(&[Skip, NewlineSkip, Semicolon]);
 
-            // let stmt = parser.parse_statement(&mut identifiers)?;
-            // stmts.push(stmt);
+        while self.index < self.data.len() {
+            let stmt = self.parse_expr()?;
+            stmts.push(stmt);
+
+            self.pop_kinds(&[Skip, NewlineSkip, Semicolon]);
         }
 
         let stmts = stmts.leak();
@@ -212,37 +220,74 @@ impl<'a> Parser<'a> {
         return Ok(block);
     }
 
-    pub fn parse_stmt_expr(&mut self) -> Result<Expr, Error> {
+    pub fn parse_expr(&mut self) -> Result<Expr, Error> {
         return self.parse_let();
     }
 
     pub fn parse_let(&mut self) -> Result<Expr, Error> {
-        let tok = match self.pop_tok(TokenKind::Word, Keyword::Let as u32) {
+        use TokenKind::*;
+
+        let begin = self.text_cursor;
+
+        self.pop_kinds(&[Skip]);
+
+        let tok = match self.pop_tok(Word, Key::Let as u32) {
             Some(tok) => tok,
             None => return self.parse_atom(),
         };
 
-        let begin = self.text_begin;
+        self.pop_kinds(&[Skip, NewlineSkip]);
 
-        let ident = match self.pop_kind(TokenKind::Word) {
+        let ident = match self.pop_kind(Word) {
             Some(tok) => tok,
             None => {
                 return Err(Error::new(
                     "expected an identifer",
                     self.file,
-                    begin..self.text_end,
+                    begin..self.text_cursor,
                 ));
             }
         };
 
-        if ident.data < Keyword::FirstNonKeywordValue as u32 {
+        if ident.data < Key::FirstNonKeywordValue as u32 {
             return Err(Error::new(
                 "expected an identifer",
                 self.file,
-                begin..self.text_end,
+                begin..self.text_cursor,
             ));
         }
 
+        self.pop_kinds(&[Skip, NewlineSkip]);
+
+        // TODO parse with optional `let a : int = b` syntax
+
+        let equal_begin = self.text_cursor;
+        match self.pop() {
+            Some(Token { kind: Equal, .. }) => {}
+
+            Some(tok) => {
+                return Err(Error::new(
+                    "expected an equal sign",
+                    self.file,
+                    equal_begin..self.text_cursor,
+                ));
+            }
+
+            None => {
+                return Err(Error::new(
+                    "expected an equal sign",
+                    self.file,
+                    equal_begin..self.text_cursor,
+                ));
+            }
+        }
+
+        self.pop_kinds(&[Skip, NewlineSkip]);
+
+        unimplemented!();
+    }
+
+    pub fn parse_rvalue(&mut self) -> Result<Expr, Error> {
         unimplemented!();
     }
 
@@ -480,22 +525,22 @@ impl StringTable {
 
         let mut success = true;
 
-        success = success && table.add("let") == Keyword::Let as u32;
-        success = success && table.add("proc") == Keyword::Proc as u32;
-        success = success && table.add("type") == Keyword::Type as u32;
-        success = success && table.add("defer") == Keyword::Defer as u32;
-        success = success && table.add("context") == Keyword::Context as u32;
+        success = success && table.add("let") == Key::Let as u32;
+        success = success && table.add("proc") == Key::Proc as u32;
+        success = success && table.add("type") == Key::Type as u32;
+        success = success && table.add("defer") == Key::Defer as u32;
+        success = success && table.add("context") == Key::Context as u32;
 
-        success = success && table.add("if") == Keyword::If as u32;
-        success = success && table.add("else") == Keyword::Else as u32;
-        success = success && table.add("match") == Keyword::Match as u32;
+        success = success && table.add("if") == Key::If as u32;
+        success = success && table.add("else") == Key::Else as u32;
+        success = success && table.add("match") == Key::Match as u32;
 
-        success = success && table.add("continue") == Keyword::Continue as u32;
-        success = success && table.add("break") == Keyword::Break as u32;
-        success = success && table.add("for") == Keyword::For as u32;
+        success = success && table.add("continue") == Key::Continue as u32;
+        success = success && table.add("break") == Key::Break as u32;
+        success = success && table.add("for") == Key::For as u32;
 
-        success = success && table.add("spawn") == Keyword::Spawn as u32;
-        success = success && table.add("wait") == Keyword::Wait as u32;
+        success = success && table.add("spawn") == Key::Spawn as u32;
+        success = success && table.add("wait") == Key::Wait as u32;
 
         if !success {
             panic!("Rippo");
