@@ -177,7 +177,7 @@ impl<'a> Parser<'a> {
         return Some(tok);
     }
 
-    fn pop_kinds(&mut self, kinds: &[TokenKind]) -> CopyRange {
+    fn pop_kinds_loop(&mut self, kinds: &[TokenKind]) -> CopyRange {
         let begin = self.text_cursor;
 
         'outer: while let Some(tok) = self.peek() {
@@ -200,13 +200,13 @@ impl<'a> Parser<'a> {
         let mut stmts = Pod::with_allocator(self.allocator);
         // let mut identifiers = HashMap::new();
 
-        self.pop_kinds(&[Skip, NewlineSkip, Semicolon]);
+        self.pop_kinds_loop(&[Skip, NewlineSkip, Semicolon]);
 
         while self.index < self.data.len() {
             let stmt = self.parse_expr()?;
             stmts.push(stmt);
 
-            self.pop_kinds(&[Skip, NewlineSkip, Semicolon]);
+            self.pop_kinds_loop(&[Skip, NewlineSkip, Semicolon]);
         }
 
         let stmts = stmts.leak();
@@ -229,14 +229,14 @@ impl<'a> Parser<'a> {
 
         let begin = self.text_cursor;
 
-        self.pop_kinds(&[Skip]);
+        self.pop_kinds_loop(&[Skip]);
 
         let tok = match self.pop_tok(Word, Key::Let as u32) {
             Some(tok) => tok,
             None => return self.parse_atom(),
         };
 
-        self.pop_kinds(&[Skip, NewlineSkip]);
+        self.pop_kinds_loop(&[Skip, NewlineSkip]);
 
         let ident = match self.pop_kind(Word) {
             Some(tok) => tok,
@@ -257,7 +257,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        self.pop_kinds(&[Skip, NewlineSkip]);
+        self.pop_kinds_loop(&[Skip, NewlineSkip]);
 
         // TODO parse with optional `let a : int = b` syntax
 
@@ -282,12 +282,30 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.pop_kinds(&[Skip, NewlineSkip]);
+        self.pop_kinds_loop(&[Skip, NewlineSkip]);
 
-        unimplemented!();
+        let value = self.parse_control()?;
+        let value = self.allocator.new(value);
+
+        let kind = ExprKind::Let {
+            symbol: ident.data,
+            value,
+        };
+
+        let loc = CodeLoc {
+            start: begin,
+            end: self.text_cursor,
+            file: self.file,
+        };
+
+        return Ok(Expr { kind, loc });
     }
 
     pub fn parse_rvalue(&mut self) -> Result<Expr, Error> {
+        unimplemented!();
+    }
+
+    pub fn parse_control(&mut self) -> Result<Expr, Error> {
         unimplemented!();
     }
 

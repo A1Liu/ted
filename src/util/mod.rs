@@ -23,6 +23,20 @@ pub use hashref::*;
 pub use pod::*;
 
 pub trait AllocExt: Allocator {
+    fn new<T>(&self, t: T) -> &'static mut T {
+        use alloc::alloc::Layout;
+
+        let layout = Layout::for_value(&t);
+        let mut data = expect(self.allocate(layout));
+
+        unsafe {
+            let location = data.as_mut().as_mut_ptr() as *mut T;
+            core::ptr::write(location, t);
+
+            return &mut *location;
+        }
+    }
+
     fn add_slice<T>(&self, slice: &[T]) -> &'static mut [T]
     where
         T: Copy,
@@ -32,6 +46,7 @@ pub trait AllocExt: Allocator {
         let len = slice.len();
         let size = core::mem::size_of::<T>() * len;
         let align = core::mem::align_of::<T>();
+
         unsafe {
             let layout = Layout::from_size_align_unchecked(size, align);
             let mut data = expect(self.allocate(layout));
