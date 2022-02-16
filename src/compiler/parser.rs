@@ -319,15 +319,6 @@ impl<'a> Parser<'a> {
             file: self.file,
         };
 
-        let file = self.file;
-        let control_expected = move |start: usize, text_cursor: usize| {
-            return Error::new(
-                "expected block or control structure here",
-                file,
-                start..text_cursor,
-            );
-        };
-
         // if, else
         if self.pop_tok(Word, Key::If as u32) {
             self.pop_kinds_loop(&[TokenKind::Skip, TokenKind::NewlineSkip]);
@@ -338,7 +329,12 @@ impl<'a> Parser<'a> {
             let control_start = self.text_cursor;
             let if_true = match self.parse_control_only()? {
                 Some(e) => self.allocator.new(e),
-                None => return Err(control_expected(control_start, self.text_cursor)),
+                None => {
+                    loc.start = control_start;
+                    loc.end = self.text_cursor;
+
+                    return Err(Error::expected_control(loc));
+                }
             };
 
             let if_true = self.allocator.new(if_true);
@@ -353,7 +349,12 @@ impl<'a> Parser<'a> {
             let control_start = self.text_cursor;
             let if_false = match self.parse_control_only()? {
                 Some(e) => self.allocator.new(e),
-                None => return Err(control_expected(control_start, self.text_cursor)),
+                None => {
+                    loc.start = control_start;
+                    loc.end = self.text_cursor;
+
+                    return Err(Error::expected_control(loc));
+                }
             };
 
             loc.end = self.text_cursor;
@@ -385,6 +386,7 @@ impl<'a> Parser<'a> {
         };
 
         let mut expr = self.parse_prefix()?;
+
         self.pop_kinds_loop(&[TokenKind::Skip]);
 
         // https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing

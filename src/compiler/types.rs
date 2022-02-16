@@ -24,7 +24,8 @@ impl fmt::Debug for CodeLoc {
 //                              - Albert Liu, Jan 23, 2022 Sun 22:21 EST
 #[derive(Debug)]
 pub enum Error {
-    Message(ErrorMessage),
+    Simple { message: String, loc: CodeLoc },
+    StaticSimple { message: &'static str, loc: CodeLoc },
 }
 
 #[derive(Debug)]
@@ -34,35 +35,31 @@ pub struct ErrorMessage {
 }
 
 impl Error {
-    pub fn new(s: impl Into<String>, file: u32, range: Range<usize>) -> Self {
-        return Self::Message(ErrorMessage {
-            message: s.into(),
-            loc: CodeLoc {
-                file,
-                start: range.start,
-                end: range.end,
-            },
-        });
-    }
-
-    pub fn append_messages(self, messages: &mut Vec<ErrorMessage>) {
-        match self {
-            Self::Message(message) => messages.push(message),
-        }
-    }
-
     pub fn render(&self, files: &FileDb, out: &mut impl Write) -> fmt::Result {
         let mut labels = Pod::new();
 
         let diagnostic = match self {
-            Error::Message(msg) => {
+            Error::Simple { message, loc } => {
                 labels.push(Label {
                     message: "",
-                    loc: msg.loc,
+                    loc: *loc,
                 });
 
                 Diagnostic {
-                    message: &msg.message,
+                    message: message,
+                    notes: &[],
+                    labels: &*labels,
+                }
+            }
+
+            Error::StaticSimple { message, loc } => {
+                labels.push(Label {
+                    message: "",
+                    loc: *loc,
+                });
+
+                Diagnostic {
+                    message: *message,
                     notes: &[],
                     labels: &*labels,
                 }
@@ -70,6 +67,26 @@ impl Error {
         };
 
         return diagnostic.render(files, out);
+    }
+}
+
+impl Error {
+    pub fn new(s: impl Into<String>, file: u32, range: Range<usize>) -> Self {
+        return Self::Simple {
+            message: s.into(),
+            loc: CodeLoc {
+                file,
+                start: range.start,
+                end: range.end,
+            },
+        };
+    }
+
+    pub fn expected_control(loc: CodeLoc) -> Self {
+        return Self::StaticSimple {
+            message: "expected block or control structure here",
+            loc,
+        };
     }
 }
 
