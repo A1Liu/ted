@@ -238,7 +238,11 @@ impl<'a> Parser<'a> {
             return Ok(expr);
         }
 
-        return self.parse_control();
+        if let Some(expr) = self.parse_control()? {
+            return Ok(expr);
+        }
+
+        return self.parse_binary_op();
     }
 
     pub fn parse_proc(&mut self) -> Result<Option<Expr>, Error> {
@@ -291,7 +295,11 @@ impl<'a> Parser<'a> {
 
         self.pop_kinds_loop(&[Skip, NewlineSkip]);
 
-        let value = self.parse_control()?;
+        let value = match self.parse_control()? {
+            Some(e) => e,
+            None => self.parse_binary_op()?,
+        };
+
         let value = self.allocator.new(value);
 
         loc.end = self.text_cursor;
@@ -307,15 +315,7 @@ impl<'a> Parser<'a> {
         return Ok(None);
     }
 
-    pub fn parse_control(&mut self) -> Result<Expr, Error> {
-        if let Some(e) = self.parse_control_only()? {
-            return Ok(e);
-        }
-
-        return self.parse_binary_op();
-    }
-
-    pub fn parse_control_only(&mut self) -> Result<Option<Expr>, Error> {
+    pub fn parse_control(&mut self) -> Result<Option<Expr>, Error> {
         use TokenKind::*;
 
         let mut loc = CodeLoc {
@@ -332,7 +332,7 @@ impl<'a> Parser<'a> {
             let cond = self.allocator.new(cond);
 
             let control_start = self.text_cursor;
-            let if_true = match self.parse_control_only()? {
+            let if_true = match self.parse_control()? {
                 Some(e) => self.allocator.new(e),
                 None => {
                     loc.start = control_start;
@@ -352,7 +352,7 @@ impl<'a> Parser<'a> {
             }
 
             let control_start = self.text_cursor;
-            let if_false = match self.parse_control_only()? {
+            let if_false = match self.parse_control()? {
                 Some(e) => self.allocator.new(e),
                 None => {
                     loc.start = control_start;
@@ -439,6 +439,14 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_prefix(&mut self) -> Result<Expr, Error> {
+        use TokenKind::*;
+
+        let mut loc = CodeLoc {
+            start: self.text_cursor,
+            end: self.text_cursor,
+            file: self.file,
+        };
+
         return self.parse_postfix();
     }
 
