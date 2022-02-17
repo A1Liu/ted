@@ -222,10 +222,30 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_expr(&mut self) -> Result<Expr, Error> {
-        return self.parse_let();
+        return self.parse_decl();
     }
 
-    pub fn parse_let(&mut self) -> Result<Expr, Error> {
+    pub fn parse_decl(&mut self) -> Result<Expr, Error> {
+        if let Some(expr) = self.parse_proc()? {
+            return Ok(expr);
+        }
+
+        if let Some(expr) = self.parse_let()? {
+            return Ok(expr);
+        }
+
+        if let Some(expr) = self.parse_assign()? {
+            return Ok(expr);
+        }
+
+        return self.parse_control();
+    }
+
+    pub fn parse_proc(&mut self) -> Result<Option<Expr>, Error> {
+        return Ok(None);
+    }
+
+    pub fn parse_let(&mut self) -> Result<Option<Expr>, Error> {
         use TokenKind::*;
 
         let mut loc = CodeLoc {
@@ -235,7 +255,7 @@ impl<'a> Parser<'a> {
         };
 
         if !self.pop_tok(Word, Key::Let as u32) {
-            return self.parse_assign();
+            return Ok(None);
         };
 
         self.pop_kinds_loop(&[Skip, NewlineSkip]);
@@ -280,11 +300,11 @@ impl<'a> Parser<'a> {
             value,
         };
 
-        return Ok(Expr { kind, loc });
+        return Ok(Some(Expr { kind, loc }));
     }
 
-    pub fn parse_assign(&mut self) -> Result<Expr, Error> {
-        return self.parse_control();
+    pub fn parse_assign(&mut self) -> Result<Option<Expr>, Error> {
+        return Ok(None);
     }
 
     pub fn parse_control(&mut self) -> Result<Expr, Error> {
