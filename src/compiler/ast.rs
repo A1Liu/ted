@@ -21,10 +21,14 @@ pub struct Expr {
 
 #[derive(Debug, Clone, Copy)]
 pub enum ExprKind {
-    Unsigned(u64),
-    Signed(i64),
+    Integer(u64),
     Ident {
         symbol: u32,
+    },
+
+    Call {
+        callee: &'static Expr,
+        args: &'static [Expr],
     },
 
     BinaryOp {

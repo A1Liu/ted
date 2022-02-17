@@ -23,7 +23,7 @@ pub enum Key {
     Spawn,
     Wait,
 
-    FirstNonKeywordValue,
+    COUNT,
 }
 
 #[repr(u8)]
@@ -249,7 +249,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        if ident.data < Key::FirstNonKeywordValue as u32 {
+        if ident.data < Key::COUNT as u32 {
             loc.end = self.text_cursor;
 
             return Err(Error::expected("an identifer", loc));
@@ -423,11 +423,149 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_postfix(&mut self) -> Result<Expr, Error> {
-        return self.parse_atom();
+        use TokenKind::*;
+
+        let mut loc = CodeLoc {
+            start: self.text_cursor,
+            end: self.text_cursor,
+            file: self.file,
+        };
+
+        let mut expr = self.parse_atom()?;
+
+        while let Some(tok) = self.peek() {
+            match tok.kind {
+                LParen => {
+                    self.adv();
+
+                    self.pop_kinds_loop(&[Skip, NewlineSkip]);
+
+                    let mut args = Pod::new();
+                    while let Some(tok) = self.peek() {
+                        if tok.kind == RParen {
+                            self.adv();
+                            break;
+                        }
+
+                        let expr = self.parse_binary_op()?;
+                        args.push(expr);
+
+                        self.pop_kinds_loop(&[Skip, NewlineSkip]);
+
+                        let tok = self.pop().ok_or_else(|| {
+                            loc.end = self.text_cursor;
+
+                            return Error::expected("a comma or closing paren", loc);
+                        })?;
+
+                        match tok.kind {
+                            RParen => break,
+                            Comma => {
+                                self.pop_kinds_loop(&[Skip, NewlineSkip]);
+                                continue;
+                            }
+                            _ => {}
+                        }
+
+                        loc.end = self.text_cursor;
+
+                        return Err(Error::expected("a comma or closing paren", loc));
+                    }
+
+                    let callee = self.allocator.new(expr);
+                    let args = self.allocator.add_slice(&args);
+
+                    loc.end = self.text_cursor;
+                    let kind = ExprKind::Call { callee, args };
+
+                    expr = Expr { kind, loc };
+                }
+
+                _ => break,
+            }
+        }
+
+        return Ok(expr);
     }
 
     pub fn parse_atom(&mut self) -> Result<Expr, Error> {
-        unimplemented!();
+        use TokenKind::*;
+
+        let mut loc = CodeLoc {
+            start: self.text_cursor,
+            end: self.text_cursor,
+            file: self.file,
+        };
+
+        let result = self.pop();
+        let tok = result.ok_or_else(|| {
+            return Error::expected("an expression", loc);
+        })?;
+
+        match tok.kind {
+            Word => {
+                if tok.data < Key::COUNT as u32 && tok.data != Key::Type as u32 {
+                    loc.end = self.text_cursor;
+
+                    return Err(Error::expected("an identifer", loc));
+                }
+
+                loc.end = self.text_cursor;
+                let kind = ExprKind::Ident { symbol: tok.data };
+
+                return Ok(Expr { kind, loc });
+            }
+
+            Number => {
+                let data = self.table.names[tok.data];
+
+                let mut index = 0;
+                let mut total: u64 = 0;
+
+                // NOTE: just assume its an integer for now
+                for &b in data.as_bytes() {
+                    if b < b'0' || b'9' < b {
+                        loc.start = loc.start + index;
+                        loc.end = loc.start + 1;
+
+                        return Err(Error::expected("a digit in a number", loc));
+                    }
+
+                    total *= 10;
+                    total += (b - b'0') as u64;
+
+                    index += 1;
+                }
+
+                loc.end = self.text_cursor;
+                let kind = ExprKind::Integer(total);
+
+                return Ok(Expr { kind, loc });
+            }
+
+            LParen => {
+                self.pop_kinds_loop(&[Skip, NewlineSkip]);
+
+                let expr = self.parse_expr()?;
+
+                self.pop_kinds_loop(&[Skip, NewlineSkip]);
+
+                match self.pop_kind(RParen) {
+                    Some(tok) => return Ok(expr),
+                    None => {
+                        loc.end = self.text_cursor;
+
+                        return Err(Error::expected("a closing parenthesis", loc));
+                    }
+                }
+            }
+
+            _ => {
+                loc.end = self.text_cursor;
+
+                return Err(Error::expected("an expression", loc));
+            }
+        }
     }
 }
 
@@ -437,7 +575,7 @@ struct OperatorInfo {
     precedence: u8,
     is_left_to_right: bool,
 
-    // @Todo this should be something like make_expr : (left, right) -> Result(*Expr)
+    // @TODO this should be something like make_expr : (left, right) -> Result(*Expr)
     // So that we can make assignment expressions a lil nicer right off the bat
     check_operands: Option<fn(left: &Expr, right: &Expr) -> Result<(), Error>>,
 }
@@ -742,16 +880,18 @@ mod tests {
     use crate::util::*;
     use core::fmt::Write;
 
+    // eventually use src/bin
+
     #[test]
     fn test_parser() {
         let mut table = StringTable::new();
         let mut files = FileDb::new();
 
         let text = r#"
-        let hello = wait slow()
         let a = 12
-
-        print(hello, a)
+        let b = a + 12
+        let c = print(a,b,)
+        print(a, b)
         "#;
 
         if let Err(e) = files.add("data.liu", text) {
@@ -781,5 +921,11 @@ mod tests {
                 panic!("{:?}", e);
             }
         };
+
+        let printed = format!("{:#?}", ast.block);
+
+        println!("{}", printed);
+
+        // panic!("viewing");
     }
 }
