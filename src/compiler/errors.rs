@@ -2,7 +2,6 @@ use crate::compiler::print_format::*;
 use crate::compiler::types::*;
 use crate::util::*;
 use core::fmt::{self, Error as FmtError, Result as FmtResult, Write};
-use core::ops::Range;
 
 // TODO Placeholder system. Eventually we'll flesh this out maybe. For now, 'tis
 // a simple thing with a bit of needless complexity
@@ -56,7 +55,7 @@ impl Error {
 }
 
 impl Error {
-    pub fn new(s: impl Into<String>, file: u32, range: Range<usize>) -> Self {
+    pub fn new(s: impl Into<String>, file: u32, range: core::ops::Range<usize>) -> Self {
         return Self::Simple {
             message: s.into(),
             loc: CodeLoc {
