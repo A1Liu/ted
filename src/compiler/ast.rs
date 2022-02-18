@@ -1,6 +1,8 @@
 use crate::compiler::types::*;
 use crate::util::*;
 
+pub type ERef = Ref<Expr>;
+
 pub struct Ast {
     pub allocator: BucketList,
     pub block: Block,

@@ -37,6 +37,14 @@ pub trait AllocExt: Allocator {
         }
     }
 
+    #[inline]
+    fn new_ref_<T>(&self, t: T) -> Ref<T>
+    where
+        T: 'static,
+    {
+        return Ref::new(self.new(t));
+    }
+
     fn add_slice<T>(&self, slice: &[T]) -> &'static mut [T]
     where
         T: Copy,
@@ -120,5 +128,42 @@ impl CopyRange {
 impl core::fmt::Debug for CopyRange {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         return write!(f, "{}..{}", self.start, self.end);
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Ref<T>
+where
+    T: 'static,
+{
+    data: *mut T,
+}
+
+impl<T> Ref<T>
+where
+    T: 'static,
+{
+    pub fn new(e: &'static mut T) -> Self {
+        return Self { data: e };
+    }
+}
+
+impl<T> core::ops::Deref for Ref<T>
+where
+    T: 'static,
+{
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        return unsafe { &*self.data };
+    }
+}
+
+impl<T> core::ops::DerefMut for Ref<T>
+where
+    T: 'static,
+{
+    fn deref_mut(&mut self) -> &mut T {
+        return unsafe { &mut *self.data };
     }
 }
