@@ -1,4 +1,3 @@
-use crate::compiler::formatting::*;
 use crate::util::*;
 use core::fmt::{self, Error as FmtError, Result as FmtResult, Write};
 use core::ops::Range;
@@ -19,77 +18,45 @@ impl fmt::Debug for CodeLoc {
     }
 }
 
-// TODO Placeholder system. Eventually we'll flesh this out maybe. For now, 'tis
-// a simple thing with a bit of needless complexity
-//                              - Albert Liu, Jan 23, 2022 Sun 22:21 EST
-#[derive(Debug)]
-pub enum Error {
-    Simple { message: String, loc: CodeLoc },
-    StaticSimple { message: &'static str, loc: CodeLoc },
+/// A user-facing location in a source file.
+///
+/// Returned by [`Files::location`].
+///
+/// [`Files::location`]: Files::location
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Location {
+    /// The user-facing line number.
+    pub line_number: usize,
+    /// The user-facing column number.
+    pub column_number: usize,
 }
 
-#[derive(Debug)]
-pub struct ErrorMessage {
-    message: String,
-    loc: CodeLoc,
+/// A label describing an underlined region of code associated with a diagnostic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Label<'a> {
+    pub loc: CodeLoc,
+    pub message: &'a str,
 }
 
-impl Error {
-    pub fn render(&self, files: &FileDb, out: &mut impl Write) -> fmt::Result {
-        let mut labels = Pod::new();
-
-        let diagnostic = match self {
-            Error::Simple { message, loc } => {
-                labels.push(Label {
-                    message: "",
-                    loc: *loc,
-                });
-
-                Diagnostic {
-                    message: message,
-                    notes: &[],
-                    labels: &*labels,
-                }
-            }
-
-            Error::StaticSimple { message, loc } => {
-                labels.push(Label {
-                    message: "",
-                    loc: *loc,
-                });
-
-                Diagnostic {
-                    message: *message,
-                    notes: &[],
-                    labels: &*labels,
-                }
-            }
-        };
-
-        return diagnostic.render(files, out);
-    }
-}
-
-impl Error {
-    pub fn new(s: impl Into<String>, file: u32, range: Range<usize>) -> Self {
-        return Self::Simple {
-            message: s.into(),
-            loc: CodeLoc {
-                file,
-                start: range.start,
-                end: range.end,
-            },
-        };
-    }
-
-    pub fn expected(s: &'static str, loc: CodeLoc) -> Self {
-        let mut message = String::new();
-        message += "expected ";
-        message += s;
-        message += " here";
-
-        return Self::Simple { message, loc };
-    }
+/// Represents a diagnostic message that can provide information like errors and
+/// warnings to the user.
+///
+/// The position of a Diagnostic is considered to be the position of the [`Label`] that has the earliest starting position and has the highest style which appears in all the labels of the diagnostic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Diagnostic<'a> {
+    /// The main message associated with this diagnostic.
+    ///
+    /// These should not include line breaks, and in order support the 'short'
+    /// diagnostic display mod, the message should be specific enough to make
+    /// sense on its own, without additional context provided by labels and notes.
+    pub message: &'a str,
+    /// Source labels that describe the cause of the diagnostic.
+    /// The order of the labels inside the vector does not have any meaning.
+    /// The labels are always arranged in the order they appear in the source code.
+    pub labels: &'a [Label<'a>],
+    /// Notes that are associated with the primary cause of the diagnostic.
+    /// These can include line breaks for improved formatting.
+    pub notes: &'a [&'a str],
 }
 
 #[derive(Debug, Clone, Copy)]

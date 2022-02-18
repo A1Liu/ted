@@ -1,4 +1,5 @@
 use crate::compiler::ast::*;
+use crate::compiler::errors::*;
 use crate::compiler::types::*;
 use crate::util::*;
 use std::collections::hash_map::HashMap;

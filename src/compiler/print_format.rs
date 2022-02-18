@@ -15,376 +15,330 @@ fn count_digits(mut n: usize) -> usize {
     count
 }
 
-/// A user-facing location in a source file.
-///
-/// Returned by [`Files::location`].
-///
-/// [`Files::location`]: Files::location
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Location {
-    /// The user-facing line number.
-    pub line_number: usize,
-    /// The user-facing column number.
-    pub column_number: usize,
-}
+pub fn render(sel: &Diagnostic, files: &FileDb, out: &mut impl Write) -> FmtResult {
+    use alloc::collections::BTreeMap;
 
-/// A label describing an underlined region of code associated with a diagnostic.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Label<'a> {
-    pub loc: CodeLoc,
-    pub message: &'a str,
-}
+    struct LabeledFile<'diagnostic, FileId> {
+        file_id: FileId,
+        start: usize,
+        name: String,
+        location: Location,
+        num_multi_labels: usize,
+        lines: BTreeMap<usize, Line<'diagnostic>>,
+    }
 
-/// Represents a diagnostic message that can provide information like errors and
-/// warnings to the user.
-///
-/// The position of a Diagnostic is considered to be the position of the [`Label`] that has the earliest starting position and has the highest style which appears in all the labels of the diagnostic.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Diagnostic<'a> {
-    /// The main message associated with this diagnostic.
-    ///
-    /// These should not include line breaks, and in order support the 'short'
-    /// diagnostic display mod, the message should be specific enough to make
-    /// sense on its own, without additional context provided by labels and notes.
-    pub message: &'a str,
-    /// Source labels that describe the cause of the diagnostic.
-    /// The order of the labels inside the vector does not have any meaning.
-    /// The labels are always arranged in the order they appear in the source code.
-    pub labels: &'a [Label<'a>],
-    /// Notes that are associated with the primary cause of the diagnostic.
-    /// These can include line breaks for improved formatting.
-    pub notes: &'a [&'a str],
-}
-
-impl<'a> Diagnostic<'a> {
-    pub fn render(&self, files: &FileDb, out: &mut impl Write) -> FmtResult {
-        use alloc::collections::BTreeMap;
-
-        struct LabeledFile<'diagnostic, FileId> {
-            file_id: FileId,
-            start: usize,
-            name: String,
-            location: Location,
-            num_multi_labels: usize,
-            lines: BTreeMap<usize, Line<'diagnostic>>,
+    impl<'diagnostic, FileId> LabeledFile<'diagnostic, FileId> {
+        fn get_or_insert_line(
+            &mut self,
+            line_index: usize,
+            line_range: Range<usize>,
+            line_number: usize,
+        ) -> &mut Line<'diagnostic> {
+            self.lines.entry(line_index).or_insert_with(|| Line {
+                range: line_range,
+                number: line_number,
+                single_labels: vec![],
+                multi_labels: vec![],
+                // This has to be false by default so we know if it must be rendered by another condition already.
+                must_render: false,
+            })
         }
+    }
 
-        impl<'diagnostic, FileId> LabeledFile<'diagnostic, FileId> {
-            fn get_or_insert_line(
-                &mut self,
-                line_index: usize,
-                line_range: Range<usize>,
-                line_number: usize,
-            ) -> &mut Line<'diagnostic> {
-                self.lines.entry(line_index).or_insert_with(|| Line {
-                    range: line_range,
-                    number: line_number,
-                    single_labels: vec![],
-                    multi_labels: vec![],
-                    // This has to be false by default so we know if it must be rendered by another condition already.
-                    must_render: false,
-                })
+    struct Line<'diagnostic> {
+        number: usize,
+        range: Range<usize>,
+        // TODO: How do we reuse these allocations?
+        single_labels: Vec<SingleLabel<'diagnostic>>,
+        multi_labels: Vec<(usize, MultiLabel<'diagnostic>)>,
+        must_render: bool,
+    }
+
+    let mut renderer = Renderer::new(out);
+
+    // TODO: Make this data structure external, to allow for allocation reuse
+    let mut labeled_files = Vec::<LabeledFile<'_, _>>::new();
+    // Keep track of the outer padding to use when rendering the
+    // snippets of source code.
+    let mut outer_padding = 0;
+
+    // Group labels by file
+    for label in sel.labels {
+        let loc = label.loc;
+        let file_id = loc.file;
+        let start_line_index = line_index(files, file_id, loc.start)?;
+        let start_line_number = line_number(files, file_id, start_line_index)?;
+        let start_line_range = line_range(files, file_id, start_line_index)?;
+        let end_line_index = line_index(files, file_id, loc.end)?;
+        let end_line_number = line_number(files, file_id, end_line_index)?;
+        let end_line_range = line_range(files, file_id, end_line_index)?;
+
+        outer_padding = core::cmp::max(outer_padding, count_digits(start_line_number));
+        outer_padding = core::cmp::max(outer_padding, count_digits(end_line_number));
+
+        // NOTE: This could be made more efficient by using an associative
+        // data structure like a hashmap or B-tree,  but we use a vector to
+        // preserve the order that unique files appear in the list of labels.
+        let labeled_file = match labeled_files
+            .iter_mut()
+            .find(|labeled_file| file_id == labeled_file.file_id)
+        {
+            Some(labeled_file) => {
+                // another diagnostic also referenced this file
+                if labeled_file.start > label.loc.start {
+                    // this label has a higher style or has the same style but starts earlier
+                    labeled_file.start = label.loc.start;
+                    labeled_file.location = location(files, file_id, label.loc.start)?;
+                }
+                labeled_file
             }
-        }
-
-        struct Line<'diagnostic> {
-            number: usize,
-            range: Range<usize>,
-            // TODO: How do we reuse these allocations?
-            single_labels: Vec<SingleLabel<'diagnostic>>,
-            multi_labels: Vec<(usize, MultiLabel<'diagnostic>)>,
-            must_render: bool,
-        }
-
-        let mut renderer = Renderer::new(out);
-
-        // TODO: Make this data structure external, to allow for allocation reuse
-        let mut labeled_files = Vec::<LabeledFile<'_, _>>::new();
-        // Keep track of the outer padding to use when rendering the
-        // snippets of source code.
-        let mut outer_padding = 0;
-
-        // Group labels by file
-        for label in self.labels {
-            let loc = label.loc;
-            let file_id = loc.file;
-            let start_line_index = line_index(files, file_id, loc.start)?;
-            let start_line_number = line_number(files, file_id, start_line_index)?;
-            let start_line_range = line_range(files, file_id, start_line_index)?;
-            let end_line_index = line_index(files, file_id, loc.end)?;
-            let end_line_number = line_number(files, file_id, end_line_index)?;
-            let end_line_range = line_range(files, file_id, end_line_index)?;
-
-            outer_padding = core::cmp::max(outer_padding, count_digits(start_line_number));
-            outer_padding = core::cmp::max(outer_padding, count_digits(end_line_number));
-
-            // NOTE: This could be made more efficient by using an associative
-            // data structure like a hashmap or B-tree,  but we use a vector to
-            // preserve the order that unique files appear in the list of labels.
-            let labeled_file = match labeled_files
-                .iter_mut()
-                .find(|labeled_file| file_id == labeled_file.file_id)
-            {
-                Some(labeled_file) => {
-                    // another diagnostic also referenced this file
-                    if labeled_file.start > label.loc.start {
-                        // this label has a higher style or has the same style but starts earlier
-                        labeled_file.start = label.loc.start;
-                        labeled_file.location = location(files, file_id, label.loc.start)?;
-                    }
-                    labeled_file
-                }
-                None => {
-                    // no other diagnostic referenced this file yet
-                    labeled_files.push(LabeledFile {
-                        file_id: file_id,
-                        start: label.loc.start,
-                        name: name(files, file_id)?.to_string(),
-                        location: location(files, file_id, label.loc.start)?,
-                        num_multi_labels: 0,
-                        lines: BTreeMap::new(),
-                    });
-                    // this unwrap should never fail because we just pushed an element
-                    labeled_files.last_mut().unwrap()
-                }
-            };
-
-            if start_line_index == end_line_index {
-                // Single line
-                //
-                // ```text
-                // 2 │ (+ test "")
-                //   │         ^^ expected `Int` but found `String`
-                // ```
-                let label_start = label.loc.start - start_line_range.start;
-                // Ensure that we print at least one caret, even when we
-                // have a zero-length source range.
-                let label_end = usize::max(label.loc.end - start_line_range.start, label_start + 1);
-
-                let line = labeled_file.get_or_insert_line(
-                    start_line_index,
-                    start_line_range,
-                    start_line_number,
-                );
-
-                // Ensure that the single line labels are lexicographically
-                // sorted by the range of source code that they cover.
-                let index = match line.single_labels.binary_search_by(|(range, _)| {
-                    // `Range<usize>` doesn't implement `Ord`, so convert to `(usize, usize)`
-                    // to piggyback off its lexicographic comparison implementation.
-                    (range.start, range.end).cmp(&(label_start, label_end))
-                }) {
-                    // If the ranges are the same, order the labels in reverse
-                    // to how they were originally specified in the diagnostic.
-                    // This helps with printing in the renderer.
-                    Ok(index) | Err(index) => index,
-                };
-
-                line.single_labels
-                    .insert(index, (label_start..label_end, &label.message));
-
-                // If this line is not rendered, the SingleLabel is not visible.
-                line.must_render = true;
-            } else {
-                // Multiple lines
-                //
-                // ```text
-                // 4 │   fizz₁ num = case (mod num 5) (mod num 3) of
-                //   │ ╭─────────────^
-                // 5 │ │     0 0 => "FizzBuzz"
-                // 6 │ │     0 _ => "Fizz"
-                // 7 │ │     _ 0 => "Buzz"
-                // 8 │ │     _ _ => num
-                //   │ ╰──────────────^ `case` clauses have incompatible types
-                // ```
-
-                let label_index = labeled_file.num_multi_labels;
-                labeled_file.num_multi_labels += 1;
-
-                // First labeled line
-                let label_start = label.loc.start - start_line_range.start;
-
-                let start_line = labeled_file.get_or_insert_line(
-                    start_line_index,
-                    start_line_range.clone(),
-                    start_line_number,
-                );
-
-                start_line
-                    .multi_labels
-                    .push((label_index, MultiLabel::Top(label_start)));
-
-                // The first line has to be rendered so the start of the label is visible.
-                start_line.must_render = true;
-
-                // Marked lines
-                //
-                // ```text
-                // 5 │ │     0 0 => "FizzBuzz"
-                // 6 │ │     0 _ => "Fizz"
-                // 7 │ │     _ 0 => "Buzz"
-                // ```
-                for line_index in (start_line_index + 1)..end_line_index {
-                    let line_range = line_range(files, file_id, line_index)?;
-                    let line_number = line_number(files, file_id, line_index)?;
-
-                    outer_padding = core::cmp::max(outer_padding, count_digits(line_number));
-
-                    let line = labeled_file.get_or_insert_line(line_index, line_range, line_number);
-
-                    line.multi_labels.push((label_index, MultiLabel::Left));
-
-                    // The line should be rendered to match the configuration of how much context to show.
-                    // Is this line part of the context after the start of the label?
-                    // Is this line part of the context before the end of the label?
-                    line.must_render |=
-                        line_index - start_line_index <= 3 || end_line_index - line_index <= 1
-                }
-
-                // Last labeled line
-                //
-                // ```text
-                // 8 │ │     _ _ => num
-                //   │ ╰──────────────^ `case` clauses have incompatible types
-                // ```
-                let label_end = label.loc.end - end_line_range.start;
-
-                let end_line = labeled_file.get_or_insert_line(
-                    end_line_index,
-                    end_line_range,
-                    end_line_number,
-                );
-
-                end_line
-                    .multi_labels
-                    .push((label_index, MultiLabel::Bottom(label_end, &label.message)));
-
-                // The last line has to be rendered so the end of the label is visible.
-                end_line.must_render = true;
+            None => {
+                // no other diagnostic referenced this file yet
+                labeled_files.push(LabeledFile {
+                    file_id: file_id,
+                    start: label.loc.start,
+                    name: name(files, file_id)?.to_string(),
+                    location: location(files, file_id, label.loc.start)?,
+                    num_multi_labels: 0,
+                    lines: BTreeMap::new(),
+                });
+                // this unwrap should never fail because we just pushed an element
+                labeled_files.last_mut().unwrap()
             }
-        }
+        };
 
-        // Header and message
-        //
-        // ```text
-        // error[E0001]: unexpected type in `+` application
-        // ```
-        renderer.render_header(None, self.message)?;
-
-        // Source snippets
-        //
-        // ```text
-        //   ┌─ test:2:9
-        //   │
-        // 2 │ (+ test "")
-        //   │         ^^ expected `Int` but found `String`
-        //   │
-        // ```
-        let mut labeled_files = labeled_files.into_iter().peekable();
-        while let Some(labeled_file) = labeled_files.next() {
-            let source = source(files, labeled_file.file_id)?;
-
-            // Top left border and locus.
+        if start_line_index == end_line_index {
+            // Single line
             //
             // ```text
-            // ┌─ test:2:9
+            // 2 │ (+ test "")
+            //   │         ^^ expected `Int` but found `String`
             // ```
-            if !labeled_file.lines.is_empty() {
-                renderer.render_snippet_start(
-                    outer_padding,
-                    &Locus {
-                        name: labeled_file.name,
-                        location: labeled_file.location,
-                    },
-                )?;
-                renderer.render_snippet_empty(outer_padding, labeled_file.num_multi_labels, &[])?;
+            let label_start = label.loc.start - start_line_range.start;
+            // Ensure that we print at least one caret, even when we
+            // have a zero-length source range.
+            let label_end = usize::max(label.loc.end - start_line_range.start, label_start + 1);
+
+            let line = labeled_file.get_or_insert_line(
+                start_line_index,
+                start_line_range,
+                start_line_number,
+            );
+
+            // Ensure that the single line labels are lexicographically
+            // sorted by the range of source code that they cover.
+            let index = match line.single_labels.binary_search_by(|(range, _)| {
+                // `Range<usize>` doesn't implement `Ord`, so convert to `(usize, usize)`
+                // to piggyback off its lexicographic comparison implementation.
+                (range.start, range.end).cmp(&(label_start, label_end))
+            }) {
+                // If the ranges are the same, order the labels in reverse
+                // to how they were originally specified in the diagnostic.
+                // This helps with printing in the renderer.
+                Ok(index) | Err(index) => index,
+            };
+
+            line.single_labels
+                .insert(index, (label_start..label_end, &label.message));
+
+            // If this line is not rendered, the SingleLabel is not visible.
+            line.must_render = true;
+        } else {
+            // Multiple lines
+            //
+            // ```text
+            // 4 │   fizz₁ num = case (mod num 5) (mod num 3) of
+            //   │ ╭─────────────^
+            // 5 │ │     0 0 => "FizzBuzz"
+            // 6 │ │     0 _ => "Fizz"
+            // 7 │ │     _ 0 => "Buzz"
+            // 8 │ │     _ _ => num
+            //   │ ╰──────────────^ `case` clauses have incompatible types
+            // ```
+
+            let label_index = labeled_file.num_multi_labels;
+            labeled_file.num_multi_labels += 1;
+
+            // First labeled line
+            let label_start = label.loc.start - start_line_range.start;
+
+            let start_line = labeled_file.get_or_insert_line(
+                start_line_index,
+                start_line_range.clone(),
+                start_line_number,
+            );
+
+            start_line
+                .multi_labels
+                .push((label_index, MultiLabel::Top(label_start)));
+
+            // The first line has to be rendered so the start of the label is visible.
+            start_line.must_render = true;
+
+            // Marked lines
+            //
+            // ```text
+            // 5 │ │     0 0 => "FizzBuzz"
+            // 6 │ │     0 _ => "Fizz"
+            // 7 │ │     _ 0 => "Buzz"
+            // ```
+            for line_index in (start_line_index + 1)..end_line_index {
+                let line_range = line_range(files, file_id, line_index)?;
+                let line_number = line_number(files, file_id, line_index)?;
+
+                outer_padding = core::cmp::max(outer_padding, count_digits(line_number));
+
+                let line = labeled_file.get_or_insert_line(line_index, line_range, line_number);
+
+                line.multi_labels.push((label_index, MultiLabel::Left));
+
+                // The line should be rendered to match the configuration of how much context to show.
+                // Is this line part of the context after the start of the label?
+                // Is this line part of the context before the end of the label?
+                line.must_render |=
+                    line_index - start_line_index <= 3 || end_line_index - line_index <= 1
             }
 
-            let mut lines = labeled_file
-                .lines
-                .iter()
-                .filter(|(_, line)| line.must_render)
-                .peekable();
+            // Last labeled line
+            //
+            // ```text
+            // 8 │ │     _ _ => num
+            //   │ ╰──────────────^ `case` clauses have incompatible types
+            // ```
+            let label_end = label.loc.end - end_line_range.start;
 
-            while let Some((line_index, line)) = lines.next() {
-                renderer.render_snippet_source(
-                    outer_padding,
-                    line.number,
-                    &source[line.range.clone()],
-                    &line.single_labels,
-                    labeled_file.num_multi_labels,
-                    &line.multi_labels,
-                )?;
+            let end_line =
+                labeled_file.get_or_insert_line(end_line_index, end_line_range, end_line_number);
 
-                // Check to see if we need to render any intermediate stuff
-                // before rendering the next line.
-                if let Some((next_line_index, _)) = lines.peek() {
-                    match next_line_index.checked_sub(*line_index) {
-                        // Consecutive lines
-                        Some(1) => {}
-                        // One line between the current line and the next line
-                        Some(2) => {
-                            // Write a source line
-                            let file_id = labeled_file.file_id;
+            end_line
+                .multi_labels
+                .push((label_index, MultiLabel::Bottom(label_end, &label.message)));
 
-                            // This line was not intended to be rendered initially.
-                            // To render the line right, we have to get back the original labels.
-                            let labels = labeled_file
-                                .lines
-                                .get(&(line_index + 1))
-                                .map_or(&[][..], |line| &line.multi_labels[..]);
+            // The last line has to be rendered so the end of the label is visible.
+            end_line.must_render = true;
+        }
+    }
 
-                            renderer.render_snippet_source(
-                                outer_padding,
-                                line_number(files, file_id, line_index + 1)?,
-                                &source[line_range(files, file_id, line_index + 1)?],
-                                &[],
-                                labeled_file.num_multi_labels,
-                                labels,
-                            )?;
-                        }
-                        // More than one line between the current line and the next line.
-                        Some(_) | None => {
-                            // Source break
-                            //
-                            // ```text
-                            // ·
-                            // ```
-                            renderer.render_snippet_break(
-                                outer_padding,
-                                labeled_file.num_multi_labels,
-                                &line.multi_labels,
-                            )?;
-                        }
+    // Header and message
+    //
+    // ```text
+    // error[E0001]: unexpected type in `+` application
+    // ```
+    renderer.render_header(None, sel.message)?;
+
+    // Source snippets
+    //
+    // ```text
+    //   ┌─ test:2:9
+    //   │
+    // 2 │ (+ test "")
+    //   │         ^^ expected `Int` but found `String`
+    //   │
+    // ```
+    let mut labeled_files = labeled_files.into_iter().peekable();
+    while let Some(labeled_file) = labeled_files.next() {
+        let source = source(files, labeled_file.file_id)?;
+
+        // Top left border and locus.
+        //
+        // ```text
+        // ┌─ test:2:9
+        // ```
+        if !labeled_file.lines.is_empty() {
+            renderer.render_snippet_start(
+                outer_padding,
+                &Locus {
+                    name: labeled_file.name,
+                    location: labeled_file.location,
+                },
+            )?;
+            renderer.render_snippet_empty(outer_padding, labeled_file.num_multi_labels, &[])?;
+        }
+
+        let mut lines = labeled_file
+            .lines
+            .iter()
+            .filter(|(_, line)| line.must_render)
+            .peekable();
+
+        while let Some((line_index, line)) = lines.next() {
+            renderer.render_snippet_source(
+                outer_padding,
+                line.number,
+                &source[line.range.clone()],
+                &line.single_labels,
+                labeled_file.num_multi_labels,
+                &line.multi_labels,
+            )?;
+
+            // Check to see if we need to render any intermediate stuff
+            // before rendering the next line.
+            if let Some((next_line_index, _)) = lines.peek() {
+                match next_line_index.checked_sub(*line_index) {
+                    // Consecutive lines
+                    Some(1) => {}
+                    // One line between the current line and the next line
+                    Some(2) => {
+                        // Write a source line
+                        let file_id = labeled_file.file_id;
+
+                        // This line was not intended to be rendered initially.
+                        // To render the line right, we have to get back the original labels.
+                        let labels = labeled_file
+                            .lines
+                            .get(&(line_index + 1))
+                            .map_or(&[][..], |line| &line.multi_labels[..]);
+
+                        renderer.render_snippet_source(
+                            outer_padding,
+                            line_number(files, file_id, line_index + 1)?,
+                            &source[line_range(files, file_id, line_index + 1)?],
+                            &[],
+                            labeled_file.num_multi_labels,
+                            labels,
+                        )?;
+                    }
+                    // More than one line between the current line and the next line.
+                    Some(_) | None => {
+                        // Source break
+                        //
+                        // ```text
+                        // ·
+                        // ```
+                        renderer.render_snippet_break(
+                            outer_padding,
+                            labeled_file.num_multi_labels,
+                            &line.multi_labels,
+                        )?;
                     }
                 }
             }
-
-            // Check to see if we should render a trailing border after the
-            // final line of the snippet.
-            if labeled_files.peek().is_none() && self.notes.is_empty() {
-                // We don't render a border if we are at the final newline
-                // without trailing notes, because it would end up looking too
-                // spaced-out in combination with the final new line.
-            } else {
-                // Render the trailing snippet border.
-                renderer.render_snippet_empty(outer_padding, labeled_file.num_multi_labels, &[])?;
-            }
         }
 
-        // Additional notes
-        //
-        // ```text
-        // = expected type `Int`
-        //      found type `String`
-        // ```
-        for note in self.notes {
-            renderer.render_snippet_note(outer_padding, note)?;
-            renderer.render_empty()?;
+        // Check to see if we should render a trailing border after the
+        // final line of the snippet.
+        if labeled_files.peek().is_none() && sel.notes.is_empty() {
+            // We don't render a border if we are at the final newline
+            // without trailing notes, because it would end up looking too
+            // spaced-out in combination with the final new line.
+        } else {
+            // Render the trailing snippet border.
+            renderer.render_snippet_empty(outer_padding, labeled_file.num_multi_labels, &[])?;
         }
-
-        return Ok(());
     }
+
+    // Additional notes
+    //
+    // ```text
+    // = expected type `Int`
+    //      found type `String`
+    // ```
+    for note in sel.notes {
+        renderer.render_snippet_note(outer_padding, note)?;
+        renderer.render_empty()?;
+    }
+
+    return Ok(());
 }
 
 /// The 'location focus' of a source code snippet.
