@@ -34,7 +34,7 @@ pub enum ExprKind {
     },
 
     BinaryOp {
-        op: BinaryOpKind,
+        op: BinaryExprKind,
         left: &'static Expr,
         right: &'static Expr,
     },
@@ -73,8 +73,56 @@ pub enum ExprKind {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum BinaryOpKind {
+pub enum BinaryExprKind {
     Add,
     Multiply,
     Equal,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Type {
+    Int,
+    String,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Op {
+    pub kind: OpKind,
+    pub loc: CodeLoc,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum OpKind {
+    Add {
+        result: OpResult,
+        left: u32,
+        right: u32,
+    },
+
+    Print {
+        input: u32,
+    },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum OpResult {
+    // Means that the expression that returns this value doesn't ever return
+    // a value directly (early return, loop forever, crash, ...)
+    Never,
+
+    // Void in C
+    Null,
+
+    Value { id: u32, ty: Type },
+}
+
+impl OpKind {
+    pub fn result(&self) -> OpResult {
+        use OpKind::*;
+
+        match self {
+            Add { result, .. } => return *result,
+            Print { .. } => return OpResult::Null,
+        }
+    }
 }

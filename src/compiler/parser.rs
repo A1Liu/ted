@@ -601,7 +601,7 @@ impl<'a> Parser<'a> {
 
 #[derive(Clone, Copy)]
 struct OperatorInfo {
-    op_kind: Option<BinaryOpKind>,
+    op_kind: Option<BinaryExprKind>,
     precedence: u8,
     is_left_to_right: bool,
 
@@ -622,15 +622,15 @@ const OPERATORS: [OperatorInfo; 256] = {
     let mut idx;
 
     idx = TokenKind::Equal2 as usize;
-    info[idx].op_kind = Some(BinaryOpKind::Equal);
+    info[idx].op_kind = Some(BinaryExprKind::Equal);
     info[idx].precedence = 10;
 
     idx = TokenKind::Plus as usize;
-    info[idx].op_kind = Some(BinaryOpKind::Add);
+    info[idx].op_kind = Some(BinaryExprKind::Add);
     info[idx].precedence = 50;
 
     idx = TokenKind::Star as usize;
-    info[idx].op_kind = Some(BinaryOpKind::Multiply);
+    info[idx].op_kind = Some(BinaryExprKind::Multiply);
     info[idx].precedence = 60;
 
     info
