@@ -492,6 +492,7 @@ impl<'a> Parser<'a> {
                                 self.pop_kinds_loop(&[Skip, NewlineSkip]);
                                 continue;
                             }
+
                             _ => {}
                         }
 
@@ -917,7 +918,7 @@ mod tests {
 
         let text = r#"
         let a = 12
-        let b = a + 12
+        let b = a + 12 + 13
         let c = print(a,b,)
         print(a, b)
         "#;
