@@ -406,7 +406,7 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            let op = match info.op_kind {
+            let kind = match info.op_kind {
                 Some(kind) => kind,
                 None => break,
             };
@@ -429,7 +429,7 @@ impl<'a> Parser<'a> {
             let right = self.allocator.new(right);
 
             loc.end = self.text_cursor;
-            let kind = ExprKind::BinaryOp { op, left, right };
+            let kind = ExprKind::BinaryOp { kind, left, right };
 
             expr = Expr { kind, loc };
 

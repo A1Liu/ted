@@ -70,8 +70,33 @@ impl TypeEnv {
                 return Ok(OpResult::Null);
             }
 
-            BinaryOp { op, left, right } => {
-                return Ok(OpResult::Null);
+            BinaryOp { kind, left, right } => {
+                let left = self.check_expr(left, ops)?;
+                let right = self.check_expr(right, ops)?;
+
+                let ty = left.ty();
+                if ty != right.ty() {
+                    return Err(Error::new(
+                        "binary operation should be with values that are the same type",
+                        expr.loc,
+                    ));
+                }
+
+                if kind == BinaryExprKind::Add {
+                    let result = OpResult::Value { id, ty };
+
+                    op.kind = OpKind::Add {
+                        result,
+                        left,
+                        right,
+                    };
+
+                    ops.push(op);
+
+                    return Ok(result);
+                }
+
+                unreachable!();
             }
 
             _ => unreachable!(),

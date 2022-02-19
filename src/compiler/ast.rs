@@ -34,7 +34,7 @@ pub enum ExprKind {
     },
 
     BinaryOp {
-        op: BinaryExprKind,
+        kind: BinaryExprKind,
         left: &'static Expr,
         right: &'static Expr,
     },
@@ -72,14 +72,14 @@ pub enum ExprKind {
     },
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BinaryExprKind {
     Add,
     Multiply,
     Equal,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Type {
     // Means that the expression that returns this value doesn't ever return
     // a value directly (early return, loop forever, crash, ...)
@@ -111,8 +111,8 @@ pub enum OpKind {
 
     Add {
         result: OpResult,
-        left: u32,
-        right: u32,
+        left: OpResult,
+        right: OpResult,
     },
 
     Print {
