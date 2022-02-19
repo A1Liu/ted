@@ -8,7 +8,7 @@ target-dir = ".cargo/target"
 #                               - Albert Liu, Dec 09, 2021 Thu 21:01 EST
 [net]
 git-fetch-with-cli = true
-offline = true
 
 # IT DIDN'T EVEN FUCKING FIX IT
 #                               - Albert Liu, Dec 14, 2021 Tue 20:41 EST
+
