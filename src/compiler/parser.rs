@@ -642,7 +642,7 @@ fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error>
 
     let mut index = 0;
     'outer: while let Some(&b) = bytes.get(index) {
-        let begin = index;
+        let start = index;
         index += 1;
 
         'simple: loop {
@@ -729,7 +729,7 @@ fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error>
                 }
 
                 let kind = TokenKind::Skip;
-                let data: u32 = expect((index - begin).try_into());
+                let data: u32 = expect((index - start).try_into());
                 tokens.push(Token { kind, data });
                 continue 'outer;
             }
@@ -778,7 +778,7 @@ fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error>
                 }
             };
 
-            let s = unsafe { core::str::from_utf8_unchecked(&bytes[begin..index]) };
+            let s = unsafe { core::str::from_utf8_unchecked(&bytes[start..index]) };
             let data = table.add(s);
 
             tokens.push(Token { kind, data });
@@ -811,12 +811,18 @@ fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error>
                 false => TokenKind::Skip,
             };
 
-            let data: u32 = expect((index - begin).try_into());
+            let data: u32 = expect((index - start).try_into());
             tokens.push(Token { kind, data });
             continue 'outer;
         }
 
-        let error = Error::new("unrecognized token", file, begin..index);
+        let loc = CodeLoc {
+            file,
+            start,
+            end: index,
+        };
+
+        let error = Error::new("unrecognized token", loc);
         return Err(error);
     }
 
@@ -824,7 +830,7 @@ fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Error>
 }
 
 fn parse_string(file: u32, bytes: &[u8], mut index: usize, terminator: u8) -> Result<usize, Error> {
-    let begin = index;
+    let start = index;
 
     let mut escaped = false;
     while let Some(&b) = bytes.get(index) {
@@ -842,11 +848,13 @@ fn parse_string(file: u32, bytes: &[u8], mut index: usize, terminator: u8) -> Re
         escaped = false;
     }
 
-    return Err(Error::new(
-        "failed to parse char or string",
+    let loc = CodeLoc {
         file,
-        begin..index,
-    ));
+        start,
+        end: index,
+    };
+
+    return Err(Error::new("failed to parse char or string", loc));
 }
 
 pub struct StringTable {

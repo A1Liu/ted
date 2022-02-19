@@ -55,14 +55,10 @@ impl Error {
 }
 
 impl Error {
-    pub fn new(s: impl Into<String>, file: u32, range: core::ops::Range<usize>) -> Self {
+    pub fn new(s: impl Into<String>, loc: CodeLoc) -> Self {
         return Self::Simple {
             message: s.into(),
-            loc: CodeLoc {
-                file,
-                start: range.start,
-                end: range.end,
-            },
+            loc,
         };
     }
 

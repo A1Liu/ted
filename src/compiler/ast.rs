@@ -81,7 +81,14 @@ pub enum BinaryExprKind {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Type {
-    Int,
+    // Means that the expression that returns this value doesn't ever return
+    // a value directly (early return, loop forever, crash, ...)
+    Never,
+
+    // Void in C
+    Null,
+
+    Unsigned,
     String,
 }
 
@@ -93,6 +100,15 @@ pub struct Op {
 
 #[derive(Debug, Clone, Copy)]
 pub enum OpKind {
+    Null {
+        id: u32,
+    },
+
+    Unsigned {
+        id: u32,
+        value: u64,
+    },
+
     Add {
         result: OpResult,
         left: u32,
@@ -120,9 +136,31 @@ impl OpKind {
     pub fn result(&self) -> OpResult {
         use OpKind::*;
 
-        match self {
-            Add { result, .. } => return *result,
+        match *self {
+            Null { id } => return OpResult::Value { id, ty: Type::Null },
+
+            Unsigned { id, value } => {
+                return OpResult::Value {
+                    id,
+                    ty: Type::Unsigned,
+                }
+            }
+
+            Add { result, .. } => return result,
+
             Print { .. } => return OpResult::Null,
+        }
+    }
+}
+
+impl OpResult {
+    pub fn ty(&self) -> Type {
+        use OpResult::*;
+
+        match *self {
+            Never => return Type::Never,
+            Null => return Type::Null,
+            Value { id, ty } => return ty,
         }
     }
 }
