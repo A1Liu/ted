@@ -5,27 +5,58 @@ use std::collections::hash_map::HashMap;
 pub fn interpret(ast: &Ast) {
     let mut stack = BucketList::new();
 
-    interp_block(stack.scoped(), &ast.block);
+    let mut interp = Interp {
+        type_of: HashMap::new(),
+    };
+
+    let mut values = HashMap::new();
+
+    let scope = Scope {
+        values: &mut values,
+        alloc: stack.scoped(),
+    };
+
+    interp.block(scope, &ast.block);
 }
 
-fn interp_block(mut alloc: ScopedBump, block: &Block) {
-    for expr in block.stmts {
-        interp(&mut alloc, expr);
+struct Interp {
+    type_of: HashMap<*const Expr, Type>,
+}
+
+impl Interp {
+    fn block(&mut self, mut scope: Scope, block: &Block) {
+        for expr in block.stmts {
+            self.expr(&mut scope, expr);
+        }
+    }
+
+    fn expr(&mut self, scope: &mut Scope, e: &Expr) {
+        use ExprKind::*;
+
+        match e.kind {
+            Let { value, .. } => {
+                self.expr(scope, value);
+            }
+
+            Block(block) => {
+                self.block(scope.chain(), &block);
+            }
+
+            _ => unreachable!(),
+        }
     }
 }
 
-fn interp(alloc: &mut ScopedBump, e: &Expr) {
-    use ExprKind::*;
+struct Scope<'a> {
+    values: &'a mut HashMap<*const Expr, u64>,
+    alloc: ScopedBump<'a>,
+}
 
-    match e.kind {
-        Let { value, .. } => {
-            interp(alloc, value);
-        }
-
-        Block(block) => {
-            interp_block(alloc.chain(), &block);
-        }
-
-        _ => unreachable!(),
+impl<'a> Scope<'a> {
+    fn chain<'b>(&'b mut self) -> Scope<'b> {
+        return Scope {
+            values: self.values,
+            alloc: self.alloc.chain(),
+        };
     }
 }
