@@ -1,6 +1,7 @@
 mod ast;
 mod checker;
 mod errors;
+mod interp;
 mod parser;
 mod print_format;
 mod types;
@@ -8,6 +9,7 @@ mod types;
 pub use ast::*;
 pub use checker::*;
 pub use errors::*;
+pub use interp::*;
 pub use parser::*;
 pub use print_format::*;
 pub use types::*;
