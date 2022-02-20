@@ -1,4 +1,4 @@
-use crate::compiler::types::*;
+use crate::compiler::*;
 use crate::util::*;
 
 pub type ERef = Ref<Expr>;

@@ -1,4 +1,4 @@
-use crate::compiler::types::*;
+use crate::compiler::*;
 use crate::util::*;
 use core::fmt::{self, Error as FmtError, Result as FmtResult, Write};
 use core::ops::Range;
@@ -15,7 +15,7 @@ fn count_digits(mut n: usize) -> usize {
     count
 }
 
-pub fn render(sel: &Diagnostic, files: &FileDb, out: &mut impl Write) -> FmtResult {
+pub fn render_diagnostic(sel: &Diagnostic, files: &FileDb, out: &mut impl Write) -> FmtResult {
     use alloc::collections::BTreeMap;
 
     struct LabeledFile<'diagnostic, FileId> {

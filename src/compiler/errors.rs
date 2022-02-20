@@ -1,5 +1,4 @@
-use crate::compiler::print_format::*;
-use crate::compiler::types::*;
+use crate::compiler::*;
 use crate::util::*;
 use core::fmt::{self, Error as FmtError, Result as FmtResult, Write};
 
@@ -50,7 +49,7 @@ impl Error {
             }
         };
 
-        return render(&diagnostic, files, out);
+        return render_diagnostic(&diagnostic, files, out);
     }
 }
 

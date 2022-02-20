@@ -1,16 +1,20 @@
-pub mod ast;
-pub mod checker;
-pub mod errors;
-pub mod parser;
-pub mod print_format;
-pub mod types;
+mod ast;
+mod checker;
+mod errors;
+mod parser;
+mod print_format;
+mod types;
+
+pub use ast::*;
+pub use checker::*;
+pub use errors::*;
+pub use parser::*;
+pub use print_format::*;
+pub use types::*;
 
 #[cfg(test)]
 mod tests {
-    use super::checker::*;
-    use super::errors::*;
-    use super::parser::*;
-    use super::types::*;
+    use super::*;
     use crate::util::*;
     use core::fmt::Write;
 
