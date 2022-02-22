@@ -60,3 +60,17 @@ impl<'a> Scope<'a> {
         };
     }
 }
+
+struct Register {
+    value: u64,
+}
+
+impl Register {
+    fn u32(&self) -> u32 {
+        return self.value as u32;
+    }
+
+    fn u64(&self) -> u64 {
+        return self.value;
+    }
+}
