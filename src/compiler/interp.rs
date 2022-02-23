@@ -30,16 +30,20 @@ impl Interp {
         }
     }
 
-    fn expr(&mut self, scope: &mut Scope, e: &Expr) {
+    fn expr(&mut self, scope: &mut Scope, e: &Expr) -> Register {
         use ExprKind::*;
 
         match e.kind {
             Let { value, .. } => {
-                self.expr(scope, value);
+                let value = self.expr(scope, value);
+
+                return ZERO;
             }
 
             Block(block) => {
                 self.block(scope.chain(), &block);
+
+                return ZERO;
             }
 
             _ => unreachable!(),
@@ -61,6 +65,9 @@ impl<'a> Scope<'a> {
     }
 }
 
+const ZERO: Register = Register { value: 0 };
+
+#[derive(Clone, Copy)]
 struct Register {
     value: u64,
 }

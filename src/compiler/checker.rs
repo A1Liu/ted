@@ -16,9 +16,18 @@ pub enum Type {
 }
 
 pub fn check_ast(ast: &Ast) -> Result<(), Error> {
-    let mut env = TypeEnv {
+    let mut types = TypeEnv {
         type_of: HashMap::new(),
-        scope: HashMap::new(),
+        ident_to_let: HashMap::new(),
+    };
+
+    let mut scope = ScopeEnv {
+        vars: HashMap::new(),
+    };
+
+    let mut env = CheckEnv {
+        types: &mut types,
+        scope: &mut scope,
     };
 
     env.check_block(&ast.block)?;
@@ -28,10 +37,27 @@ pub fn check_ast(ast: &Ast) -> Result<(), Error> {
 
 struct TypeEnv {
     type_of: HashMap<*const Expr, Type>,
-    scope: HashMap<u32, &'static Expr>,
+    ident_to_let: HashMap<*const Expr, *const Expr>,
 }
 
-impl TypeEnv {
+// eventually this will be chaining
+struct ScopeEnv {
+    vars: HashMap<u32, &'static Expr>,
+}
+
+struct CheckEnv<'a> {
+    types: &'a mut TypeEnv,
+    scope: &'a mut ScopeEnv,
+}
+
+impl<'a> CheckEnv<'a> {
+    fn chain<'b>(&'b mut self, scope: &'b mut ScopeEnv) -> CheckEnv<'b> {
+        return CheckEnv {
+            types: self.types,
+            scope,
+        };
+    }
+
     fn check_block(&mut self, block: &Block) -> Result<Type, Error> {
         let mut ty = Type::Null;
 
@@ -55,7 +81,7 @@ impl TypeEnv {
             Let { symbol, value } => {
                 let result = self.check_expr(value)?;
 
-                if let Some(prev) = self.scope.insert(symbol, expr) {
+                if let Some(prev) = self.scope.vars.insert(symbol, expr) {
                     return Err(Error::new("redeclared variable", expr.loc));
                 }
 
@@ -79,7 +105,7 @@ impl TypeEnv {
             _ => unreachable!(),
         }
 
-        if let Some(_) = self.type_of.insert(expr, ty) {
+        if let Some(_) = self.types.type_of.insert(expr, ty) {
             panic!("idk");
         }
 
