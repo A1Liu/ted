@@ -2,12 +2,10 @@ use crate::compiler::*;
 use crate::util::*;
 use std::collections::hash_map::HashMap;
 
-pub fn interpret(ast: &Ast) {
+pub fn interpret(ast: &Ast, env: &TypeEnv) {
     let mut stack = BucketList::new();
 
-    let mut interp = Interp {
-        type_of: HashMap::new(),
-    };
+    let mut interp = Interp { env };
 
     let mut values = HashMap::new();
 
@@ -19,11 +17,11 @@ pub fn interpret(ast: &Ast) {
     interp.block(scope, &ast.block);
 }
 
-struct Interp {
-    type_of: HashMap<*const Expr, Type>,
+struct Interp<'a> {
+    env: &'a TypeEnv,
 }
 
-impl Interp {
+impl<'a> Interp<'a> {
     fn block(&mut self, mut scope: Scope, block: &Block) {
         for expr in block.stmts {
             self.expr(&mut scope, expr);

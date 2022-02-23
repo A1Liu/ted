@@ -35,9 +35,9 @@ pub fn check_ast(ast: &Ast) -> Result<(), Error> {
     return Ok(());
 }
 
-struct TypeEnv {
-    type_of: HashMap<*const Expr, Type>,
-    ident_to_let: HashMap<*const Expr, *const Expr>,
+pub struct TypeEnv {
+    pub type_of: HashMap<*const Expr, Type>,
+    pub ident_to_let: HashMap<*const Expr, *const Expr>,
 }
 
 // eventually this will be chaining
