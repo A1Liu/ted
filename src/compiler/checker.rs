@@ -18,7 +18,7 @@ pub enum Type {
 pub fn check_ast(ast: &Ast) -> Result<(), Error> {
     let mut types = TypeEnv {
         type_of: HashMap::new(),
-        ident_to_let: HashMap::new(),
+        ident_to_expr: HashMap::new(),
     };
 
     let mut scope = ScopeEnv {
@@ -37,7 +37,7 @@ pub fn check_ast(ast: &Ast) -> Result<(), Error> {
 
 pub struct TypeEnv {
     pub type_of: HashMap<*const Expr, Type>,
-    pub ident_to_let: HashMap<*const Expr, *const Expr>,
+    pub ident_to_expr: HashMap<*const Expr, *const Expr>,
 }
 
 // eventually this will be chaining

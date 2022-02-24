@@ -33,9 +33,20 @@ impl<'a> Interp<'a> {
 
         match e.kind {
             Let { value, .. } => {
-                let value = self.expr(scope, value);
+                let expr = value;
+                let value = self.expr(scope, expr);
+
+                scope.values.insert(expr, value);
 
                 return ZERO;
+            }
+
+            Ident { .. } => {
+                let expr = e as *const Expr;
+                let expr = unwrap(self.env.ident_to_expr.get(&expr));
+                let register = unwrap(scope.values.get(expr));
+
+                return *register;
             }
 
             Block(block) => {
@@ -50,7 +61,7 @@ impl<'a> Interp<'a> {
 }
 
 struct Scope<'a> {
-    values: &'a mut HashMap<*const Expr, u64>,
+    values: &'a mut HashMap<*const Expr, Register>,
     alloc: ScopedBump<'a>,
 }
 
