@@ -55,6 +55,10 @@ impl<'a> Interp<'a> {
                 return ZERO;
             }
 
+            BinaryOp { kind, left, right } => {
+                return ZERO;
+            }
+
             _ => unreachable!(),
         }
     }
