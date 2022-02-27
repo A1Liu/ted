@@ -56,7 +56,17 @@ impl<'a> Interp<'a> {
             }
 
             BinaryOp { kind, left, right } => {
-                return ZERO;
+                use BinaryExprKind::*;
+                let left = self.expr(scope, left);
+                let right = self.expr(scope, right);
+
+                let value = match kind {
+                    Add => left.to_u64().wrapping_add(right.to_u64()),
+
+                    _ => 0u64,
+                };
+
+                return Register::from_u64(value);
             }
 
             _ => unreachable!(),
@@ -81,16 +91,21 @@ impl<'a> Scope<'a> {
 const ZERO: Register = Register { value: 0 };
 
 #[derive(Clone, Copy)]
+#[repr(transparent)]
 struct Register {
     value: u64,
 }
 
 impl Register {
-    fn u32(&self) -> u32 {
+    fn from_u64(value: u64) -> Self {
+        return Self { value };
+    }
+
+    fn to_u32(self) -> u32 {
         return self.value as u32;
     }
 
-    fn u64(&self) -> u64 {
+    fn to_u64(self) -> u64 {
         return self.value;
     }
 }
