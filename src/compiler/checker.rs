@@ -15,7 +15,7 @@ pub enum Type {
     String,
 }
 
-pub fn check_ast(ast: &Ast) -> Result<(), Error> {
+pub fn check_ast(ast: &Ast) -> Result<TypeEnv, Error> {
     let mut types = TypeEnv {
         type_of: HashMap::new(),
         ident_to_expr: HashMap::new(),
@@ -32,7 +32,7 @@ pub fn check_ast(ast: &Ast) -> Result<(), Error> {
 
     env.check_block(&ast.block)?;
 
-    return Ok(());
+    return Ok(types);
 }
 
 pub struct TypeEnv {
@@ -88,6 +88,14 @@ impl<'a> CheckEnv<'a> {
                 ty = Type::Null;
             }
 
+            Ident { symbol } => {
+                let value = self.scope.vars[&symbol] as *const Expr;
+
+                self.types.ident_to_expr.insert(expr, value);
+
+                ty = self.types.type_of[&value];
+            }
+
             BinaryOp { kind, left, right } => {
                 let left_ty = self.check_expr(left)?;
                 let right_ty = self.check_expr(right)?;
@@ -102,7 +110,15 @@ impl<'a> CheckEnv<'a> {
                 ty = left_ty;
             }
 
-            _ => unreachable!(),
+            Call { callee, args } => {
+                for arg in args {
+                    self.check_expr(arg)?;
+                }
+
+                ty = Type::Null;
+            }
+
+            k => unimplemented!("{:#?}", k),
         }
 
         if let Some(_) = self.types.type_of.insert(expr, ty) {

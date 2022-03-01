@@ -1,4 +1,6 @@
-# Architecture
+# Intended Architecture
+
+## NOTE: NONE OF THIS IS IMPLEMENTED
 
 lexing/parsing -> one global lexer thread, X parser threads
 

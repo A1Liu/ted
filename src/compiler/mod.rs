@@ -23,7 +23,7 @@ mod tests {
     // eventually use src/bin
 
     #[test]
-    fn test_parser() {
+    fn sample() {
         let mut table = StringTable::new();
         let mut files = FileDb::new();
 
@@ -51,6 +51,18 @@ mod tests {
         };
 
         let ast = match parse(&table, 0, data) {
+            Ok(data) => data,
+            Err(e) => {
+                let mut out = String::new();
+
+                expect(e.render(&files, &mut out));
+
+                eprintln!("{}\n", out);
+                panic!("{:?}", e);
+            }
+        };
+
+        let env = match check_ast(&ast) {
             Ok(data) => data,
             Err(e) => {
                 let mut out = String::new();
