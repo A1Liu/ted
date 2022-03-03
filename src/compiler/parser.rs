@@ -26,7 +26,7 @@ pub enum Key {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenKind {
     LParen = b'(',
     RParen = b')',
@@ -71,7 +71,7 @@ pub enum TokenKind {
     NewlineSkip,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Token {
     pub kind: TokenKind,
     pub data: u32,
@@ -183,7 +183,8 @@ impl<'a> Parser<'a> {
         'outer: while let Some(tok) = self.peek() {
             for &kind in kinds {
                 if tok.kind == kind {
-                    self.adv();
+                    self.text_cursor += tok.len(self.table);
+                    self.index += 1;
                     continue 'outer;
                 }
             }
@@ -206,6 +207,7 @@ impl<'a> Parser<'a> {
             let stmt = self.parse_expr()?;
             stmts.push(stmt);
 
+            // TODO probs should require newline here
             self.pop_kinds_loop(&[Skip, NewlineSkip, Semicolon]);
         }
 
@@ -419,6 +421,7 @@ impl<'a> Parser<'a> {
             self.pop_kinds_loop(&[Skip, NewlineSkip]);
 
             let right = self.parse_binary_precedence_op(next_min_level)?;
+
             if let Some(check) = info.check_operands {
                 check(&expr, &right)?;
             }
@@ -426,7 +429,7 @@ impl<'a> Parser<'a> {
             let left = self.allocator.new(expr);
             let right = self.allocator.new(right);
 
-            loc.end = self.text_cursor;
+            loc.end = right.loc.end;
             let kind = ExprKind::BinaryOp { kind, left, right };
 
             expr = Expr { kind, loc };
@@ -459,6 +462,8 @@ impl<'a> Parser<'a> {
         };
 
         let mut expr = self.parse_atom()?;
+
+        self.pop_kinds_loop(&[Skip]);
 
         while let Some(tok) = self.peek() {
             match tok.kind {
@@ -783,11 +788,12 @@ pub fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Er
             continue 'outer;
         }
 
-        if b == b' ' || b == b'\t' || b == b'\r' || b == b'\n' {
-            let mut has_newline = false;
+        let is_newline = b == b'\n';
+        if b == b' ' || b == b'\t' || b == b'\r' || is_newline {
+            let mut has_newline = is_newline;
 
             while let Some(&b) = bytes.get(index) {
-                let is_newline = b == b'\r' || b == b'\n';
+                let is_newline = b == b'\n';
                 if is_newline {
                     has_newline = true;
                     index += 1;
@@ -795,7 +801,7 @@ pub fn lex(table: &mut StringTable, file: u32, s: &str) -> Result<Pod<Token>, Er
                     continue;
                 }
 
-                if b == b' ' || b == b'\t' {
+                if b == b' ' || b == b'\t' || b == b'\r' {
                     index += 1;
 
                     continue;

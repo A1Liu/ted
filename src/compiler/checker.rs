@@ -81,7 +81,7 @@ impl<'a> CheckEnv<'a> {
             Let { symbol, value } => {
                 let result = self.check_expr(value)?;
 
-                if let Some(prev) = self.scope.vars.insert(symbol, expr) {
+                if let Some(prev) = self.scope.vars.insert(symbol, value) {
                     return Err(Error::new("redeclared variable", expr.loc));
                 }
 
