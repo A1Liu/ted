@@ -180,6 +180,7 @@ impl<'a> Parser<'a> {
         return Some(*tok);
     }
 
+    #[inline]
     fn adv(&mut self) {
         if let Some(tok) = self.peek() {
             self.text_cursor += tok.len(self.table);
@@ -555,37 +556,41 @@ impl<'a> Parser<'a> {
 
                     self.pop_kinds_loop(&[Skip, NewlineSkip]);
 
-                    let mut args = Pod::new();
-                    while let Some(tok) = self.peek() {
-                        if tok.kind == RParen {
-                            self.adv();
-                            break;
-                        }
+                    if let Some(_) = self.pop_kind(RParen) {
+                        loc.end = self.text_cursor;
 
+                        let callee = self.allocator.new(expr);
+                        let kind = ExprKind::Call { callee, args: &[] };
+
+                        expr = Expr { kind, loc };
+                        continue;
+                    }
+
+                    let mut args = Pod::new();
+                    loop {
                         let expr = self.parse_binary_op()?;
                         args.push(expr);
 
+                        let before_comma = self.text_cursor;
+
                         self.pop_kinds_loop(&[Skip, NewlineSkip]);
 
-                        let tok = self.pop().ok_or_else(|| {
+                        let found_comma = self.pop_kind(Comma).is_some();
+
+                        self.pop_kinds_loop(&[Skip, NewlineSkip]);
+
+                        if let Some(_) = self.pop_kind(RParen) {
                             loc.end = self.text_cursor;
 
-                            return Error::expected("a comma or closing paren", loc);
-                        })?;
-
-                        match tok.kind {
-                            RParen => break,
-                            Comma => {
-                                self.pop_kinds_loop(&[Skip, NewlineSkip]);
-                                continue;
-                            }
-
-                            _ => {}
+                            break;
                         }
 
-                        loc.end = self.text_cursor;
+                        if !found_comma {
+                            loc.start = before_comma;
+                            loc.end = before_comma;
 
-                        return Err(Error::expected("a comma or closing paren", loc));
+                            return Err(Error::expected("a comma or closing paren", loc));
+                        }
                     }
 
                     let callee = self.allocator.new(expr);
