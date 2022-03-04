@@ -106,7 +106,10 @@ impl Token {
 }
 
 pub fn parse(table: &StringTable, file: u32, data: Pod<Token>) -> Result<Ast, Error> {
+    use TokenKind::*;
+
     let allocator = BucketList::new();
+
     let mut parser = Parser {
         allocator: &allocator,
         table,
@@ -116,7 +119,30 @@ pub fn parse(table: &StringTable, file: u32, data: Pod<Token>) -> Result<Ast, Er
         text_cursor: 0,
     };
 
-    let block = parser.parse_expressions()?;
+    let mut stmts = Pod::new();
+
+    parser.pop_kinds_loop(&[Skip, NewlineSkip, Semicolon]);
+
+    while parser.index < parser.data.len() {
+        let stmt = parser.parse_expr()?;
+        stmts.push(stmt);
+
+        // TODO probs should require newline here
+        parser.pop_kinds_loop(&[Skip, NewlineSkip, Semicolon]);
+    }
+
+    let mut stmts_in_alloc = Pod::with_allocator(&allocator);
+    stmts_in_alloc.reserve(stmts.len());
+
+    for stmt in stmts {
+        stmts_in_alloc.push(stmt);
+    }
+
+    let stmts = stmts_in_alloc;
+
+    let block = Block {
+        stmts: stmts.leak(),
+    };
 
     return Ok(Ast { allocator, block });
 }
@@ -198,33 +224,6 @@ impl<'a> Parser<'a> {
         }
 
         return r(start, self.text_cursor);
-    }
-
-    pub fn parse_expressions(&mut self) -> Result<Block, Error> {
-        use TokenKind::*;
-
-        let mut stmts = Pod::with_allocator(self.allocator);
-        // let mut identifiers = HashMap::new();
-
-        self.pop_kinds_loop(&[Skip, NewlineSkip, Semicolon]);
-
-        while self.index < self.data.len() {
-            let stmt = self.parse_expr()?;
-            stmts.push(stmt);
-
-            // TODO probs should require newline here
-            self.pop_kinds_loop(&[Skip, NewlineSkip, Semicolon]);
-        }
-
-        let stmts = stmts.leak();
-        // let scope = HashRef::new(&self.allocator, &identifiers);
-
-        let block = Block {
-            // scope,
-            stmts,
-        };
-
-        return Ok(block);
     }
 
     pub fn parse_expr(&mut self) -> Result<Expr, Error> {
@@ -381,6 +380,68 @@ impl<'a> Parser<'a> {
         // case
 
         // for
+
+        // block
+        if let Some(_) = self.pop_kind(LBrace) {
+            use TokenKind::*;
+
+            let mut stmts = Pod::new();
+
+            self.pop_kinds_loop(&[Skip, NewlineSkip, Semicolon]);
+
+            if let Some(tok) = self.pop_kind(RBrace) {
+                loc.end = self.text_cursor;
+
+                let block = Block { stmts: &[] };
+
+                let kind = ExprKind::Block(block);
+
+                return Ok(Some(Expr { kind, loc }));
+            }
+
+            // TODO track indentation of braces, for nice reporting
+            // of matching closing braces.
+            //                         - Albert Liu, Mar 04, 2022 Fri 01:14 EST
+            loop {
+                let stmt = self.parse_expr()?;
+                stmts.push(stmt);
+
+                self.pop_kind(Skip);
+
+                let before_eat = self.index;
+
+                self.pop_kinds_loop(&[NewlineSkip, Semicolon]);
+
+                if let Some(_) = self.pop_kind(RBrace) {
+                    loc.end = self.text_cursor;
+
+                    break;
+                }
+
+                if self.index == before_eat {
+                    loc.end = self.text_cursor;
+
+                    return Err(Error::expected("a newline or semicolon", loc));
+                }
+
+                self.pop_kinds_loop(&[Skip, NewlineSkip, Semicolon]);
+            }
+
+            let mut stmts_in_alloc = Pod::with_allocator(self.allocator);
+            stmts_in_alloc.reserve(stmts.len());
+
+            for stmt in stmts {
+                stmts_in_alloc.push(stmt);
+            }
+
+            let block = Block {
+                stmts: stmts_in_alloc.leak(),
+            };
+
+            let kind = ExprKind::Block(block);
+
+            return Ok(Some(Expr { kind, loc }));
+        }
 
         return Ok(None);
     }

@@ -28,6 +28,11 @@ pub enum ExprKind {
         symbol: u32,
     },
 
+    Procedure {
+        symbol: u32,
+        code: Block,
+    },
+
     Call {
         callee: &'static Expr,
         args: &'static [Expr],

@@ -142,6 +142,9 @@ where
     pub fn leak<'b>(self) -> &'b mut [T] {
         let len = self.raw.length;
         let ptr = self.raw.ptr(0) as *mut T;
+
+        core::mem::forget(self);
+
         return unsafe { core::slice::from_raw_parts_mut(ptr, len) };
     }
 

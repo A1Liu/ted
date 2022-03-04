@@ -30,7 +30,12 @@ mod tests {
         let text = r#"
         let a = 12
         let b = a + 12 + 13
-        let c = print(a,b,)
+
+        {
+            let b = a + 12 + 13
+            print(a,b,)
+        }
+
         print(a)
         "#;
 
@@ -62,6 +67,9 @@ mod tests {
             }
         };
 
+        let printed = format!("{:#?}", ast.block);
+        println!("{}", printed);
+
         let env = match check_ast(&ast) {
             Ok(data) => data,
             Err(e) => {
@@ -73,9 +81,6 @@ mod tests {
                 panic!("{:?}", e);
             }
         };
-
-        let printed = format!("{:#?}", ast.block);
-        println!("{}", printed);
 
         let mut out = String::new();
         interpret(&ast, &env, &mut out);
