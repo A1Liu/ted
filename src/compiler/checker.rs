@@ -111,10 +111,14 @@ impl<'a> CheckEnv<'a> {
             }
 
             Call { callee, args } => {
-                // match callee {
-                //     Ident { symbol: Key::Print as u32 } => {}
-                //     _ => {}
-                // }
+                const PRINT: u32 = Key::Print as u32;
+
+                match callee.kind {
+                    Ident { symbol: PRINT } => {}
+                    _ => {
+                        unimplemented!("function calls besides print aren't implemented");
+                    }
+                }
 
                 for arg in args {
                     self.check_expr(arg)?;

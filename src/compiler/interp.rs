@@ -1,11 +1,12 @@
 use crate::compiler::*;
 use crate::util::*;
+use core::fmt::Write;
 use std::collections::hash_map::HashMap;
 
-pub fn interpret(ast: &Ast, env: &TypeEnv) {
+pub fn interpret(ast: &Ast, env: &TypeEnv, stdout: &mut dyn Write) {
     let mut stack = BucketList::new();
 
-    let mut interp = Interp { env };
+    let mut interp = Interp { env, stdout };
 
     let mut values = HashMap::new();
 
@@ -19,6 +20,7 @@ pub fn interpret(ast: &Ast, env: &TypeEnv) {
 
 struct Interp<'a> {
     env: &'a TypeEnv,
+    stdout: &'a mut dyn Write,
 }
 
 impl<'a> Interp<'a> {
@@ -32,13 +34,8 @@ impl<'a> Interp<'a> {
         use ExprKind::*;
 
         match e.kind {
-            Let { value, .. } => {
-                let expr = value;
-                let value = self.expr(scope, expr);
-
-                scope.values.insert(expr, value);
-
-                return ZERO;
+            Integer(value) => {
+                return Register::from_u64(value);
             }
 
             Ident { .. } => {
@@ -49,8 +46,35 @@ impl<'a> Interp<'a> {
                 return *register;
             }
 
+            Let { value, .. } => {
+                let expr = value;
+                let value = self.expr(scope, expr);
+
+                scope.values.insert(expr, value);
+
+                return ZERO;
+            }
+
             Block(block) => {
                 self.block(scope.chain(), &block);
+
+                return ZERO;
+            }
+
+            Call { callee, args } => {
+                let mut add_space = false;
+
+                for arg in args {
+                    let value = self.expr(scope, arg);
+                    if add_space {
+                        expect(write!(self.stdout, " "));
+                    }
+
+                    expect(write!(self.stdout, "{}", value.to_u64()));
+                    add_space = true;
+                }
+
+                expect(write!(self.stdout, "\n"));
 
                 return ZERO;
             }
@@ -69,7 +93,7 @@ impl<'a> Interp<'a> {
                 return Register::from_u64(value);
             }
 
-            _ => unreachable!(),
+            e => unimplemented!("{:?}", e),
         }
     }
 }

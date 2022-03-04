@@ -31,7 +31,7 @@ mod tests {
         let a = 12
         let b = a + 12 + 13
         let c = print(a,b,)
-        print(a, b)
+        print(a)
         "#;
 
         if let Err(e) = files.add("data.liu", text) {
@@ -75,8 +75,14 @@ mod tests {
         };
 
         let printed = format!("{:#?}", ast.block);
-
         println!("{}", printed);
+
+        let mut out = String::new();
+        interpret(&ast, &env, &mut out);
+
+        println!("{}", out);
+
+        assert_eq!(&*out, "12 37\n12\n");
 
         // panic!("viewing");
     }
