@@ -119,6 +119,12 @@ pub fn parse(table: &StringTable, file: u32, data: Pod<Token>) -> Result<Ast, Er
         text_cursor: 0,
     };
 
+    let mut loc = CodeLoc {
+        start: parser.text_cursor,
+        end: parser.text_cursor,
+        file,
+    };
+
     let mut stmts = Pod::new();
 
     parser.pop_kinds_loop(&[Skip, NewlineSkip, Semicolon]);
@@ -127,7 +133,18 @@ pub fn parse(table: &StringTable, file: u32, data: Pod<Token>) -> Result<Ast, Er
         let stmt = parser.parse_expr()?;
         stmts.push(stmt);
 
-        // TODO probs should require newline here
+        parser.pop_kind(Skip);
+
+        let before_eat = parser.index;
+
+        parser.pop_kinds_loop(&[NewlineSkip, Semicolon]);
+
+        if parser.index == before_eat {
+            loc.end = parser.text_cursor;
+
+            return Err(Error::expected("a newline or semicolon", loc));
+        }
+
         parser.pop_kinds_loop(&[Skip, NewlineSkip, Semicolon]);
     }
 
