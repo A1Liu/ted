@@ -111,6 +111,11 @@ impl<'a> CheckEnv<'a> {
             }
 
             Call { callee, args } => {
+                // match callee {
+                //     Ident { symbol: Key::Print as u32 } => {}
+                //     _ => {}
+                // }
+
                 for arg in args {
                     self.check_expr(arg)?;
                 }

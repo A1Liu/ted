@@ -22,7 +22,12 @@ pub enum Key {
     Spawn,
     Wait,
 
-    COUNT,
+    Underscore,
+    Print,
+}
+
+impl Key {
+    const COUNT: Self = Self::Underscore;
 }
 
 #[repr(u8)]
@@ -893,6 +898,9 @@ impl StringTable {
 
         success = success && table.add("spawn") == Key::Spawn as u32;
         success = success && table.add("wait") == Key::Wait as u32;
+
+        success = success && table.add("_") == Key::Underscore as u32;
+        success = success && table.add("print") == Key::Print as u32;
 
         if !success {
             panic!("Rippo");
