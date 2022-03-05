@@ -124,9 +124,10 @@ impl FileDb {
 
     /// Add a file to the database, returning the handle that can be used to
     /// refer to it again. Errors if the file already exists in the database.
-    pub fn add(&mut self, file_name: &str, source: &str) -> Result<u32, &'static str> {
+    pub fn add(&mut self, file_name: &str, source: &str) -> u32 {
         if let Some(id) = self.names.get(&(false, file_name)) {
-            return Err("already exists");
+            // TODO this is probably an error, idk
+            return *id;
         }
 
         let file_id = self.files.len() as u32;
@@ -134,7 +135,7 @@ impl FileDb {
         self.files.push(file);
         self.names.insert((false, file.name), file_id);
 
-        Ok(file_id)
+        return file_id;
     }
 
     pub fn display_loc(&self, out: &mut impl fmt::Write, loc: CodeLoc) -> fmt::Result {

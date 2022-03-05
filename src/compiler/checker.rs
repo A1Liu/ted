@@ -108,7 +108,7 @@ impl<'a> CheckEnv<'a> {
 
                 if left_ty != right_ty {
                     return Err(Error::new(
-                        "binary operation should be with values that are the same type",
+                        "binary operation should be on values of similar type",
                         expr.loc,
                     ));
                 }
@@ -118,7 +118,6 @@ impl<'a> CheckEnv<'a> {
 
             Block(block) => {
                 let mut child = self.chain();
-                println!("wot");
 
                 for expr in block.stmts {
                     child.check_expr(expr)?;
@@ -167,16 +166,11 @@ impl<'a> ScopeEnv<'a> {
 
         loop {
             if let Some(e) = current.vars.get(&symbol) {
-                println!("asdf");
                 return Some(*e);
             }
 
-            println!("Hellope");
-
             if let Some(parent) = current.parent {
                 current = parent;
-
-                println!("Hello");
 
                 continue;
             }

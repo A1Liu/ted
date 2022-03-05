@@ -37,15 +37,12 @@ mod tests {
         let buf = expect(std::fs::read_to_string(&path));
         let text = &buf;
 
-        let mut table = StringTable::new();
         let mut files = FileDb::new();
 
-        if let Err(e) = files.add("data.liu", text) {
-            panic!("{}", e);
-        }
+        files.add(name, text);
 
-        let data = match lex(&mut table, 0, text) {
-            Ok(data) => data,
+        let out = match run_on_file_err(text) {
+            Ok(out) => out,
             Err(e) => {
                 let mut out = String::new();
 
@@ -55,41 +52,26 @@ mod tests {
                 panic!("{:?}", e);
             }
         };
-
-        let ast = match parse(&table, 0, data) {
-            Ok(data) => data,
-            Err(e) => {
-                let mut out = String::new();
-
-                expect(e.render(&files, &mut out));
-
-                eprintln!("{}\n", out);
-                panic!("{:?}", e);
-            }
-        };
-
-        // let printed = format!("{:#?}", ast.block);
-        // println!("{}", printed);
-
-        let env = match check_ast(&ast) {
-            Ok(data) => data,
-            Err(e) => {
-                let mut out = String::new();
-
-                expect(e.render(&files, &mut out));
-
-                eprintln!("{}\n", out);
-                panic!("{:?}", e);
-            }
-        };
-
-        let mut out = String::new();
-        interpret(&ast, &env, &mut out);
 
         println!("{}", out);
 
         assert_eq!(&*out, "12 37\n12\n");
 
         // panic!("viewing");
+    }
+
+    fn run_on_file_err(text: &str) -> Result<String, Error> {
+        let mut table = StringTable::new();
+
+        let data = lex(&mut table, 0, text)?;
+
+        let ast = parse(&table, 0, data)?;
+
+        let env = check_ast(&ast)?;
+
+        let mut out = String::new();
+        interpret(&ast, &env, &mut out);
+
+        return Ok(out);
     }
 }
