@@ -21,6 +21,13 @@ pub struct Expr {
     pub loc: CodeLoc,
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum BinaryExprKind {
+    Add,
+    Multiply,
+    Equal,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum ExprKind {
     Integer(u64),
@@ -30,7 +37,7 @@ pub enum ExprKind {
 
     Procedure {
         symbol: u32,
-        code: Block,
+        code: &'static Expr,
     },
 
     Call {
@@ -77,9 +84,26 @@ pub enum ExprKind {
     },
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum BinaryExprKind {
-    Add,
-    Multiply,
-    Equal,
+impl ExprKind {
+    pub fn name(&self) -> &'static str {
+        use ExprKind::*;
+
+        return match self {
+            Integer(v) => "Integer",
+            Ident { symbol } => "Ident",
+            Procedure { symbol, code } => "Procedure",
+            Call { callee, args } => "Call",
+            BinaryOp { kind, left, right } => "BinaryOp",
+            Let { symbol, value } => "Let",
+            Assign { symbol, value } => "Assign",
+            Block(block) => "Block",
+            If { cond, if_true } => "If",
+            IfElse {
+                cond,
+                if_true,
+                if_false,
+            } => "IfElse",
+            ForInfinite { block } => "ForInfinite",
+        };
+    }
 }

@@ -269,7 +269,67 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_proc(&mut self) -> Result<Option<Expr>, Error> {
-        return Ok(None);
+        use TokenKind::*;
+
+        let mut loc = CodeLoc {
+            start: self.text_cursor,
+            end: self.text_cursor,
+            file: self.file,
+        };
+
+        if !self.pop_tok(Word, Key::Proc as u32) {
+            return Ok(None);
+        };
+
+        self.pop_kinds_loop(&[Skip]);
+
+        let symbol = match self.pop_kind(Word) {
+            Some(tok) => {
+                if tok.data < Key::COUNT as u32 {
+                    loc.end = self.text_cursor;
+
+                    return Err(Error::expected("a procedure name", loc));
+                }
+
+                tok.data
+            }
+            None => {
+                loc.end = self.text_cursor;
+
+                return Err(Error::expected("a procedure name", loc));
+            }
+        };
+
+        if self.pop_kind(LParen).is_none() {
+            loc.end = self.text_cursor;
+
+            return Err(Error::expected("opening parenthesis", loc));
+        }
+
+        self.pop_kinds_loop(&[Skip, NewlineSkip]);
+
+        if self.pop_kind(RParen).is_none() {
+            loc.end = self.text_cursor;
+
+            return Err(Error::expected("opening closing parenthesis", loc));
+        }
+
+        self.pop_kinds_loop(&[Skip, NewlineSkip]);
+
+        let code = match self.parse_control()? {
+            Some(e) => e,
+            None => {
+                loc.end = self.text_cursor;
+
+                return Err(Error::expected("a block", loc));
+            }
+        };
+
+        let code = self.allocator.new(code);
+
+        let kind = ExprKind::Procedure { symbol, code };
+
+        return Ok(Some(Expr { kind, loc }));
     }
 
     pub fn parse_let(&mut self) -> Result<Option<Expr>, Error> {
@@ -407,7 +467,7 @@ impl<'a> Parser<'a> {
 
             self.pop_kinds_loop(&[Skip, NewlineSkip, Semicolon]);
 
-            if let Some(tok) = self.pop_kind(RBrace) {
+            if self.pop_kind(RBrace).is_some() {
                 loc.end = self.text_cursor;
 
                 let block = Block { stmts: &[] };
@@ -430,7 +490,7 @@ impl<'a> Parser<'a> {
 
                 self.pop_kinds_loop(&[NewlineSkip, Semicolon]);
 
-                if let Some(_) = self.pop_kind(RBrace) {
+                if self.pop_kind(RBrace).is_some() {
                     loc.end = self.text_cursor;
 
                     break;
@@ -556,7 +616,7 @@ impl<'a> Parser<'a> {
 
                     self.pop_kinds_loop(&[Skip, NewlineSkip]);
 
-                    if let Some(_) = self.pop_kind(RParen) {
+                    if self.pop_kind(RParen).is_some() {
                         loc.end = self.text_cursor;
 
                         let callee = self.allocator.new(expr);
@@ -579,7 +639,7 @@ impl<'a> Parser<'a> {
 
                         self.pop_kinds_loop(&[Skip, NewlineSkip]);
 
-                        if let Some(_) = self.pop_kind(RParen) {
+                        if self.pop_kind(RParen).is_some() {
                             loc.end = self.text_cursor;
 
                             break;

@@ -17,7 +17,6 @@ mint = "0.5.8"
 unicode-width = "0.1.7"
 lazy_static = "1.4.0"
 
-
 # Can't use font-rs here because the latest released version has an out-of-bounds
 # error; instead we just copy-paste their rasterization code
 ttf-parser = { version = "0.13.4", default-features = false, features = [] }

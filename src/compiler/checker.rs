@@ -72,11 +72,6 @@ impl<'a> CheckEnv<'a> {
     fn check_expr(&mut self, expr: &'static Expr) -> Result<Type, Error> {
         use ExprKind::*;
 
-        println!("{:?}", expr.kind);
-        for (k, _) in self.scope.vars.iter() {
-            println!("{:?}", k);
-        }
-
         let mut ty;
 
         match expr.kind {
@@ -149,7 +144,7 @@ impl<'a> CheckEnv<'a> {
                 ty = Type::Null;
             }
 
-            k => unimplemented!("{:#?}", k),
+            k => unimplemented!("{}", k.name()),
         }
 
         if let Some(_) = self.types.type_of.insert(expr, ty) {

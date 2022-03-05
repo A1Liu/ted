@@ -20,24 +20,25 @@ mod tests {
     use crate::util::*;
     use core::fmt::Write;
 
-    // eventually use src/bin
+    #[test]
+    fn procedures() {
+        run_on_file("procedures.liu");
+    }
 
     #[test]
-    fn sample() {
+    fn simple() {
+        run_on_file("simple.liu");
+    }
+
+    fn run_on_file(name: &str) {
+        let mut path = "tests/".to_string();
+        path.push_str(name);
+
+        let buf = expect(std::fs::read_to_string(&path));
+        let text = &buf;
+
         let mut table = StringTable::new();
         let mut files = FileDb::new();
-
-        let text = r#"
-        let a = 12
-        let b = a + 12 + 13
-
-        {
-            let b = a + 12 + 13
-            print(a,b,)
-        }
-
-        print(a)
-        "#;
 
         if let Err(e) = files.add("data.liu", text) {
             panic!("{}", e);
@@ -67,8 +68,8 @@ mod tests {
             }
         };
 
-        let printed = format!("{:#?}", ast.block);
-        println!("{}", printed);
+        // let printed = format!("{:#?}", ast.block);
+        // println!("{}", printed);
 
         let env = match check_ast(&ast) {
             Ok(data) => data,
