@@ -16,6 +16,12 @@ pub struct Block {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub struct Proc {
+    pub symbol: u32,
+    pub code: &'static Expr,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Expr {
     pub kind: ExprKind,
     pub loc: CodeLoc,
@@ -35,10 +41,7 @@ pub enum ExprKind {
         symbol: u32,
     },
 
-    Procedure {
-        symbol: u32,
-        code: &'static Expr,
-    },
+    Procedure(Proc),
 
     Call {
         callee: &'static Expr,
@@ -91,7 +94,7 @@ impl ExprKind {
         return match self {
             Integer(v) => "Integer",
             Ident { symbol } => "Ident",
-            Procedure { symbol, code } => "Procedure",
+            Procedure(p) => "Procedure",
             Call { callee, args } => "Call",
             BinaryOp { kind, left, right } => "BinaryOp",
             Let { symbol, value } => "Let",

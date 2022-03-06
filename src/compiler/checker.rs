@@ -13,6 +13,8 @@ pub enum Type {
 
     Unsigned,
     String,
+
+    Procedure,
 }
 
 pub fn check_ast(ast: &Ast) -> Result<TypeEnv, Error> {
@@ -23,7 +25,7 @@ pub fn check_ast(ast: &Ast) -> Result<TypeEnv, Error> {
 
     let mut scope = ScopeEnv {
         vars: HashMap::new(),
-        parent: None,
+        kind: ScopeKind::Global,
     };
 
     let mut env = CheckEnv {
@@ -49,23 +51,45 @@ struct CheckEnv<'a> {
 }
 
 impl<'a> CheckEnv<'a> {
-    fn chain<'b>(&'b mut self) -> CheckEnv<'b> {
+    fn chain_local<'b>(&'b mut self) -> CheckEnv<'b> {
         return CheckEnv {
             types: self.types,
             scope: ScopeEnv {
-                parent: Some(&mut self.scope),
+                kind: ScopeKind::Local {
+                    parent: &mut self.scope,
+                },
+                vars: HashMap::new(),
+            },
+        };
+    }
+
+    fn chain_proc<'b>(&'b mut self) -> CheckEnv<'b> {
+        return CheckEnv {
+            types: self.types,
+            scope: ScopeEnv {
+                kind: ScopeKind::Procedure {
+                    parent: &mut self.scope,
+                },
                 vars: HashMap::new(),
             },
         };
     }
 
     fn check_block(&mut self, block: &Block) -> Result<Type, Error> {
-        let mut ty = Type::Null;
+        use ExprKind::*;
 
         for expr in block.stmts {
-            ty = self.check_expr(expr)?;
+            let p = match expr.kind {
+                Procedure(p) => p,
+                _ => continue,
+            };
         }
 
+        for expr in block.stmts {
+            self.check_expr(expr)?;
+        }
+
+        let ty = Type::Null;
         return Ok(ty);
     }
 
@@ -75,6 +99,14 @@ impl<'a> CheckEnv<'a> {
         let mut ty;
 
         match expr.kind {
+            Procedure(p) => {
+                let mut proc_child = self.chain_proc();
+
+                let result = proc_child.check_expr(p.code)?;
+
+                ty = Type::Null;
+            }
+
             Integer(value) => {
                 ty = Type::Unsigned;
             }
@@ -117,7 +149,7 @@ impl<'a> CheckEnv<'a> {
             }
 
             Block(block) => {
-                let mut child = self.chain();
+                let mut child = self.chain_local();
 
                 for expr in block.stmts {
                     child.check_expr(expr)?;
@@ -131,6 +163,7 @@ impl<'a> CheckEnv<'a> {
 
                 match callee.kind {
                     Ident { symbol: PRINT } => {}
+
                     _ => {
                         unimplemented!("function calls besides print aren't implemented");
                     }
@@ -154,13 +187,27 @@ impl<'a> CheckEnv<'a> {
     }
 }
 
+enum ScopeKind<'a> {
+    Global,
+    Procedure { parent: &'a ScopeEnv<'a> },
+    Local { parent: &'a ScopeEnv<'a> },
+}
+
 // eventually this will be chaining
 struct ScopeEnv<'a> {
-    parent: Option<&'a ScopeEnv<'a>>,
+    kind: ScopeKind<'a>,
     vars: HashMap<u32, &'static Expr>,
 }
 
 impl<'a> ScopeEnv<'a> {
+    fn parent(&self) -> Option<&ScopeEnv<'a>> {
+        return match self.kind {
+            ScopeKind::Global => None,
+            ScopeKind::Procedure { parent } => Some(parent),
+            ScopeKind::Local { parent } => Some(parent),
+        };
+    }
+
     fn search(&self, symbol: u32) -> Option<&'static Expr> {
         let mut current = self;
 
@@ -169,7 +216,7 @@ impl<'a> ScopeEnv<'a> {
                 return Some(*e);
             }
 
-            if let Some(parent) = current.parent {
+            if let Some(parent) = current.parent() {
                 current = parent;
 
                 continue;

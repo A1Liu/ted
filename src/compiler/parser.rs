@@ -327,7 +327,7 @@ impl<'a> Parser<'a> {
 
         let code = self.allocator.new(code);
 
-        let kind = ExprKind::Procedure { symbol, code };
+        let kind = ExprKind::Procedure(Proc { symbol, code });
 
         return Ok(Some(Expr { kind, loc }));
     }
