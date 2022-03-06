@@ -13,6 +13,9 @@
 #[macro_use]
 extern crate lazy_static;
 
+#[macro_use]
+extern crate aliu;
+
 extern crate alloc;
 
 #[macro_use]

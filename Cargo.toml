@@ -13,6 +13,7 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+aliu = "*"
 mint = "0.5.8"
 unicode-width = "0.1.7"
 lazy_static = "1.4.0"

@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "aliu"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0452a9f945dcc525b4e46831d1300a5dc4ce0bce4da66499b9907cef9a903373"
+
+[[package]]
 name = "android_glue"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -269,6 +275,7 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 name = "editor"
 version = "0.0.1"
 dependencies = [
+ "aliu",
  "console_error_panic_hook",
  "glutin",
  "js-sys",
