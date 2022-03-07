@@ -21,7 +21,6 @@ extern crate alloc;
 #[macro_use]
 mod util;
 
-mod compiler;
 mod editor;
 
 #[cfg(target_arch = "wasm32")]
