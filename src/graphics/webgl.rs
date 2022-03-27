@@ -382,8 +382,19 @@ fn link_program(
 pub static gl: WebGl = WebGl {};
 
 thread_local! {
-    static OFFSCREEN_CANVAS: web_sys::HtmlCanvasElement = expect(get_canvas());
-    pub static WEB_GL: Context = expect(webgl_ctx());
+    static OFFSCREEN_CANVAS: web_sys::HtmlCanvasElement = match get_canvas() {
+        Ok(ctx)  => ctx,
+        Err(_) => {
+            panic!("failed to make offscreen canvas")
+        }
+    };
+
+    pub static WEB_GL: Context = match webgl_ctx() {
+        Ok(ctx)  => ctx,
+        Err(_) => {
+            panic!("failed to make web GL context")
+        }
+    };
 }
 
 fn webgl_ctx() -> Result<Context, JsValue> {
@@ -391,7 +402,8 @@ fn webgl_ctx() -> Result<Context, JsValue> {
         let options = webgl_context_options();
 
         let canvas = canvas.get_context_with_context_options("webgl2", &options)?;
-        let ctx = unwrap(canvas).dyn_into::<Context>()?;
+        let err_map = || JsValue::from("rippo");
+        let ctx = canvas.ok_or_else(err_map)?.dyn_into::<Context>()?;
 
         ctx.pixel_storei(Context::UNPACK_ALIGNMENT, 1);
 

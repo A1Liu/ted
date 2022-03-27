@@ -10,9 +10,10 @@ pub fn enclose(f: impl 'static + FnMut() -> Result<(), JsValue>) -> Closure<JsFu
 }
 
 pub fn get_canvas() -> Result<web_sys::HtmlCanvasElement, JsValue> {
-    let window = unwrap(web_sys::window());
-    let document = unwrap(window.document());
-    let canvas = unwrap(document.get_element_by_id("canvas"));
+    let err_map = || JsValue::from("RIP");
+    let window = web_sys::window().ok_or_else(err_map)?;
+    let document = window.document().ok_or_else(err_map)?;
+    let canvas = document.get_element_by_id("canvas").ok_or_else(err_map)?;
     let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
     return Ok(canvas);
 }
@@ -73,9 +74,8 @@ macro_rules! print {
 #[macro_export]
 macro_rules! panic {
     ( $( $arg:tt )* ) => {{
-        println!( $( $arg )* );
         #[cfg(debug_assertions)]
-        core::panic!();
+        core::panic!( $( $arg )* );
 
         #[cfg(not(debug_assertions))]
         core::arch::wasm32::unreachable();

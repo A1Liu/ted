@@ -111,7 +111,7 @@ impl TextShader {
 }
 
 thread_local! {
-    pub static TEXT_SHADER: TextShader = expect(TextShader::new());
+    pub static TEXT_SHADER: TextShader = TextShader::new().unwrap();
 }
 
 impl WebGlType for Color {
