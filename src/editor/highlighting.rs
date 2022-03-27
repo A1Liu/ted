@@ -226,7 +226,9 @@ impl Highlighter {
         };
     }
 
-    pub fn highlight_text(&self, text: &[char]) {}
+    pub fn highlight_text(&self, text: &[char]) {
+        unimplemented!()
+    }
 }
 
 fn expect_color_value(g: Option<&GonValue>) -> f32 {
