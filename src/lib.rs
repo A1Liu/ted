@@ -46,12 +46,10 @@ mod wasm_exports {
     const TEXT: &'static str = r#"Click here and try typing!
 TODO: lots of stuff"#;
 
-    #[wasm_bindgen]
+    #[wasm_bindgen(start)]
     pub fn start() {
         #[cfg(debug_assertions)]
-        {
-            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        }
+        console_error_panic_hook::set_once();
 
         let f = enclose(move || {
             let event_loop: EventLoop<TedEvent> = EventLoop::with_user_event();
@@ -76,6 +74,7 @@ TODO: lots of stuff"#;
 
             event_loop.run(handler.into_runner());
         });
+
         prevent_throw(&f);
     }
 

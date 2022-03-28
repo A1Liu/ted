@@ -5,20 +5,16 @@
   "author": "Albert Liu <albertymliu@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "dev": "WASM_PACK_PROFILE=dev parcel --out-dir .dist example/index.html",
-    "build": "WASM_PACK_PROFILE=release parcel build --out-dir .dist example/index.html",
-    "clean": "rm -rf .dist .cache pkg",
+    "build": "rimraf dist pkg && webpack",
+    "start": "rimraf dist pkg && webpack-dev-server --open -d --port 1234",
+    "test": "cargo test && wasm-pack test --headless",
+    "clean": "rimraf dist pkg",
     "deploy": "git push origin main:production"
-  },
- "scripts": {
-    "build": "rimraf .dist pkg && webpack",
-    "start": "rimraf .dist pkg && webpack-dev-server --open -d --port 1234",
-    "test": "cargo test && wasm-pack test --headless"
   },
   "browserslist": [
     "since 2017-06"
   ],
-"devDependencies": {
+  "devDependencies": {
     "@wasm-tool/wasm-pack-plugin": "1.1.0",
     "copy-webpack-plugin": "5.0.3",
     "webpack": "4.42.0",

@@ -12,6 +12,11 @@ default {
   background text_bg
 }
 
+let_keyword {
+  match let
+  color keyword
+}
+
 string_begin {
   match >"
   color constant

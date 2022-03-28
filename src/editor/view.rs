@@ -13,6 +13,7 @@ pub struct View {
     cursor_pos: Point2<u32>,
 
     visible_text: Pod<char>,
+    highlighter: Highlighter,
 }
 
 enum FlowResult {
@@ -38,6 +39,8 @@ impl View {
             visible_text.push(params.c);
         }
 
+        let highlighter = Highlighter::from_gon(include_str!("../test_highlighter.gon"));
+
         return Self {
             start: 0,
             start_line: 0,
@@ -47,6 +50,7 @@ impl View {
             cursor_pos: Point2 { x: 0, y: 0 },
 
             visible_text,
+            highlighter,
         };
     }
 
@@ -68,10 +72,10 @@ impl View {
         let mut text_fg_colors = pod![DEFAULT_FG; self.visible_text.len()];
         let mut text_bg_colors = pod![DEFAULT_BG; self.visible_text.len()];
 
-        // for range in self.highlighter.ranges(&self.visible_text) {
-        //     text_fg_colors[range.range].fill(range.style.fg_color);
-        //     text_bg_colors[range.range].fill(range.style.bg_color);
-        // }
+        for range in self.highlighter.ranges(&self.visible_text) {
+            text_fg_colors[range.range].fill(range.color);
+            text_bg_colors[range.range].fill(range.background);
+        }
 
         let mut config = FlowConfig::new(self.chars(), Some(self.dims.x), Some(self.dims.y));
 

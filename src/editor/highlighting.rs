@@ -14,23 +14,35 @@ pub const LINES_BG: Color = color(0.027, 0.212, 0.259);
 pub const DEFAULT_FG: Color = NORMAL;
 pub const DEFAULT_BG: Color = TEXT_BG;
 
+#[derive(Debug, Clone, Copy)]
+enum RegexItem {
+    Exact(char),
+}
+
 #[derive(Clone, Copy)]
 struct Scope {
-    rules: CopyRange,
+    rules: CopyRange<u32>,
     color: Color,
     background: Color,
 }
 
 #[derive(Clone, Copy)]
 struct Rule {
-    pattern: CopyRange,
+    pattern: CopyRange<u32>,
     color: Color,
     background: Color,
     action: HLAction,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct HLRange {
+    pub range: CopyRange<u32>,
+    pub color: Color,
+    pub background: Color,
+}
+
 pub struct Highlighter {
-    regexes: Pod<u8>,
+    regexes: Pod<RegexItem>,
     rules: Pod<Rule>,
     scopes: Pod<Scope>,
 }
@@ -45,7 +57,7 @@ impl Highlighter {
 
         #[derive(Clone, Copy)]
         struct IRule {
-            pattern: CopyRange,
+            pattern: CopyRange<u32>,
             color: Option<Color>,
             background: Option<Color>,
             action: HLAction,
@@ -60,7 +72,16 @@ impl Highlighter {
 
         let mut scopes: HashMap<&'a str, IScope> = HashMap::new();
 
-        values.push(("default", GonValue::Str("scope")));
+        scopes.insert(
+            "default",
+            IScope {
+                id: 0,
+                color: None,
+                background: None,
+                rules: Pod::new(),
+            },
+        );
+
         for (name, value) in &values {
             let text = match value {
                 GonValue::Str(s) => *s,
@@ -118,9 +139,13 @@ impl Highlighter {
                         _ => panic!("shoulda been a string"),
                     };
 
-                    let begin = regexes.len();
-                    regexes.extend_from_slice(pattern.as_bytes());
-                    let pattern = r(begin, regexes.len());
+                    let begin = regexes.len() as u32;
+
+                    for c in pattern.chars() {
+                        regexes.push(RegexItem::Exact(c));
+                    }
+
+                    let pattern = r(begin, regexes.len() as u32);
 
                     let color =
                         get_field(&values, &fields, "color").map(|g| expect_color(&variables, g));
@@ -204,7 +229,7 @@ impl Highlighter {
                 scope_value.background = background;
             }
 
-            let start = rules.len();
+            let start = rules.len() as u32;
             rules.reserve(scope.rules.len());
 
             for &rule in scope.rules.iter() {
@@ -216,7 +241,7 @@ impl Highlighter {
                 });
             }
 
-            scope_value.rules = r(start, rules.len());
+            scope_value.rules = r(start, rules.len() as u32);
         }
 
         return Self {
@@ -226,18 +251,102 @@ impl Highlighter {
         };
     }
 
-    pub fn highlight_text(&self, text: &[char]) {
-        unimplemented!()
+    pub fn ranges(&self, text: &[char]) -> Pod<HLRange> {
+        let mut ranges = Pod::new();
+
+        // let mut scope_stack = Pod::new();
+        let mut scope = self.scopes[0u32];
+        let rules = &self.rules[scope.rules];
+        let mut current_range = HLRange {
+            range: r(0, 0),
+            color: scope.color,
+            background: scope.background,
+        };
+
+        let mut i = 0u32;
+        let text_len = text.len() as u32;
+
+        while i < text_len {
+            let mut color = scope.color;
+            let mut background = scope.background;
+            let mut match_range = r(i, i + 1);
+
+            for &rule in rules {
+                let pattern = &self.regexes[rule.pattern];
+
+                let (matched, len) = regex_match(pattern, &text[(i as usize)..]);
+
+                if matched {
+                    match_range.end = i + len;
+                    color = rule.color;
+                    background = rule.background;
+
+                    break;
+                }
+            }
+
+            i = match_range.end;
+
+            if current_range.color == color && current_range.background == background {
+                current_range.range.end = match_range.end;
+                continue;
+            }
+
+            if current_range.range.len() != 0 {
+                ranges.push(current_range);
+            }
+
+            current_range = HLRange {
+                range: match_range,
+                color,
+                background,
+            };
+        }
+
+        if current_range.range.len() != 0 {
+            ranges.push(current_range);
+        }
+
+        return ranges;
     }
+}
+
+fn regex_match(regex: &[RegexItem], text: &[char]) -> (bool, u32) {
+    let mut regex_index = 0;
+    let mut i = 0;
+    let len = text.len();
+
+    while i < len && regex_index < regex.len() {
+        match regex[regex_index] {
+            RegexItem::Exact(c) => {
+                if c != text[i] {
+                    return (false, 0);
+                }
+
+                i += 1;
+                regex_index += 1;
+            }
+        }
+    }
+
+    if regex_index < regex.len() {
+        return (false, 0);
+    }
+
+    return (true, i as u32);
 }
 
 fn expect_color_value(g: Option<&GonValue>) -> f32 {
     let g = unwrap(g);
 
     if let GonValue::Str(s) = g {
-        let value = expect(s.parse::<u8>());
+        if let Ok(value) = s.parse::<u8>() {
+            return (value as f32) / 256.0;
+        }
 
-        return value as f32;
+        if let Ok(value) = s.parse::<f32>() {
+            return (value as f32) / 256.0;
+        }
     }
 
     panic!("what the hell");

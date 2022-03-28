@@ -3,6 +3,7 @@
 
 /.dist
 /.cache
+/dist
 /pkg
 
 # Output of random tests during development
