@@ -10,7 +10,7 @@ module.exports = {
     index: "./js/index.js"
   },
 
-  // Something here fixes some stupid ass caching bug. Fucking stupid-ass, I
+  // Something here fixes some dumb caching bug. Fucking stupid-ass, I
   // switched to this bullshit from Parcel and really, gotta appreciate the fucking
   // idiocy that causes this kind of nonsense to not only be necessary, but also
   // somehow considered "easy" and "useful". Fucking nonsense, jesus christ.
