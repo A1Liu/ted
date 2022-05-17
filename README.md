@@ -72,7 +72,6 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - Error logging system
 - C and Python APIs for scripting
 
-
 ## Cute but jesus christ no
 - Language server support I guess?
 - Full unicode support?
