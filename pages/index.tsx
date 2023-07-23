@@ -24,7 +24,7 @@ export default function Index() {
       style={{
         width: "100vw",
         height: "100vh",
-        backgroundImage: "url('./bg-image.jpg');",
+        backgroundImage: "url('./bg-image.jpg')",
       }}
     >
       <button onClick={showValue}>Show value</button>
