@@ -22,6 +22,8 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
     but avoiding a gigantic download size is an incredibly high priority.
 
 ## Size Opt Stuffs
+Monaco is 2 MB transferred, 8 MB overall.
+
 - [ ] https://github.com/rustwasm/wasm-pack/issues/737
 - [ ] https://github.com/johnthagen/min-sized-rust
 - [ ] https://www.skypack.dev/view/esbuild-plugin-wasm-pack

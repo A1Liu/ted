@@ -1,6 +1,7 @@
 # Rust build directory
 /.cargo/target
 
+/.next
 /.dist
 /.cache
 /dist
