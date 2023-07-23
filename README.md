@@ -25,6 +25,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 - [ ] https://github.com/rustwasm/wasm-pack/issues/737
 - [ ] https://github.com/johnthagen/min-sized-rust
 - [ ] https://www.skypack.dev/view/esbuild-plugin-wasm-pack
+- [ ] https://github.com/LemonHX/mimalloc-rust
 
 ## Graphics Opt Stuffs
 - [x] https://webgl2fundamentals.org/webgl/lessons/webgl-drawing-without-data.html
@@ -35,6 +36,7 @@ Text editor using WebGL and Rust/Wasm. Very much WIP.
 
 ## Next Up
 - Port GON https://github.com/TylerGlaiel/GON or something similar for syntax highlighting
+- Option to use Tree Sitter to just auto-gen WASM syntax highlighters. And then provide a dedicated mimalloc heap for large buffers.
 - Use ryu https://github.com/dtolnay/ryu + fast_float https://docs.rs/fast-float/latest/fast_float/
 - Mouse support
 - Test the command system
